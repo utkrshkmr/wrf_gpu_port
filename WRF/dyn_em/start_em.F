@@ -5,6 +5,7 @@
 # include "dummy_new_args.inc"
 !
 )
+   USE module_repro_math
 
    USE module_domain, ONLY : domain, wrfu_timeinterval, get_ijk_from_grid, &
         domain_setgmtetc
@@ -154,8 +155,8 @@
    ALLOCATE(z_at_q(IMS:IME,KMS:KME,JMS:JME),STAT=I)  ; z_at_q = 0.
    CALL model_to_grid_config_rec ( grid%id , model_config_rec , config_flags )
 
-   IF ( ( MOD (ide-ids,config_flags%parent_grid_ratio) .NE. 0 ) .OR. &
-        ( MOD (jde-jds,config_flags%parent_grid_ratio) .NE. 0 ) ) THEN
+   IF ( ( rp_mod (ide-ids,config_flags%parent_grid_ratio) .NE. 0 ) .OR. &
+        ( rp_mod (jde-jds,config_flags%parent_grid_ratio) .NE. 0 ) ) THEN
       WRITE(message, FMT='(A,I2,":  Both MOD(",I4,"-",I1,",",I2,") and MOD(",I4,"-",I1,",",I2,") must = 0" )') &
          "Nested dimensions are illegal for domain ",grid%id,ide,ids,config_flags%parent_grid_ratio,&
          jde,jds,config_flags%parent_grid_ratio
@@ -368,7 +369,7 @@
       !  If this is the most coarse domain, we do not go in here.  Also, if there is an input file
       !  (which has the right values for the middle lat/lon) we do not go in this IF test.
 
-      IF      ( ( MOD(ide,2) .EQ. 0 ) .AND. ( MOD(jde,2) .EQ. 0 ) ) THEN
+      IF      ( ( rp_mod(ide,2) .EQ. 0 ) .AND. ( rp_mod(jde,2) .EQ. 0 ) ) THEN
          num_points_lat_lon = 1
          iloc = ide/2
          jloc = jde/2
@@ -384,7 +385,7 @@
          lon1 = wrf_dm_min_real ( lon1 )
          CALL nl_set_cen_lat ( grid%id , lat1 )
          CALL nl_set_cen_lon ( grid%id , lon1 )
-      ELSE IF ( ( MOD(ide,2) .NE. 0 ) .AND. ( MOD(jde,2) .EQ. 0 ) ) THEN
+      ELSE IF ( ( rp_mod(ide,2) .NE. 0 ) .AND. ( rp_mod(jde,2) .EQ. 0 ) ) THEN
          num_points_lat_lon = 2
          iloc = (ide-1)/2
          jloc =  jde   /2
@@ -414,7 +415,7 @@
 
          CALL nl_set_cen_lat ( grid%id , ( lat1 + lat2 ) * 0.50 )
          CALL nl_set_cen_lon ( grid%id , ( lon1 + lon2 ) * 0.50 )
-      ELSE IF ( ( MOD(ide,2) .EQ. 0 ) .AND. ( MOD(jde,2) .NE. 0 ) ) THEN
+      ELSE IF ( ( rp_mod(ide,2) .EQ. 0 ) .AND. ( rp_mod(jde,2) .NE. 0 ) ) THEN
          num_points_lat_lon = 2
          iloc =  ide   /2
          jloc = (jde-1)/2
@@ -444,7 +445,7 @@
 
          CALL nl_set_cen_lat ( grid%id , ( lat1 + lat2 ) * 0.50 )
          CALL nl_set_cen_lon ( grid%id , ( lon1 + lon2 ) * 0.50 )
-      ELSE IF ( ( MOD(ide,2) .NE. 0 ) .AND. ( MOD(jde,2) .NE. 0 ) ) THEN
+      ELSE IF ( ( rp_mod(ide,2) .NE. 0 ) .AND. ( rp_mod(jde,2) .NE. 0 ) ) THEN
          num_points_lat_lon = 4
          iloc = (ide-1)/2
          jloc = (jde-1)/2
@@ -605,15 +606,15 @@
             !  tiso (isothermal temperature at tropopause/lower stratosphere),
             !  p_strat (pressure at top of isothermal layer), A_strat (lapse rate in
             !  stratosphere above isothermal layer)
-            p_surf = p00 * EXP ( -t00/a + ( (t00/a)**2 - 2.*g*grid%ht(i,j)/a/r_d ) **0.5 )
+            p_surf = p00 * rp_exp ( -t00/a + rp_pow(( (t00/a)**2 - 2.*g*grid%ht(i,j)/a/r_d ), 0.5) )
             DO k = 1, kte-1
                grid%pb(i,k,j) = grid%c3h(k)*(p_surf - grid%p_top) + grid%c4h(k) + grid%p_top
-               temp = MAX ( tiso, t00 + A*LOG(grid%pb(i,k,j)/p00) )
+               temp = MAX ( tiso, t00 + A*rp_log(grid%pb(i,k,j)/p00) )
                IF ( grid%pb(i,k,j) .LT. p_strat ) THEN
-                  temp = tiso + A_strat * LOG ( grid%pb(i,k,j)/p_strat )
+                  temp = tiso + A_strat * rp_log ( grid%pb(i,k,j)/p_strat )
                ENDIF
-               grid%t_init(i,k,j) = temp*(p00/grid%pb(i,k,j))**(r_d/cp) - t0
-               grid%alb(i,k,j) = (r_d/p1000mb)*(grid%t_init(i,k,j)+t0)*(grid%pb(i,k,j)/p1000mb)**cvpm
+               grid%t_init(i,k,j) = temp*rp_pow((p00/grid%pb(i,k,j)), (r_d/cp)) - t0
+               grid%alb(i,k,j) = (r_d/p1000mb)*(grid%t_init(i,k,j)+t0)*rp_pow((grid%pb(i,k,j)/p1000mb), cvpm)
             END DO
             !  Base state mu is defined as base state surface pressure minus grid%p_top
             grid%MUB(i,j) = p_surf - grid%p_top
@@ -631,7 +632,7 @@
                   pfu = grid%c3f(k  )*grid%MUB(i,j) + grid%c4f(k  ) + grid%p_top
                   pfd = grid%c3f(k-1)*grid%MUB(i,j) + grid%c4f(k-1) + grid%p_top
                   phm = grid%c3h(k-1)*grid%MUB(i,j) + grid%c4h(k-1) + grid%p_top
-                  grid%phb(i,k,j) = grid%phb(i,k-1,j) + grid%alb(i,k-1,j)*phm*LOG(pfd/pfu)
+                  grid%phb(i,k,j) = grid%phb(i,k-1,j) + grid%alb(i,k-1,j)*phm*rp_log(pfd/pfu)
                END DO
             END IF
          END DO
@@ -674,7 +675,7 @@
      DO i = its, min(ite,ide-1)
        IF ( grid%imask_nostag(i,j) .EQ. 1 ) THEN
          grid%pb(i,k,j) = grid%c3h(k  )*grid%MUB(i,j) + grid%c4h(k  ) + grid%p_top
-         grid%alb(i,k,j) = (r_d/p1000mb)*(grid%t_init(i,k,j)+t0)*(grid%pb(i,k,j)/p1000mb)**cvpm
+         grid%alb(i,k,j) = (r_d/p1000mb)*(grid%t_init(i,k,j)+t0)*rp_pow((grid%pb(i,k,j)/p1000mb), cvpm)
        ENDIF
      ENDDO
      ENDDO
@@ -686,12 +687,12 @@
         DO i = its, min(ite,ide-1)
           IF ( grid%imask_nostag(i,j) .EQ. 1 ) THEN
             grid%pb(i,k,j) = grid%c3h(k  )*grid%MUB(i,j) + grid%c4h(k  ) + grid%p_top
-            temp = MAX ( tiso, t00 + A*LOG(grid%pb(i,k,j)/p00) )
+            temp = MAX ( tiso, t00 + A*rp_log(grid%pb(i,k,j)/p00) )
             IF ( grid%pb(i,k,j) .LT. p_strat ) THEN
-               temp = tiso + A_strat * LOG ( grid%pb(i,k,j)/p_strat )
+               temp = tiso + A_strat * rp_log ( grid%pb(i,k,j)/p_strat )
             ENDIF
-            grid%t_init(i,k,j) = temp*(p00/grid%pb(i,k,j))**(r_d/cp) - t0
-            grid%alb(i,k,j) = (r_d/p1000mb)*(grid%t_init(i,k,j)+t0)*(grid%pb(i,k,j)/p1000mb)**cvpm
+            grid%t_init(i,k,j) = temp*rp_pow((p00/grid%pb(i,k,j)), (r_d/cp)) - t0
+            grid%alb(i,k,j) = (r_d/p1000mb)*(grid%t_init(i,k,j)+t0)*rp_pow((grid%pb(i,k,j)/p1000mb), cvpm)
        ENDIF
       ENDDO
       ENDDO
@@ -714,7 +715,7 @@
               pfu = grid%c3f(k  )*grid%MUB(i,j) + grid%c4f(k  ) + grid%p_top
               pfd = grid%c3f(k-1)*grid%MUB(i,j) + grid%c4f(k-1) + grid%p_top
               phm = grid%c3h(k-1)*grid%MUB(i,j) + grid%c4h(k-1) + grid%p_top
-              grid%phb(i,k,j) = grid%phb(i,k-1,j) + grid%alb(i,k-1,j)*phm*LOG(pfd/pfu)
+              grid%phb(i,k,j) = grid%phb(i,k-1,j) + grid%alb(i,k-1,j)*phm*rp_log(pfd/pfu)
             END DO
           ENDIF
        ENDDO
@@ -728,7 +729,7 @@
              IF ( grid%imask_nostag(i,j) .EQ. 1 ) THEN
                grid%pb(i,k,j) = grid%c3h(k  )*grid%MUB(i,j) + grid%c4h(k  ) + grid%p_top
                grid%alb(i,k,j) = -grid%rdnw(k)*(grid%phb(i,k+1,j)-grid%phb(i,k,j))/(grid%c1h(k)*grid%mub(i,j)+grid%c2h(k))
-               grid%t_init(i,k,j) = grid%alb(i,k,j)*(p1000mb/r_d)/((grid%pb(i,k,j)/p1000mb)**cvpm) - t0
+               grid%t_init(i,k,j) = grid%alb(i,k,j)*(p1000mb/r_d)/(rp_pow((grid%pb(i,k,j)/p1000mb), cvpm)) - t0
              ENDIF
            ENDDO
            ENDDO
@@ -739,7 +740,7 @@
            DO i = its, min(ite,ide-1)
              IF ( grid%imask_nostag(i,j) .EQ. 1 ) THEN
                grid%pb(i,k,j) = grid%c3h(k  )*grid%MUB(i,j) + grid%c4h(k  ) + grid%p_top
-               grid%alb(i,k,j) = (r_d/p1000mb)*(grid%t_init(i,k,j)+t0)*(grid%pb(i,k,j)/p1000mb)**cvpm
+               grid%alb(i,k,j) = (r_d/p1000mb)*(grid%t_init(i,k,j)+t0)*rp_pow((grid%pb(i,k,j)/p1000mb), cvpm)
              ENDIF
            ENDDO
            ENDDO
@@ -808,7 +809,7 @@
           pfd = grid%c3f(k  )*(grid%MUB(i,j)+grid%MU_1(i,j)) + grid%c4f(k  ) + grid%p_top
           phm = grid%c3h(k  )*(grid%MUB(i,j)+grid%MU_1(i,j)) + grid%c4h(k  ) + grid%p_top
           grid%al(i,k,j) = (grid%ph_1(i,k+1,j)-grid%ph_1(i,k,j)+grid%phb(i,k+1,j)-grid%phb(i,k,j)) &
-                            /phm/LOG(pfd/pfu)-grid%alb(i,k,j)
+                            /phm/rp_log(pfd/pfu)-grid%alb(i,k,j)
        ENDDO
        ENDDO
        ENDDO
@@ -823,8 +824,8 @@
           ELSE
              qvf = 1
           END IF
-          grid%p(i,k,j)=p1000mb*( (r_d*(t0+grid%t_1(i,k,j))*qvf)/                     &
-                     (p1000mb*(grid%al(i,k,j)+grid%alb(i,k,j))) )**cpovcv  &
+          grid%p(i,k,j)=p1000mb*rp_pow( (r_d*(t0+grid%t_1(i,k,j))*qvf)/               &
+                     (p1000mb*(grid%al(i,k,j)+grid%alb(i,k,j))) , cpovcv)  &
                      -grid%pb(i,k,j)
        END IF
 #else
@@ -833,8 +834,8 @@
        ELSE
           qvf = 1
        END IF
-       grid%p(i,k,j)=p1000mb*( (r_d*(t0+grid%t_1(i,k,j))*qvf)/                     &
-                  (p1000mb*(grid%al(i,k,j)+grid%alb(i,k,j))) )**cpovcv  &
+       grid%p(i,k,j)=p1000mb*rp_pow( (r_d*(t0+grid%t_1(i,k,j))*qvf)/               &
+                  (p1000mb*(grid%al(i,k,j)+grid%alb(i,k,j))) , cpovcv)  &
                   -grid%pb(i,k,j)
 #endif
        grid%p_hyd(i,k,j) = grid%p(i,k,j) + grid%pb(i,k,j)
@@ -846,7 +847,7 @@
     IF ( .NOT. grid%this_is_an_ideal_run ) THEN
        DO j=jts,min(jte,jde-1)
           DO i=its,min(ite,ide-1)
-             p_surf = p00 * EXP ( -t00/a + ( (t00/a)**2 - 2.*g*grid%ht(i,j)/a/r_d ) **0.5 )
+             p_surf = p00 * rp_exp ( -t00/a + rp_pow(( (t00/a)**2 - 2.*g*grid%ht(i,j)/a/r_d ), 0.5) )
              grid%p_hyd_w(i,1,j) = grid%p(i,1,j) + grid%c3f(1)*(p_surf - grid%p_top) + grid%c4f(1) + grid%p_top
              DO k=kts+1,kte
                 grid%p_hyd_w(i,k,j) = ( 2.*(grid%p(i,k-1,j)+grid%pb(i,k-1,j)) - grid%p_hyd_w(i,k-1,j) )
@@ -1558,19 +1559,19 @@ endif
           grid%lap_hgt(i,j)=(grid%ht(ip1,j)+grid%ht(im1,j)+grid%ht(i,jp1)+grid%ht(i,jm1)-grid%ht(i,j)*4.)/4.
              hx = grid%toposlpx(i,j)
              hy = grid%toposlpy(i,j)
-             pi = 4.*atan(1.)
-             grid%slope(i,j) = atan((hx**2+hy**2)**.5)
+             pi = 4.*rp_atan(1.)
+             grid%slope(i,j) = rp_atan(rp_pow((hx**2+hy**2), .5))
              if (grid%slope(i,j).lt.1.e-4) then
                grid%slope(i,j) = 0.
                grid%slp_azi(i,j) = 0.
              else
-               grid%slp_azi(i,j) = atan2(hx,hy)+pi
+               grid%slp_azi(i,j) = rp_atan2(hx,hy)+pi
 
 ! Rotate slope azimuth to lat-lon grid
                if (grid%cosa(i,j).ge.0) then
-                 grid%slp_azi(i,j) = grid%slp_azi(i,j) - asin(grid%sina(i,j))
+                 grid%slp_azi(i,j) = grid%slp_azi(i,j) - rp_asin(grid%sina(i,j))
                else
-                 grid%slp_azi(i,j) = grid%slp_azi(i,j) - (pi - asin(grid%sina(i,j)))
+                 grid%slp_azi(i,j) = grid%slp_azi(i,j) - (pi - rp_asin(grid%sina(i,j)))
                endif
              endif
        ENDDO
@@ -1588,7 +1589,7 @@ endif
             if (grid%ctopo(i,j).le.2.718) then
             grid%ctopo(i,j)=1.
             else
-            grid%ctopo(i,j)=alog(grid%ctopo(i,j))
+            grid%ctopo(i,j)=rp_log(grid%ctopo(i,j))
             endif
 !
             if (grid%lap_hgt(i,j).gt.-10.) then
@@ -1809,7 +1810,7 @@ endif
                  z_at_w(i,k,j)=(grid%ph_2(i,k,j)+grid%phb(i,k,j))/g
                enddo
                do k=kts,min(kte,kde-1)
-                 tempfac=(grid%t_1(i,k,j) + t0)*((grid%p(i,k,j) + grid%pb(i,k,j))/p1000mb)**rcp
+                 tempfac=(grid%t_1(i,k,j) + t0)*rp_pow(((grid%p(i,k,j) + grid%pb(i,k,j))/p1000mb), rcp)
                  convfac(i,k,j) = (grid%p(i,k,j)+grid%pb(i,k,j))/rgasuniv/tempfac
                enddo
             enddo
@@ -2260,6 +2261,7 @@ endif
 #include "dummy_new_args.inc"
 !
                         )
+   USE module_repro_math
       USE module_domain, ONLY : domain
       USE module_configure, ONLY : grid_config_rec_type, model_config_rec
       USE module_model_constants
@@ -2389,7 +2391,7 @@ endif
                   qvf = 1.
                ENDIF
                grid%alt(i,kk,j) = (r_d/p1000mb)*(grid%t_2(i,kk,j)+t0)*qvf*         &
-                      (((grid%p(i,kk,j)+grid%pb(i,kk,j))/p1000mb)**cvpm)
+                      (rp_pow(((grid%p(i,kk,j)+grid%pb(i,kk,j))/p1000mb), cvpm))
                grid%al(i,kk,j) = grid%alt(i,kk,j) - grid%alb(i,kk,j)
                grid%p_hyd(i,kk,j) = grid%p(i,kk,j) + grid%pb(i,kk,j)
 
@@ -2414,7 +2416,7 @@ endif
                   qvf = 1.
                ENDIF
                grid%alt(i,kk,j) = (r_d/p1000mb)*(grid%t_2(i,kk,j)+t0)*qvf* &
-                           (((grid%p(i,kk,j)+grid%pb(i,kk,j))/p1000mb)**cvpm)
+                           (rp_pow(((grid%p(i,kk,j)+grid%pb(i,kk,j))/p1000mb), cvpm))
                grid%al(i,kk,j) = grid%alt(i,kk,j) - grid%alb(i,kk,j)
                grid%p_hyd(i,kk,j) = grid%p(i,kk,j) + grid%pb(i,kk,j)
         ENDDO
@@ -2444,7 +2446,7 @@ endif
                      pfu = grid%c3f(k  )*(grid%MUB(i,j)+grid%MU_2(i,j)) + grid%c4f(k  ) + grid%p_top
                      pfd = grid%c3f(k-1)*(grid%MUB(i,j)+grid%MU_2(i,j)) + grid%c4f(k-1) + grid%p_top
                      phm = grid%c3h(k-1)*(grid%MUB(i,j)+grid%MU_2(i,j)) + grid%c4h(k-1) + grid%p_top
-                     grid%ph_2(i,k,j) = grid%ph_2(i,k-1,j) + grid%alt(i,k-1,j)*phm*LOG(pfd/pfu)
+                     grid%ph_2(i,k,j) = grid%ph_2(i,k-1,j) + grid%alt(i,k-1,j)*phm*rp_log(pfd/pfu)
                   END DO
                   DO k = 1,kte
                      grid%ph_2(i,k,j) = grid%ph_2(i,k,j) - grid%phb(i,k,j)
@@ -2466,7 +2468,7 @@ endif
                   qvf = 1.
                ENDIF
                grid%alt(i,kk,j) = (r_d/p1000mb)*(grid%t_2(i,kk,j)+t0)*qvf    &
-                           *(((grid%p(i,kk,j)+grid%pb(i,kk,j))/p1000mb)**cvpm)
+                           *(rp_pow(((grid%p(i,kk,j)+grid%pb(i,kk,j))/p1000mb), cvpm))
                grid%al(i,kk,j) = grid%alt(i,kk,j) - grid%alb(i,kk,j)
                grid%p_hyd(i,kk,j) = grid%p(i,kk,j) + grid%pb(i,kk,j)
             !  Now, integrate down the column to compute the pressure perturbation, and diagnose the two
@@ -2483,7 +2485,7 @@ endif
                   qvf = 1.
                ENDIF
                grid%alt(i,kk,j) = (r_d/p1000mb)*(grid%t_2(i,kk,j)+t0)*qvf* &
-                           (((grid%p(i,kk,j)+grid%pb(i,kk,j))/p1000mb)**cvpm)
+                           (rp_pow(((grid%p(i,kk,j)+grid%pb(i,kk,j))/p1000mb), cvpm))
                grid%al(i,kk,j) = grid%alt(i,kk,j) - grid%alb(i,kk,j)
                grid%p_hyd(i,kk,j) = grid%p(i,kk,j) + grid%pb(i,kk,j)
            ENDDO
@@ -2507,7 +2509,7 @@ endif
                   pfu = grid%c3f(k  )*(grid%MUB(i,j)+grid%MU_2(i,j)) + grid%c4f(k  ) + grid%p_top
                   pfd = grid%c3f(k-1)*(grid%MUB(i,j)+grid%MU_2(i,j)) + grid%c4f(k-1) + grid%p_top
                   phm = grid%c3h(k-1)*(grid%MUB(i,j)+grid%MU_2(i,j)) + grid%c4h(k-1) + grid%p_top
-                  grid%ph_2(i,k,j) = grid%ph_2(i,k-1,j) + grid%alt(i,k-1,j)*phm*LOG(pfd/pfu)
+                  grid%ph_2(i,k,j) = grid%ph_2(i,k-1,j) + grid%alt(i,k-1,j)*phm*rp_log(pfd/pfu)
                END DO
 
                DO k = 1,kte

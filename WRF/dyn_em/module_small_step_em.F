@@ -7,6 +7,7 @@
 !---------------------------------------------------------------------------
 
 MODULE module_small_step_em
+   USE module_repro_math
 
    USE module_configure
    USE module_model_constants
@@ -1280,7 +1281,7 @@ SUBROUTINE advance_w( w, rw_tend, ww, w_save, u, v,  &
          j_start = max(jts,jds+1)
          j_end   = min(jte,jde-2)
       ENDIF
-   pi = 4.*atan(1.)
+   pi = 4.*rp_atan(1.)
    dampmag = dts*config_flags%dampcoef
    hdepth=config_flags%zdamp
 ! calculation of phi and w equations
@@ -1450,7 +1451,7 @@ SUBROUTINE advance_w( w, rw_tend, ww, w_save, u, v,  &
           hbot=htop-hdepth
           dampwt(k) = 0.
           if(hk .ge. hbot)then
-            dampwt(k) = dampmag*sin(0.5*pi*(hk-hbot)/hdepth)*sin(0.5*pi*(hk-hbot)/hdepth)
+            dampwt(k) = dampmag*rp_sin(0.5*pi*(hk-hbot)/hdepth)*rp_sin(0.5*pi*(hk-hbot)/hdepth)
           endif
           w(i,k,j) = (w(i,k,j) - dampwt(k)*(c1f(k)*mut(i,j)+c2f(k))*w_save(i,k,j))/(1.+dampwt(k))
       ENDDO

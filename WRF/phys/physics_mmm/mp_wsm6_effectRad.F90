@@ -1,5 +1,6 @@
 !=================================================================================================================
  module mp_wsm6_effectrad
+   USE module_repro_math
  use ccpp_kind_types,only: kind_phys
 
 
@@ -150,7 +151,7 @@
    do k = kts,kte
      do i = its,ite
        if (rqc(i,k).le.R1) CYCLE
-       lamdac = (pidnc*nc0/rqc(i,k))**obmr
+       lamdac = rp_pow((pidnc*nc0/rqc(i,k)), obmr)
        re_qc(i,k) =  max(2.51E-6,min(1.5*(1.0/lamdac),re_qc_max))
      enddo
    enddo
@@ -171,7 +172,7 @@
      do k = kts,kte
        if (rqs(i,k).le.R1) CYCLE
        supcol = t0c-t(i,k)
-       n0sfac = max(min(exp(alpha*supcol),n0smax/n0s),1.)
+       n0sfac = max(min(rp_exp(alpha*supcol),n0smax/n0s),1.)
        lamdas = sqrt(sqrt(pidn0s*n0sfac/rqs(i,k)))
        re_qs(i,k) = max(25.E-6,min(0.5*(1./lamdas),re_qs_max))
      enddo

@@ -9,6 +9,7 @@ END MODULE module_diag_misc
 !
 
 MODULE module_diag_misc
+   USE module_repro_math
 CONTAINS
    SUBROUTINE diagnostic_output_calc(                                 &
                       ids,ide, jds,jde, kds,kde,                      &
@@ -226,7 +227,7 @@ CONTAINS
 !  !$OMP PRIVATE ( ij )
    DO ij = 1 , num_tiles
 
-      IF (mod(curr_secs2, history_interval*60.) == 0.) THEN
+      IF (rp_mod(curr_secs2, history_interval*60.) == 0.) THEN
          WRITE(outstring,*) 'Reseting accumulation to 0'
          CALL wrf_debug ( 10, TRIM(outstring) )
          DO j=j_start(ij),j_end(ij)
@@ -288,7 +289,7 @@ CONTAINS
 !-----------------------------------------------------------------
 ! Handle accumulations with buckets to prevent round-off truncation in long runs
 ! This is done every 360 minutes assuming time step fits exactly into 360 minutes
-   IF(bucket_mm .gt. 0. .AND. MOD(NINT(XTIME),360) .EQ. 0)THEN
+   IF(bucket_mm .gt. 0. .AND. rp_mod(NINT(XTIME),360) .EQ. 0)THEN
 ! SET START AND END POINTS FOR TILES
 !  !$OMP PARALLEL DO   &
 !  !$OMP PRIVATE ( ij )
@@ -434,7 +435,7 @@ CONTAINS
 
       DO j=j_start(ij),j_end(ij)
       DO i=i_start(ij),i_end(ij)
-         IF (mod(curr_secs2, 60.* prec_acc_dt) == 0.) THEN
+         IF (rp_mod(curr_secs2, 60.* prec_acc_dt) == 0.) THEN
             prec_acc_c(i,j)  = 0.
             prec_acc_nc(i,j) = 0.
             snow_acc_nc(i,j)  = 0.
@@ -709,7 +710,7 @@ CONTAINS
 
       do j=j_start(ij),j_end(ij)
       do i=i_start(ij),i_end(ij)
-         if (mod(curr_secs2, 60.* noahmp_acc_dt) == 0.) then
+         if (rp_mod(curr_secs2, 60.* noahmp_acc_dt) == 0.) then
             acsagb(i,j) = 0.
             acsagv(i,j) = 0.
             acirg(i,j)  = 0.
@@ -825,7 +826,7 @@ CONTAINS
          acrainlsm(i,j)  = acrainlsm(i,j)  +  dt *  rainlsm(i,j)
          acsnowlsm(i,j)  = acsnowlsm(i,j)  +  dt *  snowlsm(i,j)
          if(opt_run == 5) then
-           if(mod(itimestep,stepwtd) == 0) then
+           if(rp_mod(itimestep,stepwtd) == 0) then
              acqlat(i,j)     = acqlat(i,j)     +          qlat(i,j) * 1000.0
              acqrf(i,j)      = acqrf(i,j)      +           qrf(i,j) * 1000.0
              acrech(i,j)     = acrech(i,j)     +      deeprech(i,j)

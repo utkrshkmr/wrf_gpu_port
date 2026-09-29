@@ -1,4 +1,5 @@
 MODULE module_sf_noahdrv
+   USE module_repro_math
 
 !-------------------------------
   USE module_sf_noahlsm,  only: SFLX, XLF, XLV, CP, R_D, RHOWATER, NATURAL, SHDTBL, LUTYPE, SLTYPE, STBOLT, &
@@ -819,8 +820,8 @@ CONTAINS
 
 !        TH2=SFCTMP+(0.0097545*ZLVL)
 ! calculate SFCTH2 via Exner function vs lapse-rate (above)
-         APES=(1.E5/PSFC)**CAPA
-         APELM=(1.E5/SFCPRS)**CAPA
+         APES=rp_pow((1.E5/PSFC), CAPA)
+         APELM=rp_pow((1.E5/SFCPRS), CAPA)
          SFCTH2=SFCTMP*APELM
          TH2=SFCTH2/APES
 !
@@ -893,7 +894,7 @@ CONTAINS
           IF(SNOW(I,J).GT.0.0)THEN
 ! snow on surface (use ice saturation properties)
             SFCTSNO=SFCTMP
-            E2SAT=611.2*EXP(6174.*(1./273.15 - 1./SFCTSNO))
+            E2SAT=611.2*rp_exp(6174.*(1./273.15 - 1./SFCTSNO))
             Q2SATI=0.622*E2SAT/(SFCPRS-E2SAT)
             Q2SATI=Q2SATI/(1.0+Q2SATI)    ! spec. hum.
             IF (T1 .GT. 273.14) THEN
@@ -1002,7 +1003,7 @@ CONTAINS
            IRIOPTION=IRI_SCHEME
 	  IF(SF_URBAN_PHYSICS == 1) THEN
            OMG= OMG_URB2D(I,J)   
-           tloc=mod(int(OMG/3.14159*180./15.+12.+0.5 ),24)
+           tloc=rp_mod(int(OMG/3.14159*180./15.+12.+0.5 ),24)
            if (tloc.lt.0) tloc=tloc+24
            if (tloc==0) tloc=24
            CALL cal_mon_day(julian,julyr,jmonth,jday) 
@@ -1333,7 +1334,7 @@ CONTAINS
 
             TA_URB    = SFCTMP           ! [K]
             QA_URB    = Q2K              ! [kg/kg]
-            UA_URB    = SQRT(U_PHY(I,1,J)**2.+V_PHY(I,1,J)**2.)
+            UA_URB    = SQRT(rp_pow(U_PHY(I,1,J), 2.)+rp_pow(V_PHY(I,1,J), 2.))
             U1_URB    = U_PHY(I,1,J)
             V1_URB    = V_PHY(I,1,J)
             IF(UA_URB < 1.) UA_URB=1.    ! [m/s]
@@ -1706,16 +1707,16 @@ CONTAINS
             sf_bep(i,k,j)=(1.-frc_urb2d(i,j))+sf_bep(i,k,j)*frc_urb2d(i,j)
          end do
             a_u_bep(i,1,j)=(1.-frc_urb2d(i,j))*(-ust(I,J)*ust(I,J))/dz8w(i,1,j)/   &
-                           ((u_phy(i,1,j)**2+v_phy(i,1,j)**2.)**.5)+a_u_bep(i,1,j)
+                           (rp_pow((u_phy(i,1,j)**2+rp_pow(v_phy(i,1,j), 2.)), .5))+a_u_bep(i,1,j)
             a_v_bep(i,1,j)=(1.-frc_urb2d(i,j))*(-ust(I,J)*ust(I,J))/dz8w(i,1,j)/   &
-                           ((u_phy(i,1,j)**2+v_phy(i,1,j)**2.)**.5)+a_v_bep(i,1,j)
+                           (rp_pow((u_phy(i,1,j)**2+rp_pow(v_phy(i,1,j), 2.)), .5))+a_v_bep(i,1,j)
             b_t_bep(i,1,j)=(1.-frc_urb2d(i,j))*hfx_rural(i,j)/dz8w(i,1,j)/rho(i,1,j)/CP+ &
                             b_t_bep(i,1,j)
             b_q_bep(i,1,j)=(1.-frc_urb2d(i,j))*qfx_rural(i,j)/dz8w(i,1,j)/rho(i,1,j)+b_q_bep(i,1,j)
             umom=(1.-frc_urb2d(i,j))*ust(i,j)*ust(i,j)*u_phy(i,1,j)/               &
-                         ((u_phy(i,1,j)**2+v_phy(i,1,j)**2.)**.5)+umom_urb(i,j)
+                         (rp_pow((u_phy(i,1,j)**2+rp_pow(v_phy(i,1,j), 2.)), .5))+umom_urb(i,j)
             vmom=(1.-frc_urb2d(i,j))*ust(i,j)*ust(i,j)*v_phy(i,1,j)/               &
-                         ((u_phy(i,1,j)**2+v_phy(i,1,j)**2.)**.5)+vmom_urb(i,j)
+                         (rp_pow((u_phy(i,1,j)**2+rp_pow(v_phy(i,1,j), 2.)), .5))+vmom_urb(i,j)
             sf_bep(i,1,j)=1.
            
 ! compute upward longwave radiation from the rural part and total
@@ -1724,11 +1725,11 @@ CONTAINS
 !           emiss(i,j)=(1.-frc_urb2d(i,j))*emiss_rural(i,j)+frc_urb2d(i,j)*emiss_urb(i,j)
 ! using the emissivity and the total longwave upward radiation estimate the averaged skin temperature
            IF (FRC_URB2D(I,J).GT.0.) THEN
-              rl_up_rural=-emiss_rural(i,j)*sigma_sb*(tsk_rural(i,j)**4.)-(1.-emiss_rural(i,j))*glw(i,j)
+              rl_up_rural=-emiss_rural(i,j)*sigma_sb*(rp_pow(tsk_rural(i,j), 4.))-(1.-emiss_rural(i,j))*glw(i,j)
               rl_up_tot=(1.-frc_urb2d(i,j))*rl_up_rural+frc_urb2d(i,j)*rl_up_urb(i,j)   
               emiss(i,j)=(1.-frc_urb2d(i,j))*emiss_rural(i,j)+frc_urb2d(i,j)*emiss_urb(i,j)
-              ts_urb2d(i,j)=(max(0.,(-rl_up_urb(i,j)-(1.-emiss_urb(i,j))*glw(i,j))/emiss_urb(i,j)/sigma_sb))**0.25
-              tsk(i,j)=(max(0., (-1.*rl_up_tot-(1.-emiss(i,j))*glw(i,j) )/emiss(i,j)/sigma_sb))**.25
+              ts_urb2d(i,j)=rp_pow((max(0.,(-rl_up_urb(i,j)-(1.-emiss_urb(i,j))*glw(i,j))/emiss_urb(i,j)/sigma_sb)), 0.25)
+              tsk(i,j)=rp_pow((max(0., (-1.*rl_up_tot-(1.-emiss(i,j))*glw(i,j) )/emiss(i,j)/sigma_sb)), .25)
            rs_abs_tot=(1.-frc_urb2d(i,j))*swdown(i,j)*(1.-albedo(i,j))+frc_urb2d(i,j)*rs_abs_urb(i,j)  
           if(swdown(i,j).gt.0.)then
            albedo(i,j)=1.-rs_abs_tot/swdown(i,j)
@@ -1745,7 +1746,7 @@ CONTAINS
             LH_URB2D(I,J)    = qfx_urb(i,j)*xlv
             G_URB2D(I,J)     = grdflx_urb(i,j)
             RN_URB2D(I,J)    = rs_abs_urb(i,j)+emiss_urb(i,j)*glw(i,j)-rl_up_urb(i,j)
-            ust(i,j)=(umom**2.+vmom**2.)**.25
+            ust(i,j)=rp_pow((rp_pow(umom, 2.)+rp_pow(vmom, 2.)), .25)
 !          if(tsk(i,j).gt.350)write(*,*)'tsk too big!',i,j,tsk(i,j)
 !          if(tsk(i,j).lt.260)write(*,*)'tsk too small!',i,j,tsk(i,j),rl_up_tot,rl_up_urb(i,j),rl_up_rural
 !                    print*,'ivgtyp,i,j,sigma_sb',ivgtyp(i,j),i,j,sigma_sb
@@ -1938,8 +1939,8 @@ CONTAINS
               SMCMAX = MAXSMC(ISLTYP(I,J))
               PSISAT = SATPSI(ISLTYP(I,J))
               IF ( BX >  BLIM ) BX = BLIM
-              FK=(( (HLICE/(GRAV*(-PSISAT))) *                              &
-                 ((TSLB(I,NS,J)-T0)/TSLB(I,NS,J)) )**(-1/BX) )*SMCMAX
+              FK=( rp_pow( (HLICE/(GRAV*(-PSISAT))) *                       &
+                 ((TSLB(I,NS,J)-T0)/TSLB(I,NS,J)) , (-1/BX)) )*SMCMAX
               IF (FK < 0.02) FK = 0.02
               SH2O(I,NS,J) = MIN( FK, SMOIS(I,NS,J) )
 ! ----------------------------------------------------------------------
@@ -3271,8 +3272,8 @@ SUBROUTINE lsm_mosaic(DZ8W,QV3D,P8W3D,T3D,TSK,                      &
       
       !        TH2=SFCTMP+(0.0097545*ZLVL)
       ! calculate SFCTH2 via Exner function vs lapse-rate (above)
-               APES=(1.E5/PSFC)**CAPA
-               APELM=(1.E5/SFCPRS)**CAPA
+               APES=rp_pow((1.E5/PSFC), CAPA)
+               APELM=rp_pow((1.E5/SFCPRS), CAPA)
                SFCTH2=SFCTMP*APELM
                TH2=SFCTH2/APES
       !
@@ -3344,7 +3345,7 @@ SUBROUTINE lsm_mosaic(DZ8W,QV3D,P8W3D,T3D,TSK,                      &
                 IF(SNOW(I,J).GT.0.0)THEN
       ! snow on surface (use ice saturation properties)
                   SFCTSNO=SFCTMP
-                  E2SAT=611.2*EXP(6174.*(1./273.15 - 1./SFCTSNO))
+                  E2SAT=611.2*rp_exp(6174.*(1./273.15 - 1./SFCTSNO))
                   Q2SATI=0.622*E2SAT/(SFCPRS-E2SAT)
                   Q2SATI=Q2SATI/(1.0+Q2SATI)    ! spec. hum.
                   IF (T1 .GT. 273.14) THEN
@@ -3479,7 +3480,7 @@ SUBROUTINE lsm_mosaic(DZ8W,QV3D,P8W3D,T3D,TSK,                      &
            DSOIL = 2
            IRIOPTION=IRI_SCHEME
            OMG= OMG_URB2D(I,J)   
-           tloc=mod(int(OMG/3.14159*180./15.+12.+0.5 ),24)
+           tloc=rp_mod(int(OMG/3.14159*180./15.+12.+0.5 ),24)
            if (tloc.lt.0) tloc=tloc+24
            if (tloc==0) tloc=24
            CALL cal_mon_day(julian,julyr,jmonth,jday) 
@@ -3768,7 +3769,7 @@ SUBROUTINE lsm_mosaic(DZ8W,QV3D,P8W3D,T3D,TSK,                      &
 
                   TA_URB    = SFCTMP           ! [K]
                   QA_URB    = Q2K              ! [kg/kg]
-                  UA_URB    = SQRT(U_PHY(I,1,J)**2.+V_PHY(I,1,J)**2.)
+                  UA_URB    = SQRT(rp_pow(U_PHY(I,1,J), 2.)+rp_pow(V_PHY(I,1,J), 2.))
                   U1_URB    = U_PHY(I,1,J)
                   V1_URB    = V_PHY(I,1,J)
                   IF(UA_URB < 1.) UA_URB=1.    ! [m/s]
@@ -3950,7 +3951,7 @@ SUBROUTINE lsm_mosaic(DZ8W,QV3D,P8W3D,T3D,TSK,                      &
                   QSFC(I,J)= Q1/(1.0-Q1)
                   UST(I,J)= FRC_URB2D(I,J)*UST_URB+(1-FRC_URB2D(I,J))*UST(I,J)      ![m/s]
                   IF (.not. slucm_distributed_drag) THEN
-                     ZNT(I,J)= EXP(FRC_URB2D(I,J)*ALOG(ZNT_URB)+(1-FRC_URB2D(I,J))* ALOG(ZNT(I,J)))   ! ADD BY DAN
+                     ZNT(I,J)= rp_exp(FRC_URB2D(I,J)*rp_log(ZNT_URB)+(1-FRC_URB2D(I,J))* rp_log(ZNT(I,J)))   ! ADD BY DAN
                   END IF
 
 #if 0
@@ -4164,8 +4165,8 @@ SUBROUTINE lsm_mosaic(DZ8W,QV3D,P8W3D,T3D,TSK,                      &
                   ALBBCK_mosaic_avg(i,j)=ALBBCK_mosaic_avg(i,j)+ALBBCK_mosaic(i,mosaic_i,j)*FAREA
                   EMISS_mosaic_avg(i,j)=EMISS_mosaic_avg(i,j)+EMISS_mosaic(i,mosaic_i,j)*FAREA
                   EMBCK_mosaic_avg(i,j)=EMBCK_mosaic_avg(i,j)+EMBCK_mosaic(i,mosaic_i,j)*FAREA
-                  ZNT_mosaic_avg(i,j)=ZNT_mosaic_avg(i,j)+ALOG(ZNT_mosaic(i,mosaic_i,j))*FAREA
-                  Z0_mosaic_avg(i,j)=Z0_mosaic_avg(i,j)+ALOG(Z0_mosaic(i,mosaic_i,j))*FAREA
+                  ZNT_mosaic_avg(i,j)=ZNT_mosaic_avg(i,j)+rp_log(ZNT_mosaic(i,mosaic_i,j))*FAREA
+                  Z0_mosaic_avg(i,j)=Z0_mosaic_avg(i,j)+rp_log(Z0_mosaic(i,mosaic_i,j))*FAREA
                   LAI_mosaic_avg(i,j)=LAI_mosaic_avg(i,j)+LAI_mosaic(i,mosaic_i,j)*FAREA
                   if(RC_mosaic(i,mosaic_i,j) .Gt. 0.0) Then
                      RC_mosaic_avg(i,j) = RC_mosaic_avg(i,j)+1.0/RC_mosaic(i,mosaic_i,j)*FAREA
@@ -4183,8 +4184,8 @@ SUBROUTINE lsm_mosaic(DZ8W,QV3D,P8W3D,T3D,TSK,                      &
           ALBBCK(i,j)=ALBBCK_mosaic_avg(i,j) 
           EMISS(i,j)= EMISS_mosaic_avg(i,j) 
           EMBCK(i,j)= EMBCK_mosaic_avg(i,j)  
-          ZNT(i,j)= EXP(ZNT_mosaic_avg(i,j)/FAREA_mosaic_avg(i,j))
-          Z0(i,j)= EXP(Z0_mosaic_avg(i,j)/FAREA_mosaic_avg(i,j))
+          ZNT(i,j)= rp_exp(ZNT_mosaic_avg(i,j)/FAREA_mosaic_avg(i,j))
+          Z0(i,j)= rp_exp(Z0_mosaic_avg(i,j)/FAREA_mosaic_avg(i,j))
           XLAI2(i,j)= LAI_mosaic_avg(i,j)
           IF (RC_mosaic_avg(i,j) .Gt. 0.0) THEN
               rc2(i,j) = 1.0/(RC_mosaic_avg(i,j))
@@ -4192,7 +4193,7 @@ SUBROUTINE lsm_mosaic(DZ8W,QV3D,P8W3D,T3D,TSK,                      &
 !RC_mosaic_avg was zero for all tiles (cell over water), thus RC2 set to zero to avoid infinity
               rc2(i,j) = RC_mosaic_avg(i,j)
           END IF
-          TSK(i,j)=(TSK_mosaic_avg(I,J)/EMISS_mosaic_avg(I,J))**(0.25)                                  ! from 3D to 2D
+          TSK(i,j)=rp_pow((TSK_mosaic_avg(I,J)/EMISS_mosaic_avg(I,J)), (0.25))                                  ! from 3D to 2D
           QSFC(i,j)=QSFC_mosaic_avg(I,J)
           CANWAT(i,j) = CANWAT_mosaic_avg(i,j)
           SNOW(i,j) = SNOW_mosaic_avg(i,j)
@@ -4238,8 +4239,8 @@ SUBROUTINE lsm_mosaic(DZ8W,QV3D,P8W3D,T3D,TSK,                      &
       
       !        TH2=SFCTMP+(0.0097545*ZLVL)
       ! calculate SFCTH2 via Exner function vs lapse-rate (above)
-               APES=(1.E5/PSFC)**CAPA
-               APELM=(1.E5/SFCPRS)**CAPA
+               APES=rp_pow((1.E5/PSFC), CAPA)
+               APELM=rp_pow((1.E5/SFCPRS), CAPA)
                SFCTH2=SFCTMP*APELM
                TH2=SFCTH2/APES
       !
@@ -4304,7 +4305,7 @@ SUBROUTINE lsm_mosaic(DZ8W,QV3D,P8W3D,T3D,TSK,                      &
                 IF(SNOW(I,J).GT.0.0)THEN
       ! snow on surface (use ice saturation properties)
                   SFCTSNO=SFCTMP
-                  E2SAT=611.2*EXP(6174.*(1./273.15 - 1./SFCTSNO))
+                  E2SAT=611.2*rp_exp(6174.*(1./273.15 - 1./SFCTSNO))
                   Q2SATI=0.622*E2SAT/(SFCPRS-E2SAT)
                   Q2SATI=Q2SATI/(1.0+Q2SATI)    ! spec. hum.
                   IF (T1 .GT. 273.14) THEN
@@ -4408,7 +4409,7 @@ SUBROUTINE lsm_mosaic(DZ8W,QV3D,P8W3D,T3D,TSK,                      &
            DSOIL = 2
            IRIOPTION=IRI_SCHEME
            OMG= OMG_URB2D(I,J)   
-           tloc=mod(int(OMG/3.14159*180./15.+12.+0.5 ),24)
+           tloc=rp_mod(int(OMG/3.14159*180./15.+12.+0.5 ),24)
            if (tloc.lt.0) tloc=tloc+24
            if (tloc==0) tloc=24
            CALL cal_mon_day(julian,julyr,jmonth,jday) 
@@ -4669,7 +4670,7 @@ SUBROUTINE lsm_mosaic(DZ8W,QV3D,P8W3D,T3D,TSK,                      &
       
                   TA_URB    = SFCTMP           ! [K]
                   QA_URB    = Q2K              ! [kg/kg]
-                  UA_URB    = SQRT(U_PHY(I,1,J)**2.+V_PHY(I,1,J)**2.)
+                  UA_URB    = SQRT(rp_pow(U_PHY(I,1,J), 2.)+rp_pow(V_PHY(I,1,J), 2.))
                   U1_URB    = U_PHY(I,1,J)
                   V1_URB    = V_PHY(I,1,J)
                   IF(UA_URB < 1.) UA_URB=1.    ! [m/s]

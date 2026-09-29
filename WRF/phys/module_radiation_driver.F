@@ -2,6 +2,7 @@
 !WRF:MEDIATION_LAYER:PHYSICS
 !
 MODULE module_radiation_driver
+   USE module_repro_math
   real, private, parameter :: ALBEDO_MIN = 0.0, ALBEDO_MAX = 1.0, ANGEXP_MIN = 0.0, AOD_MIN = 0.0, &
       AERASY_MIN = -1.0, AERASY_MAX = 1.0, QVAPOR_MIN = 0.0, QCLOUD_MIN = 0.0, QSNOW_MIN = 0.0
 CONTAINS
@@ -1124,7 +1125,7 @@ CONTAINS
 
    IF ( ( .NOT. decided ) .AND. &
         ( .NOT. doing_adapt_dt ) .AND. &
-        ( MOD(itimestep,stepra) .EQ. 1+ra_call_offset ) ) THEN
+        ( rp_mod(itimestep,stepra) .EQ. 1+ra_call_offset ) ) THEN
       run_param   = .TRUE.
       decided     = .TRUE.
    END IF
@@ -1599,7 +1600,7 @@ CONTAINS
    Radiation_step: IF ( run_param ) then
 ! CAM-specific additional radiation frequency - cam_abs_freq_s (=21600s by default)
      STEPABS = nint(cam_abs_freq_s/(dt*STEPRA))*STEPRA
-     IF (itimestep .eq. 1 .or. mod(itimestep,STEPABS) .eq. 1 + ra_call_offset &
+     IF (itimestep .eq. 1 .or. rp_mod(itimestep,STEPABS) .eq. 1 + ra_call_offset &
                                         .or. STEPABS .eq. 1 ) THEN
        doabsems = .true.
      ELSE
@@ -2898,14 +2899,14 @@ CONTAINS
                  kt=swdown(i,j)/max(ioh,1e-3) ! clearness index
                  ! Optical air mass: Rigollier et al. (2000) doi:
                  ! 10.1016/S0038-092X(99)00055-9
-                 airmass=exp(-ht(i,j)/8434.5)/(coszen(i,j)+ &
-                        0.50572*(asin(coszen(i,j))*57.295779513082323+6.07995)**(-1.6364))
+                 airmass=rp_exp(-ht(i,j)/8434.5)/(coszen(i,j)+ &
+                        0.50572*rp_pow((rp_asin(coszen(i,j))*57.295779513082323+6.07995), (-1.6364)))
                  ! kt correction for air-mass at large sza: Perez et al. (1990)
                  ! doi: 10.1016/0038-092X(90)90036-C
-                 kt=kt/(0.1+1.031*exp(-1.4/(0.9+(9.4/max(airmass,1e-3)))))
+                 kt=kt/(0.1+1.031*rp_exp(-1.4/(0.9+(9.4/max(airmass,1e-3)))))
                  ! Diffuse fraction: Ruiz-Arias et al. (2010) (Eq 33) doi:
                  ! 10.1016/j.enconman.2009.11.024
-                 kd=0.952-1.041*exp(-exp(2.300-4.702*kt))
+                 kd=0.952-1.041*rp_exp(-rp_exp(2.300-4.702*kt))
                  swddif(i,j)=kd*swdown(i,j)
                  swddir(i,j)=(1.-kd)*swdown(i,j)
                  swddni(i,j)=swddir(i,j)/max(coszen(i,j),1e-4)
@@ -3379,7 +3380,7 @@ CONTAINS
 ! Topographic shading
    
    if ((topo_shading.eq.1).and.(itimestep .eq. 1 .or. &
-        mod(itimestep,STEPRA) .eq. 1 + ra_call_offset))  then
+        rp_mod(itimestep,STEPRA) .eq. 1 + ra_call_offset))  then
 
 !---------------
 ! Calculate constants for short wave radiation
@@ -3491,21 +3492,21 @@ CONTAINS
 !-----OBECL : OBLIQUITY = 23.5 DEGREE.
         
    OBECL=23.5*DEGRAD
-   SINOB=SIN(OBECL)
+   SINOB=rp_sin(OBECL)
         
 !-----CALCULATE LONGITUDE OF THE SUN FROM VERNAL EQUINOX:
         
    IF(JULIAN.GE.80.)SXLONG=DPD*(JULIAN-80.)
    IF(JULIAN.LT.80.)SXLONG=DPD*(JULIAN+285.)
    SXLONG=SXLONG*DEGRAD
-   ARG=SINOB*SIN(SXLONG)
-   DECLIN=ASIN(ARG)
+   ARG=SINOB*rp_sin(SXLONG)
+   DECLIN=rp_asin(ARG)
    DECDEG=DECLIN/DEGRAD
 !----SOLAR CONSTANT ECCENTRICITY FACTOR (PALTRIDGE AND PLATT 1976)
    DJUL=JULIAN*360./365.
    RJUL=DJUL*DEGRAD
-   ECCFAC=1.000110+0.034221*COS(RJUL)+0.001280*SIN(RJUL)+0.000719*  &
-          COS(2*RJUL)+0.000077*SIN(2*RJUL)
+   ECCFAC=1.000110+0.034221*rp_cos(RJUL)+0.001280*rp_sin(RJUL)+0.000719*  &
+          rp_cos(2*RJUL)+0.000077*rp_sin(2*RJUL)
    SOLCON=1370.*ECCFAC
    
    END SUBROUTINE radconst
@@ -3525,16 +3526,16 @@ CONTAINS
        real    :: da,eot,xt24,tloctm,xxlat
 
        da=6.2831853071795862*(julian-1)/365.
-       eot=(0.000075+0.001868*cos(da)-0.032077*sin(da) &
-            -0.014615*cos(2*da)-0.04089*sin(2*da))*(229.18)
-       xt24=mod(xtime,1440.)+eot
+       eot=(0.000075+0.001868*rp_cos(da)-0.032077*rp_sin(da) &
+            -0.014615*rp_cos(2*da)-0.04089*rp_sin(2*da))*(229.18)
+       xt24=rp_mod(xtime,1440.)+eot
        do j=jts,jte
           do i=its,ite
              tloctm=gmt+xt24/60.+xlon(i,j)/15.
              hrang(i,j)=15.*(tloctm-12.)*degrad
              xxlat=xlat(i,j)*degrad
-             coszen(i,j)=sin(xxlat)*sin(declin) &
-                        +cos(xxlat)*cos(declin) *cos(hrang(i,j))
+             coszen(i,j)=rp_sin(xxlat)*rp_sin(declin) &
+                        +rp_cos(xxlat)*rp_cos(declin) *rp_cos(hrang(i,j))
              coszen(i, j) = min (max (coszen(i, j), -1.0), 1.0)
           enddo
        enddo
@@ -3569,14 +3570,14 @@ CONTAINS
                   coszen_0 =coszen_ref(i,j)
                end if
                if ((coszen(i,j)/coszen_0).lt.1.) then
-                  bb(i,j) =log(max(1.,swddir(i,j))/max(1.,swddir_0)) / log(min(1.-1e-4,coszen(i,j)/coszen_0))
+                  bb(i,j) =rp_log(max(1.,swddir(i,j))/max(1.,swddir_0)) / rp_log(min(1.-1e-4,coszen(i,j)/coszen_0))
                elseif ((coszen(i,j)/coszen_0).gt.1) then
-                  bb(i,j) =log(max(1.,swddir(i,j))/max(1.,swddir_0)) / log(max(1.+1e-4,coszen(i,j)/coszen_0))
+                  bb(i,j) =rp_log(max(1.,swddir(i,j))/max(1.,swddir_0)) / rp_log(max(1.+1e-4,coszen(i,j)/coszen_0))
                else
                   bb(i,j) =0.
                end if
                bb(i,j) =max(-.5,min(2.5,bb(i,j)))
-               Bx(i,j) =swddir(i,j)/(coszen(i,j)**bb(i,j))
+               Bx(i,j) =swddir(i,j)/(rp_pow(coszen(i,j), bb(i,j)))
 
                !write(wrf_err_message,*) 'XXX I=',i,' J=',j,'  Bx=',Bx(i,j),'  bb=',bb(i,j),'  swddir=',swddir(i,j), &
                !                         '  swddir_0=',swddir_0,'  coszen=',coszen(i,j),'  coszen_0=',coszen_0
@@ -3591,14 +3592,14 @@ CONTAINS
                   coszen_0 =coszen_ref(i,j)
                end if
                if ((coszen(i,j)/coszen_0).lt.1.) then
-                  gg(i,j) =log(max(1.,swdown(i,j))/max(1.,swdown_0)) / log(min(1.-1e-4,coszen(i,j)/coszen_0))
+                  gg(i,j) =rp_log(max(1.,swdown(i,j))/max(1.,swdown_0)) / rp_log(min(1.-1e-4,coszen(i,j)/coszen_0))
                elseif ((coszen(i,j)/coszen_0).gt.1) then
-                  gg(i,j) =log(max(1.,swdown(i,j))/max(1.,swdown_0)) / log(max(1.+1e-4,coszen(i,j)/coszen_0))
+                  gg(i,j) =rp_log(max(1.,swdown(i,j))/max(1.,swdown_0)) / rp_log(max(1.+1e-4,coszen(i,j)/coszen_0))
                else
                   gg(i,j) =0.
                end if
                gg(i,j) =max(-.5,min(2.5,gg(i,j)))
-               Gx(i,j) =swdown(i,j)/(coszen(i,j)**gg(i,j))
+               Gx(i,j) =swdown(i,j)/(rp_pow(coszen(i,j), gg(i,j)))
             else
                Bx(i,j) =0.
                bb(i,j) =0.
@@ -3648,12 +3649,12 @@ CONTAINS
                if ((bb(i,j).eq.-0.5).or.(bb(i,j).eq.2.5).or.(bb(i,j).eq.0.0)) then
                   swddir(i,j) =(coszen_loc(i,j)/coszen_ref(i,j))*swddir_ref(i,j)
                else
-                  swddir(i,j) =Bx(i,j)*(coszen_loc(i,j)**bb(i,j))
+                  swddir(i,j) =Bx(i,j)*(rp_pow(coszen_loc(i,j), bb(i,j)))
                end if
                if ((gg(i,j).eq.-0.5).or.(gg(i,j).eq.2.5).or.(gg(i,j).eq.0.0)) then
                   swdown(i,j) =(coszen_loc(i,j)/coszen_ref(i,j))*swdown_ref(i,j)
                else
-                  swdown(i,j) =Gx(i,j)*(coszen_loc(i,j)**gg(i,j))
+                  swdown(i,j) =Gx(i,j)*(rp_pow(coszen_loc(i,j), gg(i,j)))
                end if
                swddif(i,j) =swdown(i,j)-swddir(i,j)
                swddni(i,j) =swddir(i,j)/coszen_loc(i,j)
@@ -3859,8 +3860,8 @@ CONTAINS
     DO k = kts,kte
     DO i = its,ite
       tc         = t_phy(i,k,j) - SVPT0
-      esw     = 1000.0 * SVP1 * EXP( SVP2  * tc / ( t_phy(i,k,j) - SVP3  ) )
-      esi     = 1000.0 * SVP1 * EXP( SVPI2 * tc / ( t_phy(i,k,j) - SVPI3 ) )
+      esw     = 1000.0 * SVP1 * rp_exp( SVP2  * tc / ( t_phy(i,k,j) - SVP3  ) )
+      esi     = 1000.0 * SVP1 * rp_exp( SVPI2 * tc / ( t_phy(i,k,j) - SVPI3 ) )
       QVSW = EP_2 * esw / ( p_phy(i,k,j) - esw )
       QVSI = EP_2 * esi / ( p_phy(i,k,j) - esi )
 
@@ -3968,11 +3969,11 @@ CONTAINS
 !    modified based on assumed grid-scale saturation at RH=RHgrid.
 !
         SUBSAT=MAX(1.E-10,RHGRID*QVS_WEIGHT-QV(i,k,j))
-        DENOM=(SUBSAT)**GAMMA
+        DENOM=rp_pow((SUBSAT), GAMMA)
         ARG=MAX(-6.9, -ALPHA0*QCLD/DENOM)    ! <-- EXP(-6.9)=.001
 ! prevent negative values  (new)
         RHUM=MAX(1.E-10, RHUM)
-        CLDFRA(i,k,j)=(RHUM/RHGRID)**PEXP*(1.-EXP(ARG))
+        CLDFRA(i,k,j)=rp_pow((RHUM/RHGRID), PEXP)*(1.-rp_exp(ARG))
 !!              ARG=-1000*QCLD/(RHUM-RHGRID)
 !!              ARG=MAX(ARG, ARGMIN)
 !!              CLDFRA(i,k,j)=(RHUM/RHGRID)*(1.-EXP(ARG))
@@ -4077,7 +4078,7 @@ CONTAINS
             CLDFRA(K) = 1.0
          elseif (((qc(k)+qi(k)).gt.1.E-10) .and.                        &
      &                                    ((qc(k)+qi(k)).lt.1.E-6)) then
-            CLDFRA(K) = MIN(0.99, 0.1*(11.0 + log10(qc(k)+qi(k))))
+            CLDFRA(K) = MIN(0.99, 0.1*(11.0 + rp_log10(qc(k)+qi(k))))
          else
 
             IF ((XLAND-1.5).GT.0.) THEN                                  !--- Ocean
@@ -4177,7 +4178,7 @@ CONTAINS
       k_m12C = 0
       k_p150 = 0
       DO k = kte, kts, -1
-         theta(k) = T1d(k)*((100000.0/P1d(k))**(287.05/1004.))
+         theta(k) = T1d(k)*(rp_pow((100000.0/P1d(k)), (287.05/1004.)))
          if (T1d(k)-273.16 .gt. -12.0 .and. P1d(k).gt.10100.0) k_m12C = MAX(k_m12C, k)
          if (P1d(k).gt.14999.0 .and. k_p150.eq.0) k_p150 = k
       ENDDO
@@ -4642,8 +4643,8 @@ CONTAINS
 
 
 
- XT24=MOD(XTIME+RADFRQ*0.5,1440.)
- pi = 4.*atan(1.)
+ XT24=rp_mod(XTIME+RADFRQ*0.5,1440.)
+ pi = 4.*rp_atan(1.)
  gpshad = int(shadlen/dx+1.)
 
  if (iter.eq.1) then  
@@ -4655,7 +4656,7 @@ CONTAINS
      TLOCTM=GMT+XT24/60.+XLONG(i,j)/15.
      HRANG=15.*(TLOCTM-12.)*DEGRAD
      XXLAT=XLAT(i,j)*DEGRAD
-     CSZA=SIN(XXLAT)*SIN(DECLIN)+COS(XXLAT)*COS(DECLIN)*COS(HRANG)
+     CSZA=rp_sin(XXLAT)*rp_sin(DECLIN)+rp_cos(XXLAT)*rp_cos(DECLIN)*rp_cos(HRANG)
 
      if (csza.lt.1.e-2) then   ! shadow mask does not need to be computed
      shadowmask(i,j) = 0
@@ -4665,14 +4666,14 @@ CONTAINS
 
 ! Solar azimuth angle
 
-     argu=(csza*sin(XXLAT)-sin(DECLIN))/(sin(acos(csza))*cos(XXLAT))
+     argu=(csza*rp_sin(XXLAT)-rp_sin(DECLIN))/(rp_sin(rp_acos(csza))*rp_cos(XXLAT))
      if (argu.gt.1) argu = 1
      if (argu.lt.-1) argu = -1
-     sol_azi = sign(acos(argu),sin(HRANG))+pi  ! azimuth angle of the sun
+     sol_azi = sign(rp_acos(argu),rp_sin(HRANG))+pi  ! azimuth angle of the sun
      if (cosa(i,j).ge.0) then
-       sol_azi = sol_azi + asin(sina(i,j))  ! rotation towards WRF grid 
+       sol_azi = sol_azi + rp_asin(sina(i,j))  ! rotation towards WRF grid 
      else
-       sol_azi = sol_azi + pi - asin(sina(i,j)) 
+       sol_azi = sol_azi + pi - rp_asin(sina(i,j)) 
      endif
 
 ! Scan for higher surrounding topography
@@ -4680,7 +4681,7 @@ CONTAINS
           if ((sol_azi.gt.1.75*pi).or.(sol_azi.lt.0.25*pi)) then ! sun is in the northern quarter
 
             do jj = j+1,j+gpshad
-              ri = i + (jj-j)*tan(sol_azi)
+              ri = i + (jj-j)*rp_tan(sol_azi)
               i1 = int(ri) 
               i2 = i1+1
               wgt = ri-i1
@@ -4689,16 +4690,16 @@ CONTAINS
 !               if (shadowmask(i,j).eq.0) shadowmask(i,j) = -1
                 goto 120
               endif
-              topoelev=atan((wgt*ht_loc(i2,jj)+(1.-wgt)*ht_loc(i1,jj)-ht_loc(i,j))/dxabs)
-              if (sin(topoelev).ge.csza) then
+              topoelev=rp_atan((wgt*ht_loc(i2,jj)+(1.-wgt)*ht_loc(i1,jj)-ht_loc(i,j))/dxabs)
+              if (rp_sin(topoelev).ge.csza) then
                 shadowmask(i,j) = 1
-                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(tan(topoelev)-tan(asin(csza))))
+                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(rp_tan(topoelev)-rp_tan(rp_asin(csza))))
               endif
             enddo
 
           else if (sol_azi.lt.0.75*pi) then  ! sun is in the eastern quarter
             do ii = i+1,i+gpshad
-              rj = j - (ii-i)*tan(pi/2.+sol_azi)
+              rj = j - (ii-i)*rp_tan(pi/2.+sol_azi)
               j1 = int(rj)
               j2 = j1+1
               wgt = rj-j1
@@ -4707,16 +4708,16 @@ CONTAINS
 !               if (shadowmask(i,j).eq.0) shadowmask(i,j) = -1
                 goto 120
               endif
-              topoelev=atan((wgt*ht_loc(ii,j2)+(1.-wgt)*ht_loc(ii,j1)-ht_loc(i,j))/dxabs)
-              if (sin(topoelev).ge.csza) then
+              topoelev=rp_atan((wgt*ht_loc(ii,j2)+(1.-wgt)*ht_loc(ii,j1)-ht_loc(i,j))/dxabs)
+              if (rp_sin(topoelev).ge.csza) then
                 shadowmask(i,j) = 1
-                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(tan(topoelev)-tan(asin(csza))))
+                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(rp_tan(topoelev)-rp_tan(rp_asin(csza))))
               endif
             enddo
 
           else if (sol_azi.lt.1.25*pi) then ! sun is in the southern quarter
             do jj = j-1,j-gpshad,-1
-              ri = i + (jj-j)*tan(sol_azi)
+              ri = i + (jj-j)*rp_tan(sol_azi)
               i1 = int(ri)
               i2 = i1+1
               wgt = ri-i1
@@ -4725,16 +4726,16 @@ CONTAINS
 !               if (shadowmask(i,j).eq.0) shadowmask(i,j) = -1
                 goto 120
               endif
-              topoelev=atan((wgt*ht_loc(i2,jj)+(1.-wgt)*ht_loc(i1,jj)-ht_loc(i,j))/dxabs)
-              if (sin(topoelev).ge.csza) then
+              topoelev=rp_atan((wgt*ht_loc(i2,jj)+(1.-wgt)*ht_loc(i1,jj)-ht_loc(i,j))/dxabs)
+              if (rp_sin(topoelev).ge.csza) then
                 shadowmask(i,j) = 1
-                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(tan(topoelev)-tan(asin(csza))))
+                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(rp_tan(topoelev)-rp_tan(rp_asin(csza))))
               endif
             enddo
 
           else                          ! sun is in the western quarter
             do ii = i-1,i-gpshad,-1
-              rj = j - (ii-i)*tan(pi/2.+sol_azi)
+              rj = j - (ii-i)*rp_tan(pi/2.+sol_azi)
               j1 = int(rj)
               j2 = j1+1
               wgt = rj-j1
@@ -4743,10 +4744,10 @@ CONTAINS
 !               if (shadowmask(i,j).eq.0) shadowmask(i,j) = -1
                 goto 120
               endif
-              topoelev=atan((wgt*ht_loc(ii,j2)+(1.-wgt)*ht_loc(ii,j1)-ht_loc(i,j))/dxabs)
-              if (sin(topoelev).ge.csza) then
+              topoelev=rp_atan((wgt*ht_loc(ii,j2)+(1.-wgt)*ht_loc(ii,j1)-ht_loc(i,j))/dxabs)
+              if (rp_sin(topoelev).ge.csza) then
                 shadowmask(i,j) = 1
-                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(tan(topoelev)-tan(asin(csza))))
+                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(rp_tan(topoelev)-rp_tan(rp_asin(csza))))
               endif
             enddo
           endif
@@ -4767,7 +4768,7 @@ CONTAINS
        TLOCTM=GMT+XT24/60.+XLONG(i,j)/15.
        HRANG=15.*(TLOCTM-12.)*DEGRAD
        XXLAT=XLAT(i,j)*DEGRAD
-       CSZA=SIN(XXLAT)*SIN(DECLIN)+COS(XXLAT)*COS(DECLIN)*COS(HRANG)
+       CSZA=rp_sin(XXLAT)*rp_sin(DECLIN)+rp_cos(XXLAT)*rp_cos(DECLIN)*rp_cos(HRANG)
 
        if (csza.lt.1.e-2) then   ! shadow mask does not need to be computed
        shadowmask(i,j) = 0
@@ -4777,14 +4778,14 @@ CONTAINS
 
 ! Solar azimuth angle
 
-       argu=(csza*sin(XXLAT)-sin(DECLIN))/(sin(acos(csza))*cos(XXLAT))
+       argu=(csza*rp_sin(XXLAT)-rp_sin(DECLIN))/(rp_sin(rp_acos(csza))*rp_cos(XXLAT))
        if (argu.gt.1) argu = 1
        if (argu.lt.-1) argu = -1
-       sol_azi = sign(acos(argu),sin(HRANG))+pi  ! azimuth angle of the sun
+       sol_azi = sign(rp_acos(argu),rp_sin(HRANG))+pi  ! azimuth angle of the sun
        if (cosa(i,j).ge.0) then
-         sol_azi = sol_azi + asin(sina(i,j))  ! rotation towards WRF grid 
+         sol_azi = sol_azi + rp_asin(sina(i,j))  ! rotation towards WRF grid 
        else
-         sol_azi = sol_azi + pi - asin(sina(i,j)) 
+         sol_azi = sol_azi + pi - rp_asin(sina(i,j)) 
        endif
 
 ! Scan for higher surrounding topography
@@ -4792,61 +4793,61 @@ CONTAINS
           if ((sol_azi.gt.1.75*pi).or.(sol_azi.lt.0.25*pi)) then ! sun is in the northern quarter
 
             do jj = j+1,j+gpshad
-              ri = i + (jj-j)*tan(sol_azi)
+              ri = i + (jj-j)*rp_tan(sol_azi)
               i1 = int(ri) 
               i2 = i1+1
               wgt = ri-i1
               dxabs = sqrt((dy*(jj-j))**2+(dx*(ri-i))**2)
               if ((jj.ge.min(jde,jpe+3)).or.(i1.le.max(ids-1,ips-3)).or.(i2.ge.min(ide,ipe+3))) goto 220
-              topoelev=atan((wgt*ht_loc(i2,jj)+(1.-wgt)*ht_loc(i1,jj)-ht_loc(i,j))/dxabs)
-              if (sin(topoelev).ge.csza) then
+              topoelev=rp_atan((wgt*ht_loc(i2,jj)+(1.-wgt)*ht_loc(i1,jj)-ht_loc(i,j))/dxabs)
+              if (rp_sin(topoelev).ge.csza) then
                 shadowmask(i,j) = 1
-                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(tan(topoelev)-tan(asin(csza))))
+                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(rp_tan(topoelev)-rp_tan(rp_asin(csza))))
               endif
             enddo
 
           else if (sol_azi.lt.0.75*pi) then  ! sun is in the eastern quarter
             do ii = i+1,i+gpshad
-              rj = j - (ii-i)*tan(pi/2.+sol_azi)
+              rj = j - (ii-i)*rp_tan(pi/2.+sol_azi)
               j1 = int(rj)
               j2 = j1+1
               wgt = rj-j1
               dxabs = sqrt((dx*(ii-i))**2+(dy*(rj-j))**2)
               if ((ii.ge.min(ide,ipe+3)).or.(j1.le.max(jds-1,jps-3)).or.(j2.ge.min(jde,jpe+3))) goto 220
-              topoelev=atan((wgt*ht_loc(ii,j2)+(1.-wgt)*ht_loc(ii,j1)-ht_loc(i,j))/dxabs)
-              if (sin(topoelev).ge.csza) then
+              topoelev=rp_atan((wgt*ht_loc(ii,j2)+(1.-wgt)*ht_loc(ii,j1)-ht_loc(i,j))/dxabs)
+              if (rp_sin(topoelev).ge.csza) then
                 shadowmask(i,j) = 1
-                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(tan(topoelev)-tan(asin(csza))))
+                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(rp_tan(topoelev)-rp_tan(rp_asin(csza))))
               endif
             enddo
 
           else if (sol_azi.lt.1.25*pi) then ! sun is in the southern quarter
             do jj = j-1,j-gpshad,-1
-              ri = i + (jj-j)*tan(sol_azi)
+              ri = i + (jj-j)*rp_tan(sol_azi)
               i1 = int(ri)
               i2 = i1+1
               wgt = ri-i1
               dxabs = sqrt((dy*(jj-j))**2+(dx*(ri-i))**2)
               if ((jj.le.max(jds-1,jps-3)).or.(i1.le.max(ids-1,ips-3)).or.(i2.ge.min(ide,ipe+3))) goto 220
-              topoelev=atan((wgt*ht_loc(i2,jj)+(1.-wgt)*ht_loc(i1,jj)-ht_loc(i,j))/dxabs)
-              if (sin(topoelev).ge.csza) then
+              topoelev=rp_atan((wgt*ht_loc(i2,jj)+(1.-wgt)*ht_loc(i1,jj)-ht_loc(i,j))/dxabs)
+              if (rp_sin(topoelev).ge.csza) then
                 shadowmask(i,j) = 1
-                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(tan(topoelev)-tan(asin(csza))))
+                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(rp_tan(topoelev)-rp_tan(rp_asin(csza))))
               endif
             enddo
 
           else                          ! sun is in the western quarter
             do ii = i-1,i-gpshad,-1
-              rj = j - (ii-i)*tan(pi/2.+sol_azi)
+              rj = j - (ii-i)*rp_tan(pi/2.+sol_azi)
               j1 = int(rj)
               j2 = j1+1
               wgt = rj-j1
               dxabs = sqrt((dx*(ii-i))**2+(dy*(rj-j))**2)
               if ((ii.le.max(ids-1,ips-3)).or.(j1.le.max(jds-1,jps-3)).or.(j2.ge.min(jde,jpe+3))) goto 220
-              topoelev=atan((wgt*ht_loc(ii,j2)+(1.-wgt)*ht_loc(ii,j1)-ht_loc(i,j))/dxabs)
-              if (sin(topoelev).ge.csza) then
+              topoelev=rp_atan((wgt*ht_loc(ii,j2)+(1.-wgt)*ht_loc(ii,j1)-ht_loc(i,j))/dxabs)
+              if (rp_sin(topoelev).ge.csza) then
                 shadowmask(i,j) = 1
-                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(tan(topoelev)-tan(asin(csza))))
+                ht_shad(i,j) = max(ht_shad(i,j),ht_loc(i,j)+dxabs*(rp_tan(topoelev)-rp_tan(rp_asin(csza))))
               endif
             enddo
           endif
@@ -4910,7 +4911,7 @@ SUBROUTINE ozn_time_int(julday,julian,ozmixm,ozmixt,levsiz,num_months,  &
 !  Note that following will drift.
 !    Need to use actual month/day info to compute julian.
    intJULIAN=intJULIAN-FLOAT(IJUL)
-   IJUL=MOD(IJUL,365)
+   IJUL=rp_mod(IJUL,365)
    IF(IJUL.EQ.0)IJUL=365
    intJULIAN=intJULIAN+IJUL
    np1=1
@@ -5153,7 +5154,7 @@ SUBROUTINE aer_time_int(julday,julian,aerodm,aerodt,levsiz,num_months,no_src,  &
 !  Note that following will drift.
 !    Need to use actual month/day info to compute julian.
    intJULIAN=intJULIAN-FLOAT(IJUL)
-   IJUL=MOD(IJUL,365)
+   IJUL=rp_mod(IJUL,365)
    IF(IJUL.EQ.0)IJUL=365
    intJULIAN=intJULIAN+IJUL
    np1=1

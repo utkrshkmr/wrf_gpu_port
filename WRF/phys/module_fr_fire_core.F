@@ -5,6 +5,7 @@
 !#define DEBUG_OUT_FUEL_LEFT    
 
 module module_fr_fire_core
+   USE module_repro_math
 
 use module_fr_fire_phys, only: fire_params , fire_ros
 use module_fr_fire_util
@@ -709,7 +710,7 @@ ta=0.25*(t00+t01+t10+t11)
 ! exp decay in the burning area
 out=1.
 !if(area>0.)out=1. - area*(1. - exp(ta/fuel_time_cell))
-if(area>0)out=area*exp(ta/fuel_time_cell) + (1. - area)
+if(area>0)out=area*rp_exp(ta/fuel_time_cell) + (1. - area)
 
 if(out>1.)then
 !$OMP CRITICAL(FIRE_CORE_CRIT)
@@ -945,7 +946,7 @@ else if (lfn00<=0 .and. lfn10<=0 .and. lfn01<=0 .and. lfn11<=0) then
     !fuel_burn(i,j)=1-exp(u(3))*intexp(u(1)*dx)*intexp(u(2)*dy)
     s1=u(1)
     s2=u(2)            
-    out=1-exp(u(3))*intexp(s1)*intexp(s2)
+    out=1-rp_exp(u(3))*intexp(s1)*intexp(s2)
     !print *,'intexp
     if ( out<0 .or. out>1.0 ) then
         print *,'case4, out should be between 0 and 1'
@@ -1125,7 +1126,7 @@ else
             s1 = (xt2-xt1)*((1./2.)*ah*(xt2+xt1)+ch)            
             ! s2=int((ch)*(-exp(ae*x+ce)),x,xt1,xt2)
             ceae=ce/ae;
-            s2 = -ch*exp(ae*(xt1+ceae))*(xt2-xt1)*intexp(ae*(xt2-xt1))                
+            s2 = -ch*rp_exp(ae*(xt1+ceae))*(xt2-xt1)*intexp(ae*(xt2-xt1))                
             ! s3=int((ah*x)*(-exp(ae*x+ce)),x,xt1,xt2)
             ! s3=int((ah*x)*(-exp(ae*(x+ceae))),x,xt1,xt2)
             ! expand in Taylor series around ae=0
@@ -1143,8 +1144,8 @@ else
             if (abs(d)>eps) then
             ! since ae*xt1+ce<=0 ae*xt2+ce<=0 all fine for large ae
             ! for ae, ce -> 0 rounding error approx eps/ae^2
-                s3=( exp(ae*(xt1+ceae))*(ae*xt1-1)-&
-                     exp(ae*(xt2+ceae))*(ae*xt2-1) )/(ae**2)
+                s3=( rp_exp(ae*(xt1+ceae))*(ae*xt1-1)-&
+                     rp_exp(ae*(xt2+ceae))*(ae*xt2-1) )/(ae**2)
                 
             !we do not worry about rounding as xt1 -> xt2, then s3 -> 0
             else
@@ -1192,7 +1193,7 @@ real, parameter:: zero=0.,one=1.,eps=epsilon(zero)
 
 !eps = 2.2204*(10.0**(-8))!from matlab
 if ( eps < abs(ab)**3/6. ) then
-    intexp=(exp(ab)-1)/ab
+    intexp=(rp_exp(ab)-1)/ab
   else
     intexp=1+ab/2.
 end if
@@ -1573,7 +1574,7 @@ threshold_HLu=fire_lsm_band_ngp*dx
 
     do j=jfts,jfte 
         do i=ifts,ifte 
-            lfn_s0(i,j) = lfn_2(i,j)/sqrt(lfn_2(i,j)**2.0+dx**2.0) 
+            lfn_s0(i,j) = lfn_2(i,j)/sqrt(rp_pow(lfn_2(i,j), 2.0)+rp_pow(dx, 2.0)) 
             lfn_s3(i,j) = lfn_2(i,j)
         enddo
     enddo
@@ -1868,7 +1869,7 @@ integer::i,j
 do j=jfts,jfte
   do i=ifts,ifte
     if (fire_area(i,j).gt.0.0 .AND. fire_area(i,j).lt.1.0) then
-      flame_length(i,j)=0.0775*(iboros(i,j)*ros(i,j))**0.46 ! flame length according to Byram (1959)
+      flame_length(i,j)=0.0775*rp_pow((iboros(i,j)*ros(i,j)), 0.46) ! flame length according to Byram (1959)
       ros_fl(i,j)=ros(i,j)
     else
       flame_length(i,j)=0.0
@@ -2037,7 +2038,7 @@ threshold_AV=fire_viscosity_ngp*dx
               end select
             endif
 ! DME use the same discretization scheme from fire_upwinding option to calculate the normals
-            scale=sqrt(grad**2.0+eps) 
+            scale=sqrt(rp_pow(grad, 2.0)+eps) 
             nvx=diff2x/scale 
             nvy=diff2y/scale 
 

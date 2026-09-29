@@ -12,6 +12,7 @@
 
 
 MODULE module_big_step_utilities_em
+   USE module_repro_math
 
    USE module_model_constants
    USE module_state_description, only: p_qg, p_qs, p_qi, gdscheme, tiedtkescheme, ntiedtkescheme, kfetascheme, mskfscheme, &
@@ -1045,7 +1046,7 @@ SUBROUTINE calc_p_rho_phi ( moist, n_moist, hypsometric_opt,      &
           pfu = c3f(k+1)*MUTS(i,j) + c4f(k+1) + ptop
           pfd = c3f(k  )*MUTS(i,j) + c4f(k  ) + ptop
           phm = c3h(k  )*MUTS(i,j) + c4h(k  ) + ptop
-          al(i,k,j) = (ph(i,k+1,j)-ph(i,k,j)+phb(i,k+1,j)-phb(i,k,j))/phm/LOG(pfd/pfu)-alb(i,k,j)
+          al(i,k,j) = (ph(i,k+1,j)-ph(i,k,j)+phb(i,k+1,j)-phb(i,k,j))/phm/rp_log(pfd/pfu)-alb(i,k,j)
         END DO
         END DO
         END DO
@@ -1082,8 +1083,8 @@ SUBROUTINE calc_p_rho_phi ( moist, n_moist, hypsometric_opt,      &
         DO j=jts,jtf
         DO k=kts,ktf
         DO i=its,itf
-          p(i,k,j)=p0*( (r_d*(t0+t(i,k,j)))/                     &
-                        (p0*(al(i,k,j)+alb(i,k,j))) )**cpovcv  &
+          p(i,k,j)=p0*rp_pow( (r_d*(t0+t(i,k,j)))/               &
+                        (p0*(al(i,k,j)+alb(i,k,j))) , cpovcv)  &
                            -pb(i,k,j)
         ENDDO
         ENDDO
@@ -1113,11 +1114,11 @@ SUBROUTINE calc_p_rho_phi ( moist, n_moist, hypsometric_opt,      &
             p(i,k,j) = - 0.5*((c1(k)*mu(i,j))+qf1*(c1(k)*muts(i,j)+c2(k)))/rdnw(k)/qf2
             IF ( use_theta_m .EQ. 1 ) THEN
             al(i,k,j) = (r_d/p1000mb)*(t(i,k,j)+t0)* &
-                (((p(i,k,j)+pb(i,k,j))/p1000mb)**cvpm) - alb(i,k,j)
+                (rp_pow(((p(i,k,j)+pb(i,k,j))/p1000mb), cvpm)) - alb(i,k,j)
             ELSE
             qvf = 1.+rvovrd*moist(i,k,j,P_QV)
             al(i,k,j) = (r_d/p1000mb)*(t(i,k,j)+t0)*qvf* &
-                (((p(i,k,j)+pb(i,k,j))/p1000mb)**cvpm) - alb(i,k,j)
+                (rp_pow(((p(i,k,j)+pb(i,k,j))/p1000mb), cvpm)) - alb(i,k,j)
             END IF
 
           ENDDO
@@ -1135,11 +1136,11 @@ SUBROUTINE calc_p_rho_phi ( moist, n_moist, hypsometric_opt,      &
             p(i,k,j) = p(i,k+1,j) - ((c1(k)*mu(i,j)) + qf1*(c1(k)*muts(i,j)+c2(k)))/qf2/rdn(k+1)
             IF ( use_theta_m .EQ. 1 ) THEN
             al(i,k,j) = (r_d/p1000mb)*(t(i,k,j)+t0)* &
-                        (((p(i,k,j)+pb(i,k,j))/p1000mb)**cvpm) - alb(i,k,j)
+                        (rp_pow(((p(i,k,j)+pb(i,k,j))/p1000mb), cvpm)) - alb(i,k,j)
             ELSE
             qvf = 1.+rvovrd*moist(i,k,j,P_QV)
             al(i,k,j) = (r_d/p1000mb)*(t(i,k,j)+t0)*qvf* &
-                        (((p(i,k,j)+pb(i,k,j))/p1000mb)**cvpm) - alb(i,k,j)
+                        (rp_pow(((p(i,k,j)+pb(i,k,j))/p1000mb), cvpm)) - alb(i,k,j)
             END IF
             ENDDO
           ENDDO
@@ -1159,7 +1160,7 @@ SUBROUTINE calc_p_rho_phi ( moist, n_moist, hypsometric_opt,      &
 
             p(i,k,j) = - 0.5*((c1(k)*mu(i,j))+qf1*(c1(k)*muts(i,j)+c2(k)))/rdnw(k)/qf2
             al(i,k,j) = (r_d/p1000mb)*(t(i,k,j)+t0)* &
-                (((p(i,k,j)+pb(i,k,j))/p1000mb)**cvpm) - alb(i,k,j)
+                (rp_pow(((p(i,k,j)+pb(i,k,j))/p1000mb), cvpm)) - alb(i,k,j)
 
           ENDDO
 
@@ -1172,7 +1173,7 @@ SUBROUTINE calc_p_rho_phi ( moist, n_moist, hypsometric_opt,      &
 
             p(i,k,j) = p(i,k+1,j) - ((c1(k)*mu(i,j)) + qf1*(c1(k)*muts(i,j)+c2(k)))/qf2/rdn(k+1)
             al(i,k,j) = (r_d/p1000mb)*(t(i,k,j)+t0)* &
-                        (((p(i,k,j)+pb(i,k,j))/p1000mb)**cvpm) - alb(i,k,j)
+                        (rp_pow(((p(i,k,j)+pb(i,k,j))/p1000mb), cvpm)) - alb(i,k,j)
             ENDDO
           ENDDO
 
@@ -1205,7 +1206,7 @@ SUBROUTINE calc_p_rho_phi ( moist, n_moist, hypsometric_opt,      &
             pfu = c3f(k  )*MUTS(i,j) + c4f(k  ) + ptop
             pfd = c3f(k-1)*MUTS(i,j) + c4f(k-1) + ptop
             phm = c3h(k-1)*MUTS(i,j) + c4h(k-1) + ptop
-            ph(i,k,j) = ph(i,k-1,j) + (al(i,k-1,j)+alb(i,k-1,j))*phm*LOG(pfd/pfu)
+            ph(i,k,j) = ph(i,k-1,j) + (al(i,k-1,j)+alb(i,k-1,j))*phm*rp_log(pfd/pfu)
           ENDDO
         ENDDO
 
@@ -2618,7 +2619,7 @@ SUBROUTINE w_damp( rw_tend, max_vert_cfl,max_horiz_cfl, &
    ENDIF
 
    IF(config_flags%polar ) then
-     msfxffl = 1.0/COS(config_flags%fft_filter_lat*degrad)
+     msfxffl = 1.0/rp_cos(config_flags%fft_filter_lat*degrad)
    END IF
 
 ! Routine has been reorganized to hopefully reduce redundant code while maintaining efficiency
@@ -4368,7 +4369,7 @@ SUBROUTINE curvature ( ru, rv, rw, u, v, w, ru_tend, rv_tend, rw_tend, &
 
             ru_tend(i,k,j)=ru_tend(i,k,j) + u(i,k,j)*reradius*                 ( &
                         (msfux(i,j)/msfuy(i,j))*0.25*(rv(i-1,k,j+1)+rv(i,k,j+1)+ &
-                                    rv(i-1,k,j)+rv(i,k,j))*tan(xlat(i,j)*degrad) &
+                                    rv(i-1,k,j)+rv(i,k,j))*rp_tan(xlat(i,j)*degrad) &
                         - 0.25*(rw(i-1,k+1,j)+rw(i-1,k,j)+rw(i,k+1,j)+rw(i,k,j)) )
       ENDDO
       ENDDO
@@ -4420,7 +4421,7 @@ SUBROUTINE curvature ( ru, rv, rw, u, v, w, ru_tend, rv_tend, rw_tend, &
       DO i=its,MIN(ite,ide-1)
             rv_tend(i,k,j)=rv_tend(i,k,j) - (msfvy(i,j)/msfvx(i,j))*reradius*   (  &
                         0.25*(u(i,k,j)+u(i+1,k,j)+u(i,k,j-1)+u(i+1,k,j-1))*     &
-                        tan((xlat(i,j)+xlat(i,j-1))*0.5*degrad)*                &
+                        rp_tan((xlat(i,j)+xlat(i,j-1))*0.5*degrad)*                &
                         0.25*(ru(i,k,j)+ru(i+1,k,j)+ru(i,k,j-1)+ru(i+1,k,j-1))  &
                        + v(i,k,j)*0.25*(rw(i,k+1,j-1)+rw(i,k,j-1)+              &
                                                       rw(i,k+1,j)+rw(i,k,j))    )
@@ -4851,7 +4852,7 @@ END SUBROUTINE pole_point_bc
 
       th_phy_m_t0(i,k,j) = th_phy(i,k,j)-t0
       p_phy(i,k,j) = p(i,k,j) + pb(i,k,j)
-      pi_phy(i,k,j) = (p_phy(i,k,j)/p1000mb)**rcp
+      pi_phy(i,k,j) = rp_pow((p_phy(i,k,j)/p1000mb), rcp)
       t_phy(i,k,j) = th_phy(i,k,j)*pi_phy(i,k,j)
       rho(i,k,j) = 1./alt(i,k,j)*(1.+moist(i,k,j,P_QV))
       u_phy(i,k,j) = 0.5*(u(i,k,j)+u(i+1,k,j))
@@ -4932,7 +4933,7 @@ END SUBROUTINE pole_point_bc
 
 !      p8w(i,kde,j) = w1*p_phy(i,kde-1,j)+w2*p_phy(i,kde-2,j)
 !!!  bug fix      extrapolate ln(p) so p is positive definite
-      p8w(i,kde,j) = exp(w1*log(p_phy(i,kde-1,j))+w2*log(p_phy(i,kde-2,j)))
+      p8w(i,kde,j) = rp_exp(w1*rp_log(p_phy(i,kde-1,j))+w2*rp_log(p_phy(i,kde-2,j)))
       t8w(i,kde,j) = w1*t_phy(i,kde-1,j)+w2*t_phy(i,kde-2,j)
 
     enddo
@@ -5540,7 +5541,7 @@ END SUBROUTINE phy_prep_part2
        qc_diabatic(i,k,j) = qc(i,k,j)
 #endif
        rho(i,k,j)  = 1./(al(i,k,j)+alb(i,k,j))
-       pii(i,k,j) = ((p(i,k,j)+pb(i,k,j))/p0)**rcp
+       pii(i,k,j) = rp_pow(((p(i,k,j)+pb(i,k,j))/p0), rcp)
        z(i,k,j) = 0.5*(z_at_w(i,k,j) +z_at_w(i,k+1,j) )
        pf(i,k,j) = p(i,k,j)+pb(i,k,j)
 
@@ -5581,7 +5582,7 @@ END SUBROUTINE phy_prep_part2
       w1 = (z0 - z2)/(z1 - z2)
       w2 = 1. - w1
 !      p8w(i,kde,j) = w1*pf(i,kde-1,j)+w2*pf(i,kde-2,j)
-      p8w(i,kde,j) = exp(w1*log(pf(i,kde-1,j))+w2*log(pf(i,kde-2,j)))
+      p8w(i,kde,j) = rp_exp(w1*rp_log(pf(i,kde-1,j))+w2*rp_log(pf(i,kde-2,j)))
 
     enddo
     enddo
@@ -5920,7 +5921,7 @@ END SUBROUTINE set_tend
     c1 = c1h
     c2 = c2h
 
-    pii = 2.0 * asin(1.0)
+    pii = 2.0 * rp_asin(1.0)
 
     ktf = MIN( kte,   kde-1 )
 
@@ -5967,7 +5968,7 @@ END SUBROUTINE set_tend
       ! Apply the Rayleigh damper
       DO k = k1, ktf
         dcoef = 1.0 - MIN( 1.0, ( ztop - z00(k) ) / zdamp )
-        dcoef = (SIN( 0.5 * pii * dcoef ) )**2
+        dcoef = (rp_sin( 0.5 * pii * dcoef ) )**2
         ru_tendf(i,k,j) = ru_tendf(i,k,j) -                    &
                           (c1h(k)*muu(i,j)+c2h(k)) * ( dcoef * dampcoef ) *    &
                           ( u(i,k,j) - u00(k) )
@@ -6022,7 +6023,7 @@ END SUBROUTINE set_tend
       ! Apply the Rayleigh damper
       DO k = k1, ktf
         dcoef = 1.0 - MIN( 1.0, ( ztop - z00(k) ) / zdamp )
-        dcoef = (SIN( 0.5 * pii * dcoef ) )**2
+        dcoef = (rp_sin( 0.5 * pii * dcoef ) )**2
         rv_tendf(i,k,j) = rv_tendf(i,k,j) -                    &
                           (c1h(k)*muv(i,j)+c2h(k)) * ( dcoef * dampcoef ) *    &
                           ( v(i,k,j) - v00(k) )
@@ -6044,7 +6045,7 @@ END SUBROUTINE set_tend
         z = ( phb(i,k,j) + ph(i,k,j) ) / g
         IF ( z >= (ztop-zdamp) ) THEN
           dcoef = 1.0 - MIN( 1.0, ( ztop - z ) / zdamp )
-          dcoef = ( SIN( 0.5 * pii * dcoef ) )**2
+          dcoef = ( rp_sin( 0.5 * pii * dcoef ) )**2
           rw_tendf(i,k,j) = rw_tendf(i,k,j) -  &
                             (c1f(k)*mut(i,j)+c2f(k)) * ( dcoef * dampcoef ) * w(i,k,j)
         END IF
@@ -6095,7 +6096,7 @@ END SUBROUTINE set_tend
       ! Apply the Rayleigh damper
       DO k = k1, ktf
         dcoef = 1.0 - MIN( 1.0, ( ztop - z00(k) ) / zdamp )
-        dcoef = (SIN( 0.5 * pii * dcoef ) )**2
+        dcoef = (rp_sin( 0.5 * pii * dcoef ) )**2
         t_tendf(i,k,j) = t_tendf(i,k,j) -                      &
                          (c1(k)*MUT(i,j)+c2(k)) * ( dcoef * dampcoef )  *    &
                          ( t(i,k,j) - t00(k) )

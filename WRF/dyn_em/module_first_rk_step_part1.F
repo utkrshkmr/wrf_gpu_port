@@ -4,6 +4,7 @@
 #define BENCH_END(A)
 
 MODULE module_first_rk_step_part1
+   USE module_repro_math
 
 CONTAINS
 
@@ -540,7 +541,7 @@ BENCH_START(surf_driver_tim)
 !gmm halo of wtd and riverflow for leafhydro
 #ifdef DM_PARALLEL
   IF ( ( config_flags%sf_surface_physics.eq.NOAHMPSCHEME ) .and. ( config_flags%opt_run.eq.5 ) ) THEN
-       IF ( mod(grid%itimestep,grid%STEPWTD).eq.0 )  THEN
+       IF ( rp_mod(grid%itimestep,grid%STEPWTD).eq.0 )  THEN
 #     include "HALO_EM_HYDRO_NOAHMP.inc"
        ENDIF
   ENDIF
@@ -575,7 +576,7 @@ BENCH_START(surf_driver_tim)
       if( config_flags%bio_emiss_opt == MEGAN2_CLM ) then
         do_meganfile = .true.
         if(config_flags%chem_opt > 0) then !czhao +++++
-          do_bioe = grid%itimestep == 1 .or. mod( grid%itimestep,grid%stepbioe ) == 0
+          do_bioe = grid%itimestep == 1 .or. rp_mod( grid%itimestep,grid%stepbioe ) == 0
         else
           do_bioe = .false.
         endif

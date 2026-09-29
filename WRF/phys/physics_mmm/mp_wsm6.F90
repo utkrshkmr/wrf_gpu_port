@@ -1,5 +1,6 @@
 !=================================================================================================================
  module mp_wsm6
+   USE module_repro_math
  use ccpp_kind_types,only: kind_phys
  use module_libmassv,only: vrec,vsqrt
 
@@ -99,11 +100,11 @@
     lamdagmax = 6.e4
  endif
 !
- pi = 4.*atan(1.)
+ pi = 4.*rp_atan(1.)
  xlv1 = cl-cpv
 !
  qc0  = 4./3.*pi*denr*r0**3*xncr/den0  ! 0.419e-3 -- .61e-3
- qck1 = .104*9.8*peaut/(xncr*denr)**(1./3.)/xmyu*den0**(4./3.) ! 7.03
+ qck1 = .104*9.8*peaut/rp_pow((xncr*denr), (1./3.))/xmyu*rp_pow(den0, (4./3.)) ! 7.03
  pidnc = pi*denr/6.        ! syb
 !
  bvtr1 = 1.+bvtr
@@ -120,7 +121,7 @@
  eacrr = 1.0
  pacrr = pi*n0r*avtr*g3pbr*.25*eacrr
  precr1 = 2.*pi*n0r*.78
- precr2 = 2.*pi*n0r*.31*avtr**.5*g5pbro2
+ precr2 = 2.*pi*n0r*.31*rp_pow(avtr, .5)*g5pbro2
  roqimax = 2.08e22*dimax**8
 !
  bvts1 = 1.+bvts
@@ -134,7 +135,7 @@
  pvts = avts*g4pbs/6.
  pacrs = pi*n0s*avts*g3pbs*.25
  precs1 = 4.*n0s*.65
- precs2 = 4.*n0s*.44*avts**.5*g5pbso2
+ precs2 = 4.*n0s*.44*rp_pow(avts, .5)*g5pbso2
  pidn0r =  pi*denr*n0r
  pidn0s =  pi*dens*n0s
 !
@@ -151,15 +152,15 @@
  g5pbgo2 = rgmma(bvtg2)
  pvtg = avtg*g4pbg/6.
  precg1 = 2.*pi*n0g*.78
- precg2 = 2.*pi*n0g*.31*avtg**.5*g5pbgo2
+ precg2 = 2.*pi*n0g*.31*rp_pow(avtg, .5)*g5pbgo2
  pidn0g =  pi*deng*n0g
 !
  rslopermax = 1./lamdarmax
  rslopesmax = 1./lamdasmax
  rslopegmax = 1./lamdagmax
- rsloperbmax = rslopermax ** bvtr
- rslopesbmax = rslopesmax ** bvts
- rslopegbmax = rslopegmax ** bvtg
+ rsloperbmax = rp_pow(rslopermax, bvtr)
+ rslopesbmax = rp_pow(rslopesmax, bvts)
+ rslopegbmax = rp_pow(rslopegmax, bvtg)
  rsloper2max = rslopermax * rslopermax
  rslopes2max = rslopesmax * rslopesmax
  rslopeg2max = rslopegmax * rslopegmax
@@ -422,11 +423,11 @@
 ! viscos: kinematic viscosity(m2s-1)
 ! Optimizatin : A**B => exp(log(A)*(B))
 !
- diffus(x,y) = 8.794e-5 * exp(log(x)*(1.81)) / y   ! 8.794e-5*x**1.81/y
+ diffus(x,y) = 8.794e-5 * rp_exp(rp_log(x)*(1.81)) / y   ! 8.794e-5*x**1.81/y
  viscos(x,y) = 1.496e-6 * (x*sqrt(x)) /(x+120.)/y  ! 1.496e-6*x**1.5/(x+120.)/y
  xka(x,y) = 1.414e3*viscos(x,y)*y
  diffac(a,b,c,d,e) = d*a*a/(xka(c,d)*rv*c*c)+1./(e*diffus(c,b))
- venfac(a,b,c) = exp(log((viscos(b,c)/diffus(b,a)))*((.3333333))) &
+ venfac(a,b,c) = rp_exp(rp_log((viscos(b,c)/diffus(b,a)))*((.3333333))) &
                /sqrt(viscos(b,c))*sqrt(sqrt(den0/c))
  conden(a,b,c,d,e) = (max(b,qmin)-c)/(1.+d*d/(rv*e)*c/(a*a))
 !
@@ -529,16 +530,16 @@
    do k = kts, kte
      do i = its, ite
        tr=ttp/t(i,k)
-       qsat(i,k,1)=psat*exp(log(tr)*(xa))*exp(xb*(1.-tr))
+       qsat(i,k,1)=psat*rp_exp(rp_log(tr)*(xa))*rp_exp(xb*(1.-tr))
        qsat(i,k,1) = min(qsat(i,k,1),0.99*p(i,k))
        qsat(i,k,1) = ep2 * qsat(i,k,1) / (p(i,k) - qsat(i,k,1))
        qsat(i,k,1) = max(qsat(i,k,1),qmin)
        rh(i,k,1) = max(q(i,k) / qsat(i,k,1),qmin)
        tr=ttp/t(i,k)
        if(t(i,k).lt.ttp) then
-         qsat(i,k,2)=psat*exp(log(tr)*(xai))*exp(xbi*(1.-tr))
+         qsat(i,k,2)=psat*rp_exp(rp_log(tr)*(xai))*rp_exp(xbi*(1.-tr))
        else
-         qsat(i,k,2)=psat*exp(log(tr)*(xa))*exp(xb*(1.-tr))
+         qsat(i,k,2)=psat*rp_exp(rp_log(tr)*(xa))*rp_exp(xb*(1.-tr))
        endif
        qsat(i,k,2) = min(qsat(i,k,2),0.99*p(i,k))
        qsat(i,k,2) = ep2 * qsat(i,k,2) / (p(i,k) - qsat(i,k,2))
@@ -664,7 +665,7 @@
    do k = kte, kts, -1
      do i = its, ite
        supcol = t0c-t(i,k)
-       n0sfac(i,k) = max(min(exp(alpha*supcol),n0smax/n0s),1.)
+       n0sfac(i,k) = max(min(rp_exp(alpha*supcol),n0smax/n0s),1.)
        if(t(i,k).gt.t0c) then
 !---------------------------------------------------------------
 ! psmlt: melting of snow [HL A33] [RH83 A25]
@@ -711,7 +712,7 @@
        else
          xmi = den(i,k)*qi(i,k)/xni(i,k)
          diameter  = max(min(dicon * sqrt(xmi),dimax), 1.e-25)
-         work1c(i,k) = 1.49e4*exp(log(diameter)*(1.31))
+         work1c(i,k) = 1.49e4*rp_exp(rp_log(diameter)*(1.31))
        endif
      enddo
    enddo
@@ -801,7 +802,7 @@
 !        pfrzdtc = min(pfrz1*(exp(pfrz2*supcol)-1.)                         &
 !                * den(i,k)/denr/xncr*qc(i,k)**2*dtcld,qc(i,k))
          supcolt=min(supcol,50.)
-         pfrzdtc = min(pfrz1*(exp(pfrz2*supcolt)-1.)                        &
+         pfrzdtc = min(pfrz1*(rp_exp(pfrz2*supcolt)-1.)                        &
                  * den(i,k)/denr/xncr*qc(i,k)*qc(i,k)*dtcld,qc(i,k))
          qi(i,k) = qi(i,k) + pfrzdtc
          t(i,k) = t(i,k) + xlf/cpm(i,k)*pfrzdtc
@@ -819,7 +820,7 @@
          temp = temp*temp*rslope(i,k,1)
          supcolt=min(supcol,50.)
          pfrzdtr = min(20.*(pi*pi)*pfrz1*n0r*denr/den(i,k)                  &
-                 *(exp(pfrz2*supcolt)-1.)*temp*dtcld,                       &
+                 *(rp_exp(pfrz2*supcolt)-1.)*temp*dtcld,                       &
                    qr(i,k))
          qg(i,k) = qg(i,k) + pfrzdtr
          t(i,k) = t(i,k) + xlf/cpm(i,k)*pfrzdtr
@@ -872,7 +873,7 @@
 !        (C->R)
 !---------------------------------------------------------------
        if(qc(i,k).gt.qc0) then
-         praut(i,k) = qck1*qc(i,k)**(7./3.)
+         praut(i,k) = qck1*rp_pow(qc(i,k), (7./3.))
          praut(i,k) = min(praut(i,k),qc(i,k)/dtcld)
        endif
 !---------------------------------------------------------------
@@ -917,7 +918,7 @@
    do k = kts, kte
      do i = its, ite
        supcol = t0c-t(i,k)
-       n0sfac(i,k) = max(min(exp(alpha*supcol),n0smax/n0s),1.)
+       n0sfac(i,k) = max(min(rp_exp(alpha*supcol),n0smax/n0s),1.)
        supsat = max(q(i,k),qmin)-qsat(i,k,2)
        satdt = supsat/dtcld
        ifsat = 0
@@ -929,11 +930,11 @@
        temp = (den(i,k)*max(qi(i,k),qmin))
        temp = sqrt(sqrt(temp*temp*temp))
        xni(i,k) = min(max(5.38e7*temp,1.e3),1.e6)
-       eacrs = exp(0.07*(-supcol))
+       eacrs = rp_exp(0.07*(-supcol))
 !
        xmi = den(i,k)*qi(i,k)/xni(i,k)
        diameter  = min(dicon * sqrt(xmi),dimax)
-       vt2i = 1.49e4*diameter**1.31
+       vt2i = 1.49e4*rp_pow(diameter, 1.31)
        vt2r=pvtr*rslopeb(i,k,1)*denfac(i,k)
        vt2s=pvts*rslopeb(i,k,2)*denfac(i,k)
        vt2g=pvtg*rslopeb(i,k,3)*denfac(i,k)
@@ -982,7 +983,7 @@
 !        (T<T0: I->G)
 !-------------------------------------------------------------
          if(qg(i,k).gt.qcrmin) then
-           egi = exp(0.07*(-supcol))
+           egi = rp_exp(0.07*(-supcol))
            acrfac = 2.*rslope3(i,k,3)+2.*diameter*rslope2(i,k,3)            &
                   + diameter**2*rslope(i,k,3)
            pgaci(i,k) = pi*egi*qi(i,k)*n0g*abs(vt2ave-vt2i)*acrfac/4.
@@ -1143,8 +1144,8 @@
 !-------------------------------------------------------------
          if(supsat.gt.0.and.ifsat.ne.1) then
            supice = satdt-prevp(i,k)-pidep(i,k)-psdep(i,k)-pgdep(i,k)
-           xni0 = 1.e3*exp(0.1*supcol)
-           roqi0 = 4.92e-11*xni0**1.33
+           xni0 = 1.e3*rp_exp(0.1*supcol)
+           roqi0 = 4.92e-11*rp_pow(xni0, 1.33)
            pigen(i,k) = max(0.,(roqi0/den(i,k)-max(qi(i,k),0.))/dtcld)
            pigen(i,k) = min(min(pigen(i,k),satdt),supice)
          endif
@@ -1163,7 +1164,7 @@
 !        (T<T0: S->G)
 !-------------------------------------------------------------
          if(qs(i,k).gt.0.) then
-           alpha2 = 1.e-3*exp(0.09*(-supcol))
+           alpha2 = 1.e-3*rp_exp(0.09*(-supcol))
            pgaut(i,k) = min(max(0.,alpha2*(qs(i,k)-qs0)),qs(i,k)/dtcld)
          endif
        endif
@@ -1402,15 +1403,15 @@
    do k = kts, kte
      do i = its, ite
        tr=ttp/t(i,k)
-       qsat(i,k,1)=psat*exp(log(tr)*(xa))*exp(xb*(1.-tr))
+       qsat(i,k,1)=psat*rp_exp(rp_log(tr)*(xa))*rp_exp(xb*(1.-tr))
        qsat(i,k,1) = min(qsat(i,k,1),0.99*p(i,k))
        qsat(i,k,1) = ep2 * qsat(i,k,1) / (p(i,k) - qsat(i,k,1))
        qsat(i,k,1) = max(qsat(i,k,1),qmin)
        tr=ttp/t(i,k)
        if(t(i,k).lt.ttp) then
-         qsat(i,k,2)=psat*exp(log(tr)*(xai))*exp(xbi*(1.-tr))
+         qsat(i,k,2)=psat*rp_exp(rp_log(tr)*(xai))*rp_exp(xbi*(1.-tr))
        else
-         qsat(i,k,2)=psat*exp(log(tr)*(xa))*exp(xb*(1.-tr))
+         qsat(i,k,2)=psat*rp_exp(rp_log(tr)*(xa))*rp_exp(xb*(1.-tr))
        endif
        qsat(i,k,2) = min(qsat(i,k,2),0.99*p(i,k))
        qsat(i,k,2) = ep2 * qsat(i,k,2) / (p(i,k) - qsat(i,k,2))
@@ -1483,10 +1484,10 @@
  if(x.eq.1.)then
     rgmma=0.
  else
-    rgmma=x*exp(euler*x)
+    rgmma=x*rp_exp(euler*x)
     do i = 1,10000
        y = float(i)
-       rgmma=rgmma*(1.000+x/y)*exp(-x/y)
+       rgmma=rgmma*(1.000+x/y)*rp_exp(-x/y)
     enddo
     rgmma=1./rgmma
  endif
@@ -1514,9 +1515,9 @@
  xbi=xai+hsub/(rv*ttp)
  tr=ttp/t
  if(t.lt.ttp.and.ice.eq.1) then
-    fpvs=psat*(tr**xai)*exp(xbi*(1.-tr))
+    fpvs=psat*(rp_pow(tr, xai))*rp_exp(xbi*(1.-tr))
  else
-    fpvs=psat*(tr**xa)*exp(xb*(1.-tr))
+    fpvs=psat*(rp_pow(tr, xa))*rp_exp(xb*(1.-tr))
  endif
 
  end function fpvs
@@ -1556,7 +1557,7 @@
 !---------------------------------------------------------------
 ! n0s: Intercept parameter for snow [m-4] [HDC 6]
 !---------------------------------------------------------------
-     n0sfac(i,k) = max(min(exp(alpha*supcol),n0smax/n0s),1.)
+     n0sfac(i,k) = max(min(rp_exp(alpha*supcol),n0smax/n0s),1.)
      if(qrs(i,k,1).le.qcrmin)then
        rslope(i,k,1) = rslopermax
        rslopeb(i,k,1) = rsloperbmax
@@ -1564,7 +1565,7 @@
        rslope3(i,k,1) = rsloper3max
      else
        rslope(i,k,1) = 1./lamdar(qrs(i,k,1),den(i,k))
-       rslopeb(i,k,1) = rslope(i,k,1)**bvtr
+       rslopeb(i,k,1) = rp_pow(rslope(i,k,1), bvtr)
        rslope2(i,k,1) = rslope(i,k,1)*rslope(i,k,1)
        rslope3(i,k,1) = rslope2(i,k,1)*rslope(i,k,1)
      endif
@@ -1575,7 +1576,7 @@
        rslope3(i,k,2) = rslopes3max
      else
        rslope(i,k,2) = 1./lamdas(qrs(i,k,2),den(i,k),n0sfac(i,k))
-       rslopeb(i,k,2) = rslope(i,k,2)**bvts
+       rslopeb(i,k,2) = rp_pow(rslope(i,k,2), bvts)
        rslope2(i,k,2) = rslope(i,k,2)*rslope(i,k,2)
        rslope3(i,k,2) = rslope2(i,k,2)*rslope(i,k,2)
      endif
@@ -1586,7 +1587,7 @@
        rslope3(i,k,3) = rslopeg3max
      else
        rslope(i,k,3) = 1./lamdag(qrs(i,k,3),den(i,k))
-       rslopeb(i,k,3) = rslope(i,k,3)**bvtg
+       rslopeb(i,k,3) = rp_pow(rslope(i,k,3), bvtg)
        rslope2(i,k,3) = rslope(i,k,3)*rslope(i,k,3)
        rslope3(i,k,3) = rslope2(i,k,3)*rslope(i,k,3)
      endif
@@ -1636,7 +1637,7 @@
        rslope3(i,k) = rsloper3max
      else
        rslope(i,k) = 1./lamdar(qrs(i,k),den(i,k))
-       rslopeb(i,k) = rslope(i,k)**bvtr
+       rslopeb(i,k) = rp_pow(rslope(i,k), bvtr)
        rslope2(i,k) = rslope(i,k)*rslope(i,k)
        rslope3(i,k) = rslope2(i,k)*rslope(i,k)
      endif
@@ -1679,7 +1680,7 @@
 !---------------------------------------------------------------
 ! n0s: Intercept parameter for snow [m-4] [HDC 6]
 !---------------------------------------------------------------
-     n0sfac(i,k) = max(min(exp(alpha*supcol),n0smax/n0s),1.)
+     n0sfac(i,k) = max(min(rp_exp(alpha*supcol),n0smax/n0s),1.)
      if(qrs(i,k).le.qcrmin)then
        rslope(i,k) = rslopesmax
        rslopeb(i,k) = rslopesbmax
@@ -1687,7 +1688,7 @@
        rslope3(i,k) = rslopes3max
      else
        rslope(i,k) = 1./lamdas(qrs(i,k),den(i,k),n0sfac(i,k))
-       rslopeb(i,k) = rslope(i,k)**bvts
+       rslopeb(i,k) = rp_pow(rslope(i,k), bvts)
        rslope2(i,k) = rslope(i,k)*rslope(i,k)
        rslope3(i,k) = rslope2(i,k)*rslope(i,k)
      endif
@@ -1736,7 +1737,7 @@
        rslope3(i,k) = rslopeg3max
      else
        rslope(i,k) = 1./lamdag(qrs(i,k),den(i,k))
-       rslopeb(i,k) = rslope(i,k)**bvtg
+       rslopeb(i,k) = rp_pow(rslope(i,k), bvtg)
        rslope2(i,k) = rslope(i,k)*rslope(i,k)
        rslope3(i,k) = rslope2(i,k)*rslope(i,k)
      endif
@@ -2318,7 +2319,7 @@
     if (qr1d(k) .gt. 1.e-9) then
        rr(k) = qr1d(k)*rho(k)
        n0_r(k) = n0r
-       lamr = (xam_r*xcrg(3)*n0_r(k)/rr(k))**(1./xcre(1))
+       lamr = rp_pow((xam_r*xcrg(3)*n0_r(k)/rr(k)), (1./xcre(1)))
        ilamr(k) = 1./lamr
        l_qr(k) = .true.
     else
@@ -2328,8 +2329,8 @@
 
     if (qs1d(k) .gt. 1.e-9) then
        rs(k) = qs1d(k)*rho(k)
-       n0_s(k) = min(n0smax, n0s*exp(-alpha*temp_c))
-       lams = (xam_s*xcsg(3)*n0_s(k)/rs(k))**(1./xcse(1))
+       n0_s(k) = min(n0smax, n0s*rp_exp(-alpha*temp_c))
+       lams = rp_pow((xam_s*xcsg(3)*n0_s(k)/rs(k)), (1./xcse(1)))
        ilams(k) = 1./lams
        l_qs(k) = .true.
     else
@@ -2340,7 +2341,7 @@
     if (qg1d(k) .gt. 1.e-9) then
        rg(k) = qg1d(k)*rho(k)
        n0_g(k) = n0g
-       lamg = (xam_g*xcgg(3)*n0_g(k)/rg(k))**(1./xcge(1))
+       lamg = rp_pow((xam_g*xcgg(3)*n0_g(k)/rg(k)), (1./xcge(1)))
        ilamg(k) = 1./lamg
        l_qg(k) = .true.
     else
@@ -2374,13 +2375,13 @@
     ze_rain(k) = 1.e-22
     ze_snow(k) = 1.e-22
     ze_graupel(k) = 1.e-22
-    if (l_qr(k)) ze_rain(k) = n0_r(k)*xcrg(4)*ilamr(k)**xcre(4)
+    if (l_qr(k)) ze_rain(k) = n0_r(k)*xcrg(4)*rp_pow(ilamr(k), xcre(4))
     if (l_qs(k)) ze_snow(k) = (0.176/0.93) * (6.0/pi)*(6.0/pi)     &
                             * (xam_s/900.0)*(xam_s/900.0)          &
-                            * n0_s(k)*xcsg(4)*ilams(k)**xcse(4)
+                            * n0_s(k)*xcsg(4)*rp_pow(ilams(k), xcse(4))
     if (l_qg(k)) ze_graupel(k) = (0.176/0.93) * (6.0/pi)*(6.0/pi)  &
                             * (xam_g/900.0)*(xam_g/900.0)       &
-                            * n0_g(k)*xcgg(4)*ilamg(k)**xcge(4)
+                            * n0_g(k)*xcgg(4)*rp_pow(ilamg(k), xcge(4))
  enddo
 
 
@@ -2401,13 +2402,13 @@
           eta = 0.d0
           lams = 1./ilams(k)
           do n = 1, nrbins
-             x = xam_s * xxDs(n)**xbm_s
+             x = xam_s * rp_pow(xxDs(n), xbm_s)
              call rayleigh_soak_wetgraupel (x,dble(xocms),dble(xobms), &
                    fmelt_s, melt_outside_s, m_w_0, m_i_0, lamda_radar, &
                    cback, mixingrulestring_s, matrixstring_s,          &
                    inclusionstring_s, hoststring_s,                    &
                    hostmatrixstring_s, hostinclusionstring_s)
-              f_d = n0_s(k)*xxds(n)**xmu_s * dexp(-lams*xxds(n))
+              f_d = n0_s(k)*rp_pow(xxds(n), xmu_s) * rp_exp(-lams*xxds(n))
               eta = eta + f_d * cback * simpson(n) * xdts(n)
           enddo
           ze_snow(k) = sngl(lamda4 / (pi5 * k_w) * eta)
@@ -2421,13 +2422,13 @@
           eta = 0.d0
           lamg = 1./ilamg(k)
           do n = 1, nrbins
-             x = xam_g * xxdg(n)**xbm_g
+             x = xam_g * rp_pow(xxdg(n), xbm_g)
              call rayleigh_soak_wetgraupel (x,dble(xocmg),dble(xobmg), &
                    fmelt_g, melt_outside_g, m_w_0, m_i_0, lamda_radar, &
                    cback, mixingrulestring_g, matrixstring_g,          &
                    inclusionstring_g, hoststring_g,                    &
                    hostmatrixstring_g, hostinclusionstring_g)
-             f_d = n0_g(k)*xxdg(n)**xmu_g * dexp(-lamg*xxdg(n))
+             f_d = n0_g(k)*rp_pow(xxdg(n), xmu_g) * rp_exp(-lamg*xxdg(n))
              eta = eta + f_d * cback * simpson(n) * xdtg(n)
           enddo
           ze_graupel(k) = sngl(lamda4 / (pi5 * k_w) * eta)
@@ -2437,7 +2438,7 @@
  endif
 
  do k = kte, kts, -1
-    dBZ(k) = 10.*log10((ze_rain(k)+ze_snow(k)+ze_graupel(k))*1.d18)
+    dBZ(k) = 10.*rp_log10((ze_rain(k)+ze_snow(k)+ze_graupel(k))*1.d18)
  enddo
 
 

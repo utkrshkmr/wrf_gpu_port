@@ -1,4 +1,5 @@
 module module_ra_eclipse
+   USE module_repro_math
 
 contains
 
@@ -147,7 +148,7 @@ subroutine solar_eclipse(ims,ime,jms,jme,its,ite,jts,jte,    &
 !
 !----------
 ! Set current time
-  xt24   = mod(xtime+radt,1440.)
+  xt24   = rp_mod(xtime+radt,1440.)
   t1     = gmt+xt24/60
   julday = int(julian)+1
   if(t1 .ge. 24.) then
@@ -195,44 +196,44 @@ subroutine solar_eclipse(ims,ime,jms,jme,its,ite,jts,jte,    &
   E         = sqrt(1 - epsil**2)
   E_1       = 1/E
 !-- Get d1
-  tan_rd1   = E_1 * tan(rd)
-  rd1       = atan(tan_rd1)
+  tan_rd1   = E_1 * rp_tan(rd)
+  rd1       = rp_atan(tan_rd1)
 !-- Get rho1
-  rho1      = sin(rd)/sin(rd1)
+  rho1      = rp_sin(rd)/rp_sin(rd1)
 !-- Correct cy1
   cy1       = cy / rho1
 !-- Get d2
-  tan_rd2   = E * tan(rd)
-  rd2       = atan(tan_rd2)
+  tan_rd2   = E * rp_tan(rd)
+  rd2       = rp_atan(tan_rd2)
 !-- Get rho2
-  rho2      = cos(rd)/cos(rd2)
+  rho2      = rp_cos(rd)/rp_cos(rd2)
 !-- Compute gamma
   tan_gamma = cx / cy1
-  cgamma    = atan(tan_gamma)
+  cgamma    = rp_atan(tan_gamma)
 !-- Compute beta
-  sin_beta  = cx/sin(cgamma)
+  sin_beta  = cx/rp_sin(cgamma)
 !
 !-- If |sin(beta)|>1 then the axis of the eclipse is tangent to the Earth's
 !   surface or directly it does not crosses the Earth.
   if(abs(sin_beta) .lt. 1) then
-	beta      = asin(sin_beta)
+	beta      = rp_asin(sin_beta)
 	!-- Compute C
-	tan_C     = cy1 / cos(beta)
-	C         = atan(tan_C)
+	tan_C     = cy1 / rp_cos(beta)
+	C         = rp_atan(tan_C)
 	!-- Compute c
-	cm        = cy1 / sin(C)
+	cm        = cy1 / rp_sin(C)
         !-- Compute lat1
-        sin_lat1  = cm * sin(C + rd1)
+        sin_lat1  = cm * rp_sin(C + rd1)
         cos_lat1  = sqrt(1 - sin_lat1**2)
         tan_lat1  = sin_lat1/cos_lat1
         !-- Convert to geographic latitude
         tan_lat   = E_1 * tan_lat1
-        elat_track= atan(tan_lat)/degrad
+        elat_track= rp_atan(tan_lat)/degrad
         !-- Compute the hourly angle
         sin_H     = cx / cos_lat1
-        cos_H     = cm * cos(C+rd1)/cos_lat1
+        cos_H     = cm * rp_cos(C+rd1)/cos_lat1
         tan_H     = sin_H/cos_H
-        H         = atan(tan_H)
+        H         = rp_atan(tan_H)
 
 	if(cos_H .lt. 0) then
 		if(sin_H .ge. 0) then
@@ -281,16 +282,16 @@ subroutine solar_eclipse(ims,ime,jms,jme,its,ite,jts,jte,    &
         H    = rmu - rlon
 
 	!-- Adjust the Earth's sphericity
-	A    = sqrt( 1 - ( epsil * sin(rlat) )**2 )
+	A    = sqrt( 1 - ( epsil * rp_sin(rlat) )**2 )
 
 	!-- Compute lat1
-        cos_lat1 = cos(rlat) / A
-        sin_lat1 = sin(rlat) * E / A
+        cos_lat1 = rp_cos(rlat) / A
+        sin_lat1 = rp_sin(rlat) * E / A
 
         !-- Geocentric coordinates at the observation point
-	xi     = cos_lat1 * sin(H)
-	eta1   = sin_lat1 * cos(rd1) * E - cos_lat1 * sin(rd1) * cos(H)
-	zeta1  = sin_lat1 * sin(rd2) * E + cos_lat1 * cos(rd2) * cos(H)
+	xi     = cos_lat1 * rp_sin(H)
+	eta1   = sin_lat1 * rp_cos(rd1) * E - cos_lat1 * rp_sin(rd1) * rp_cos(H)
+	zeta1  = sin_lat1 * rp_sin(rd2) * E + cos_lat1 * rp_cos(rd2) * rp_cos(H)
 
 	!-- Correct cy (sembla que no es necessari)
 	cy1  = cy/rho1
@@ -424,12 +425,12 @@ subroutine compute_besselian_t(t1, NBessel, X, Y, d, l1, l2, mu, t0, Dt, &
   t = (t1 + DT/3600) - t0 
 
   do i=1,NBessel
-      cx  = cx  + X(i)  * t**(i-1)
-      cy  = cy  + Y(i)  * t**(i-1)
-      cd  = cd  + d(i)  * t**(i-1)
-      cl1 = cl1 + l1(i) * t**(i-1)
-      cl2 = cl2 + l2(i) * t**(i-1)
-      cmu = cmu + mu(i) * t**(i-1)
+      cx  = cx  + X(i)  * rp_pow(t, (i-1))
+      cy  = cy  + Y(i)  * rp_pow(t, (i-1))
+      cd  = cd  + d(i)  * rp_pow(t, (i-1))
+      cl1 = cl1 + l1(i) * rp_pow(t, (i-1))
+      cl2 = cl2 + l2(i) * rp_pow(t, (i-1))
+      cmu = cmu + mu(i) * rp_pow(t, (i-1))
   enddo
 
 end subroutine

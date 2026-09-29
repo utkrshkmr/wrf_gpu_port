@@ -1,0 +1,5 @@
+# Allow-list of port/sym_audit.sh (T-SYM, plan.md P0.6).
+# One entry per line: "<file as in rp_subst_files.txt> <symbol>", for calls
+# that are on host-only paths and cannot reach the model state (I/O, clocks,
+# messages).  Each entry needs a reason in a comment above it.
+# (empty: nothing allowed yet)

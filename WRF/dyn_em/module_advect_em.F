@@ -114,6 +114,7 @@ END SUBROUTINE column
 #else
 
 MODULE module_advect_em
+   USE module_repro_math
 
   USE module_bc
   USE module_model_constants
@@ -8116,9 +8117,9 @@ SUBROUTINE advect_scalar_weno ( field, field_old, tendency,     &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps + beta0)**pw
-         wi1 = gi1 / (eps + beta1)**pw
-         wi2 = gi2 / (eps + beta2)**pw
+         wi0 = gi0 / rp_pow((eps + beta0), pw)
+         wi1 = gi1 / rp_pow((eps + beta1), pw)
+         wi2 = gi2 / rp_pow((eps + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -8311,9 +8312,9 @@ SUBROUTINE advect_scalar_weno ( field, field_old, tendency,     &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps + beta0)**pw
-         wi1 = gi1 / (eps + beta1)**pw
-         wi2 = gi2 / (eps + beta2)**pw
+         wi0 = gi0 / rp_pow((eps + beta0), pw)
+         wi1 = gi1 / rp_pow((eps + beta1), pw)
+         wi2 = gi2 / rp_pow((eps + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -8522,9 +8523,9 @@ SUBROUTINE advect_scalar_weno ( field, field_old, tendency,     &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps + beta0)**pw
-         wi1 = gi1 / (eps + beta1)**pw
-         wi2 = gi2 / (eps + beta2)**pw
+         wi0 = gi0 / rp_pow((eps + beta0), pw)
+         wi1 = gi1 / rp_pow((eps + beta1), pw)
+         wi2 = gi2 / rp_pow((eps + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -8823,9 +8824,9 @@ SUBROUTINE advect_scalar_wenopd ( field, field_old, tendency,    &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps1 + beta0)**pw
-         wi1 = gi1 / (eps1 + beta1)**pw
-         wi2 = gi2 / (eps1 + beta2)**pw
+         wi0 = gi0 / rp_pow((eps1 + beta0), pw)
+         wi1 = gi1 / rp_pow((eps1 + beta1), pw)
+         wi2 = gi2 / rp_pow((eps1 + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -8985,9 +8986,9 @@ SUBROUTINE advect_scalar_wenopd ( field, field_old, tendency,    &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps1 + beta0)**pw
-         wi1 = gi1 / (eps1 + beta1)**pw
-         wi2 = gi2 / (eps1 + beta2)**pw
+         wi0 = gi0 / rp_pow((eps1 + beta0), pw)
+         wi1 = gi1 / rp_pow((eps1 + beta1), pw)
+         wi2 = gi2 / rp_pow((eps1 + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -9256,9 +9257,9 @@ SUBROUTINE advect_scalar_wenopd ( field, field_old, tendency,    &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps1 + beta0)**pw
-         wi1 = gi1 / (eps1 + beta1)**pw
-         wi2 = gi2 / (eps1 + beta2)**pw
+         wi0 = gi0 / rp_pow((eps1 + beta0), pw)
+         wi1 = gi1 / rp_pow((eps1 + beta1), pw)
+         wi2 = gi2 / rp_pow((eps1 + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -10884,6 +10885,7 @@ SUBROUTINE advect_weno_u ( u, u_old, tendency,            &
                         ids, ide, jds, jde, kds, kde,  &
                         ims, ime, jms, jme, kms, kme,  &
                         its, ite, jts, jte, kts, kte  )
+   USE module_repro_math
 
 !
 ! 5th-order WENO (Weighted Essentially Non-Oscillatory) scheme adapted from COMMAS.  
@@ -11097,9 +11099,9 @@ SUBROUTINE advect_weno_u ( u, u_old, tendency,            &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps + beta0)**pw
-         wi1 = gi1 / (eps + beta1)**pw
-         wi2 = gi2 / (eps + beta2)**pw
+         wi0 = gi0 / rp_pow((eps + beta0), pw)
+         wi1 = gi1 / rp_pow((eps + beta1), pw)
+         wi2 = gi2 / rp_pow((eps + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -11250,9 +11252,9 @@ SUBROUTINE advect_weno_u ( u, u_old, tendency,            &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps + beta0)**pw
-         wi1 = gi1 / (eps + beta1)**pw
-         wi2 = gi2 / (eps + beta2)**pw
+         wi0 = gi0 / rp_pow((eps + beta0), pw)
+         wi1 = gi1 / rp_pow((eps + beta1), pw)
+         wi2 = gi2 / rp_pow((eps + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -11474,9 +11476,9 @@ SUBROUTINE advect_weno_u ( u, u_old, tendency,            &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps + beta0)**pw
-         wi1 = gi1 / (eps + beta1)**pw
-         wi2 = gi2 / (eps + beta2)**pw
+         wi0 = gi0 / rp_pow((eps + beta0), pw)
+         wi1 = gi1 / rp_pow((eps + beta1), pw)
+         wi2 = gi2 / rp_pow((eps + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -11531,6 +11533,7 @@ SUBROUTINE advect_weno_v   ( v, v_old, tendency,            &
                         ids, ide, jds, jde, kds, kde,  &
                         ims, ime, jms, jme, kms, kme,  &
                         its, ite, jts, jte, kts, kte  )
+   USE module_repro_math
 
 !
 ! 5th-order WENO (Weighted Essentially Non-Oscillatory) scheme adapted from COMMAS.  
@@ -11742,9 +11745,9 @@ SUBROUTINE advect_weno_v   ( v, v_old, tendency,            &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps + beta0)**pw
-         wi1 = gi1 / (eps + beta1)**pw
-         wi2 = gi2 / (eps + beta2)**pw
+         wi0 = gi0 / rp_pow((eps + beta0), pw)
+         wi1 = gi1 / rp_pow((eps + beta1), pw)
+         wi2 = gi2 / rp_pow((eps + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -11909,9 +11912,9 @@ SUBROUTINE advect_weno_v   ( v, v_old, tendency,            &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps + beta0)**pw
-         wi1 = gi1 / (eps + beta1)**pw
-         wi2 = gi2 / (eps + beta2)**pw
+         wi0 = gi0 / rp_pow((eps + beta0), pw)
+         wi1 = gi1 / rp_pow((eps + beta1), pw)
+         wi2 = gi2 / rp_pow((eps + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -12163,9 +12166,9 @@ SUBROUTINE advect_weno_v   ( v, v_old, tendency,            &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps + beta0)**pw
-         wi1 = gi1 / (eps + beta1)**pw
-         wi2 = gi2 / (eps + beta2)**pw
+         wi0 = gi0 / rp_pow((eps + beta0), pw)
+         wi1 = gi1 / rp_pow((eps + beta1), pw)
+         wi2 = gi2 / rp_pow((eps + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -12226,6 +12229,7 @@ SUBROUTINE advect_weno_w    ( w, w_old, tendency,            &
                          ids, ide, jds, jde, kds, kde,  &
                          ims, ime, jms, jme, kms, kme,  &
                          its, ite, jts, jte, kts, kte  )
+   USE module_repro_math
 
 !
 ! 5th-order WENO (Weighted Essentially Non-Oscillatory) scheme adapted from COMMAS.  
@@ -12431,9 +12435,9 @@ SUBROUTINE advect_weno_w    ( w, w_old, tendency,            &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps + beta0)**pw
-         wi1 = gi1 / (eps + beta1)**pw
-         wi2 = gi2 / (eps + beta2)**pw
+         wi0 = gi0 / rp_pow((eps + beta0), pw)
+         wi1 = gi1 / rp_pow((eps + beta1), pw)
+         wi2 = gi2 / rp_pow((eps + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -12471,9 +12475,9 @@ SUBROUTINE advect_weno_w    ( w, w_old, tendency,            &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps + beta0)**pw
-         wi1 = gi1 / (eps + beta1)**pw
-         wi2 = gi2 / (eps + beta2)**pw
+         wi0 = gi0 / rp_pow((eps + beta0), pw)
+         wi1 = gi1 / rp_pow((eps + beta1), pw)
+         wi2 = gi2 / rp_pow((eps + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -12650,9 +12654,9 @@ SUBROUTINE advect_weno_w    ( w, w_old, tendency,            &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps + beta0)**pw
-         wi1 = gi1 / (eps + beta1)**pw
-         wi2 = gi2 / (eps + beta2)**pw
+         wi0 = gi0 / rp_pow((eps + beta0), pw)
+         wi1 = gi1 / rp_pow((eps + beta1), pw)
+         wi2 = gi2 / rp_pow((eps + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -12691,9 +12695,9 @@ SUBROUTINE advect_weno_w    ( w, w_old, tendency,            &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps + beta0)**pw
-         wi1 = gi1 / (eps + beta1)**pw
-         wi2 = gi2 / (eps + beta2)**pw
+         wi0 = gi0 / rp_pow((eps + beta0), pw)
+         wi1 = gi1 / rp_pow((eps + beta1), pw)
+         wi2 = gi2 / rp_pow((eps + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     
@@ -12988,9 +12992,9 @@ SUBROUTINE advect_weno_w    ( w, w_old, tendency,            &
          beta1 = 13./12.*(qim1 - 2.*qi   + qip1)**2 + 1./4.*(qim1 - qip1)**2
          beta2 = 13./12.*(qi   - 2.*qip1 + qip2)**2 + 1./4.*(qip2 - 4.*qip1 + 3.*qi)**2
     
-         wi0 = gi0 / (eps + beta0)**pw
-         wi1 = gi1 / (eps + beta1)**pw
-         wi2 = gi2 / (eps + beta2)**pw
+         wi0 = gi0 / rp_pow((eps + beta0), pw)
+         wi1 = gi1 / rp_pow((eps + beta1), pw)
+         wi2 = gi2 / rp_pow((eps + beta2), pw)
     
          sumwk = wi0 + wi1 + wi2
     

@@ -1,5 +1,6 @@
 !
 module module_fr_fire_phys
+   USE module_repro_math
 
 use module_model_constants, only: cp,xlv
 use module_fr_fire_util
@@ -577,8 +578,8 @@ do j=jts,jte
             ! vapor pressure [Pa]
             Pw=q*P/(epsilon+(1-epsilon)*q); 
             ! saturation vapor pressure [Pa]
-            Pws= exp( 54.842763 - 6763.22/T - 4.210 * log(T) + 0.000367*T + &
-                tanh(0.0415*(T - 218.8)) * (53.878 - 1331.22/T - 9.44523 * log(T) + 0.014025*T))
+            Pws= rp_exp( 54.842763 - 6763.22/T - 4.210 * rp_log(T) + 0.000367*T + &
+                rp_tanh(0.0415*(T - 218.8)) * (53.878 - 1331.22/T - 9.44523 * rp_log(T) + 0.014025*T))
             !realtive humidity [1]
             RH = Pw/Pws
             rh_fire(i,j)=RH
@@ -607,14 +608,14 @@ do j=jts,jte
                 case(1) ! saturation_moisture=2.5 wetting_lag=14h saturation_rain=8 mm/h calibrated to VanWagner&Pickett 1985 per 24 hours
                     EMC_w=saturation_moisture(k) + deltaS
                     EMC_d=saturation_moisture(k) + deltaS
-                    rlag=rec_wetting_lag_sec(k) * (1. - exp(-R/saturation_rain(k)))
+                    rlag=rec_wetting_lag_sec(k) * (1. - rp_exp(-R/saturation_rain(k)))
                 end select
             else ! not raining
                 select case(drying_model(k))
                 case(1) ! Van Wagner and Pickett (1972) per Viney (1991) eq (7) (8)
                     H = RH * 100.
-                    d=0.942*H**0.679 + 0.000499*exp(0.1*H) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*H)) ! equilibrium moisture for drying
-                    w=0.618*H**0.753 + 0.000454*exp(0.1*H) + 0.18*(21.1+273.15-T)*(1-exp(-0.115*H)) ! equilibrium moisture for adsorbtion
+                    d=0.942*rp_pow(H, 0.679) + 0.000499*rp_exp(0.1*H) + 0.18*(21.1+273.15-T)*(1-rp_exp(-0.115*H)) ! equilibrium moisture for drying
+                    w=0.618*rp_pow(H, 0.753) + 0.000454*rp_exp(0.1*H) + 0.18*(21.1+273.15-T)*(1-rp_exp(-0.115*H)) ! equilibrium moisture for adsorbtion
                     if(d.ne.d.or.w.ne.w)call crash('equilibrium moisture calculation failed, result is NaN')
                     d = d*0.01
                     w = w*0.01
@@ -649,7 +650,7 @@ do j=jts,jte
                      fmc = fmc_old + (equi - fmc_old)*change*(1.0 - 0.5*change)  ! 2nd order Taylor
                 else
                      if(fire_print_msg.ge.3)call message('exponential method')
-                     fmc = fmc_old + (equi - fmc_old)*(1 - exp(-change))
+                     fmc = fmc_old + (equi - fmc_old)*(1 - rp_exp(-change))
                 endif
                 fmc_gc(i,k,j) = fmc
 
@@ -681,7 +682,7 @@ do j=jts,jte
       if(change < tol) then
         fmep(i,k,j) = fmep(i,k,j)*(1.0 - change * (1.0 - 0.5 * change))
       else
-        fmep(i,k,j) = fmep(i,k,j)*exp(-change)
+        fmep(i,k,j) = fmep(i,k,j)*rp_exp(-change)
       endif
     enddo
   enddo
@@ -1361,31 +1362,31 @@ do j=jfts,jfte
         fuelload = fuelloadm * (.3048)**2 * 2.205    ! to lb/ft^2
         fueldepth = fueldepthm(k)/0.3048               ! to ft
         fp%betafl(i,j) = fuelload/(fueldepth * fueldens(k))! packing ratio
-        betaop = 3.348 * savr(k)**(-0.8189)     ! optimum packing ratio
+        betaop = 3.348 * rp_pow(savr(k), (-0.8189))     ! optimum packing ratio
         qig = 250. + 1116.*fp%fmc_g(i,j)            ! heat of preignition, btu/lb
-        epsilon = exp(-138./savr(k) )    ! effective heating number
+        epsilon = rp_exp(-138./savr(k) )    ! effective heating number
         rhob = fuelload/fueldepth    ! ovendry bulk density, lb/ft^3
 
-        c = 7.47 * exp( -0.133 * savr(k)**0.55)    ! const in wind coef
-        fp%bbb(i,j) = 0.02526 * savr(k)**0.54      ! const in wind coef
-        e = 0.715 * exp( -3.59e-4 * savr(k))       ! const in wind coef
-        fp%phiwc(i,j) = c * (fp%betafl(i,j)/betaop)**(-e)
+        c = 7.47 * rp_exp( -0.133 * rp_pow(savr(k), 0.55))    ! const in wind coef
+        fp%bbb(i,j) = 0.02526 * rp_pow(savr(k), 0.54)      ! const in wind coef
+        e = 0.715 * rp_exp( -3.59e-4 * savr(k))       ! const in wind coef
+        fp%phiwc(i,j) = c * rp_pow((fp%betafl(i,j)/betaop), (-e))
 
-        rtemp2 = savr(k)**1.5
+        rtemp2 = rp_pow(savr(k), 1.5)
         gammax = rtemp2/(495. + 0.0594*rtemp2)              ! maximum rxn vel, 1/min
-        a = 1./(4.774 * savr(k)**0.1 - 7.27)   ! coef for optimum rxn vel
+        a = 1./(4.774 * rp_pow(savr(k), 0.1) - 7.27)   ! coef for optimum rxn vel
         ratio = fp%betafl(i,j)/betaop
-        gamma = gammax *(ratio**a) *exp(a*(1.-ratio)) !optimum rxn vel, 1/min
+        gamma = gammax *(rp_pow(ratio, a)) *rp_exp(a*(1.-ratio)) !optimum rxn vel, 1/min
 
         wn = fuelload/(1 + st(k))       ! net fuel loading, lb/ft^2
         rtemp1 = fp%fmc_g(i,j)/fuelmce(k)
         etam = 1.-2.59*rtemp1 +5.11*rtemp1**2 -3.52*rtemp1**3  !moist damp coef
-        etas = 0.174* se(k)**(-0.19)                ! mineral damping coef
+        etas = 0.174* rp_pow(se(k), (-0.19))                ! mineral damping coef
         ir = gamma * wn * fuelheat * etam * etas  !rxn intensity,btu/ft^2 min
         ! irm = ir * 1055./( 0.3048**2 * 60.) * 1.e-6     !for mw/m^2
         fp%iboros(i,j) = ir * 1055./( 0.3048**2 * 60.) * 1.e-3 * (60.*12.6/savr(k))     ! I_R x t_r (kJ m^-2)
 
-        xifr = exp( (0.792 + 0.681*savr(k)**0.5) &
+        xifr = rp_exp( (0.792 + 0.681*rp_pow(savr(k), 0.5)) &
             * (fp%betafl(i,j)+0.1)) /(192. + 0.2595*savr(k)) ! propagating flux ratio
 
 !        ... r_0 is the spread rate for a fire on flat ground with no wind.
@@ -1608,10 +1609,10 @@ if (.not. fp%ischap(i,j) > 0.) then      ! if fuel is not chaparral, calculate r
         umidm = min(spdms,30.)           ! max input wind spd is 30 m/s   !param!
         umid = umidm * 196.850           ! m/s to ft/min
         !  eqn.: phiw = c * umid**bbb(i,j) * (fp%betafl(i,j)/betaop)**(-e) ! wind coef
-        phiw = umid**fp%bbb(i,j) * fp%phiwc(i,j) ! wind coef
+        phiw = rp_pow(umid, fp%bbb(i,j)) * fp%phiwc(i,j) ! wind coef
         phis=0.
         if (tanphi .gt. 0.) then
-            phis = 5.275 *(fp%betafl(i,j))**(-0.3) *tanphi**2   ! slope factor
+            phis = 5.275 *rp_pow((fp%betafl(i,j)), (-0.3)) *tanphi**2   ! slope factor
         endif
         ! rosm = fp%r_0(i,j)*(1. + phiw + phis)  * .00508 ! spread rate, m/s
         ros_base = fp%r_0(i,j) * .00508
@@ -1621,8 +1622,8 @@ if (.not. fp%ischap(i,j) > 0.) then      ! if fuel is not chaparral, calculate r
 
     else                                   ! McArthur formula (Australian)
         ! rosm = 0.18*exp(0.8424*max(speed,0.))
-        ros_base = 0.18*exp(0.8424)
-        ros_wind = 0.18*exp(0.8424*max(speed,0.))
+        ros_base = 0.18*rp_exp(0.8424)
+        ros_wind = 0.18*rp_exp(0.8424*max(speed,0.))
         ros_slope =0.
     endif
 !
@@ -1636,7 +1637,7 @@ else   ! chaparral
     !rosm= max(rosm, sp_n)   ! no less than backing r.o.s.
 
     ros_back=.03333    ! chaparral backing fire spread rate 0.033 m/s   ! param!
-    ros_wind = 1.2974 * spdms**1.41       ! spread rate, m/s
+    ros_wind = 1.2974 * rp_pow(spdms, 1.41)       ! spread rate, m/s
     ros_wind = max(ros_wind, ros_back)
     ros_slope =0.
 

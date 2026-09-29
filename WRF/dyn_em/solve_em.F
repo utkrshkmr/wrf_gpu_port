@@ -5,6 +5,7 @@ SUBROUTINE solve_em ( grid , config_flags  &
 #include "dummy_new_args.inc"
 !
                     )
+   USE module_repro_math
 ! Driver layer modules
    USE module_state_description
    USE module_domain, ONLY : &
@@ -83,6 +84,10 @@ SUBROUTINE solve_em ( grid , config_flags  &
    use twoway_data_module
 #endif
    USE module_firebrand_spotting, ONLY : firebrand_spotting_em_driver
+   USE module_bittrace, ONLY : bt_on, bt_checkpoint, bt_field2, bt_field3, bt_flush
+#ifdef WRF_POOL
+   USE module_gpu_scratch, ONLY : gpu_pool, gpu_scratch_reserve, wrf_pool_round
+#endif
 
    IMPLICIT NONE
 
@@ -260,6 +265,9 @@ SUBROUTINE solve_em ( grid , config_flags  &
 ! A more detailed description of these sections follows.
 !</pre>
 !</DESCRIPTION>
+
+! GPU port (plan.md P1.6): associate the i1 scratch arrays with the pool (-DWRF_POOL)
+#include "i1_assoc.inc"
 
 ! Initialize timers if compiled with -DBENCH
 #include "bench_solve_em_init.h"
@@ -443,7 +451,7 @@ SUBROUTINE solve_em ( grid , config_flags  &
      spacing = min(grid%dx, grid%dy)
      IF ( ( config_flags%use_adaptive_time_step ) .AND. ( config_flags%map_proj == PROJ_CASSINI ) ) THEN
        max_msft=MIN ( MAX(grid%max_msftx, grid%max_msfty) , &
-                      1.0/COS(config_flags%fft_filter_lat*degrad) )
+                      1.0/rp_cos(config_flags%fft_filter_lat*degrad) )
        num_sound_steps = max ( 2 * ( INT (300. * grid%dt / (spacing / max_msft) - 0.01 ) + 1 ), 4 )
      ELSE IF  ( config_flags%use_adaptive_time_step ) THEN
        max_msft= MAX(grid%max_msftx, grid%max_msfty)
@@ -867,6 +875,17 @@ BENCH_START(calc_p_rho_tim)
 
      END IF rk_step_is_one
 
+     ! bit-hash tracer (plan.md P0.7): physics and diffusion tendencies
+     IF ( rk_step == 1 .AND. bt_on(grid, 2) ) THEN
+       CALL bt_checkpoint(grid, 'first_rk_step', 2, rk_step)
+       CALL bt_field3(grid, 'first_rk_step', 'RU_TENDF', ru_tendf, 'X', rk_step)
+       CALL bt_field3(grid, 'first_rk_step', 'RV_TENDF', rv_tendf, 'Y', rk_step)
+       CALL bt_field3(grid, 'first_rk_step', 'RW_TENDF', rw_tendf, 'Z', rk_step)
+       CALL bt_field3(grid, 'first_rk_step', 'PH_TENDF', ph_tendf, 'Z', rk_step)
+       CALL bt_field3(grid, 'first_rk_step', 'T_TENDF',  t_tendf,  '-', rk_step)
+       CALL bt_field2(grid, 'first_rk_step', 'MU_TENDF', mu_tendf, '-', rk_step)
+     END IF
+
 BENCH_START(rk_tend_tim)
      !$OMP PARALLEL DO   &
      !$OMP PRIVATE ( ij )
@@ -905,6 +924,19 @@ BENCH_START(rk_tend_tim)
      END DO
      !$OMP END PARALLEL DO
 BENCH_END(rk_tend_tim)
+
+     IF ( bt_on(grid, 2) ) THEN
+       CALL bt_field3(grid, 'rk_tendency', 'RU_TEND', grid%ru_tend, 'X', rk_step)
+       CALL bt_field3(grid, 'rk_tendency', 'RV_TEND', grid%rv_tend, 'Y', rk_step)
+       CALL bt_field3(grid, 'rk_tendency', 'RW_TEND', rw_tend, 'Z', rk_step)
+       CALL bt_field3(grid, 'rk_tendency', 'PH_TEND', ph_tend, 'Z', rk_step)
+       CALL bt_field3(grid, 'rk_tendency', 'T_TEND',  t_tend,  '-', rk_step)
+       CALL bt_field2(grid, 'rk_tendency', 'MU_TEND', mu_tend, '-', rk_step)
+       CALL bt_field3(grid, 'rk_tendency', 'RU_TENDF', ru_tendf, 'X', rk_step)
+       CALL bt_field3(grid, 'rk_tendency', 'RV_TENDF', rv_tendf, 'Y', rk_step)
+       CALL bt_field3(grid, 'rk_tendency', 'RW_TENDF', rw_tendf, 'Z', rk_step)
+       CALL bt_field3(grid, 'rk_tendency', 'T_TENDF',  t_tendf,  '-', rk_step)
+     END IF
 
      IF (config_flags%use_adaptive_time_step) THEN
        DO ij = 1 , grid%num_tiles
@@ -1795,6 +1827,7 @@ BENCH_START(small_step_finish_tim)
        END IF
 
 BENCH_END(small_step_finish_tim)
+     CALL bt_checkpoint(grid, 'small_step_finish', 2, rk_step)
 
      END DO
      !$OMP END PARALLEL DO
@@ -2454,6 +2487,7 @@ BENCH_START(tke_adv_tim)
 
        ENDIF TKE_advance
 BENCH_END(tke_adv_tim)
+     CALL bt_checkpoint(grid, 'scalar_transport', 2, rk_step)
 
 #if (WRF_CHEM == 1)
 !  next the chemical species
@@ -2970,6 +3004,7 @@ BENCH_START(calc_p_rho_tim)
                             k_start    , k_end                                                )
 
 BENCH_END(calc_p_rho_tim)
+     CALL bt_checkpoint(grid, 'calc_p_rho_phi', 2, rk_step)
 
      ENDDO
      !$OMP END PARALLEL DO
@@ -3980,6 +4015,7 @@ BENCH_START(micro_driver_tim)
       &        ,pert_thom_ni=config_flags%pert_thom_ni  )
                                                                           
 BENCH_END(micro_driver_tim)
+   CALL bt_checkpoint(grid, 'microphysics', 2, 0)
 
 #if 0
 BENCH_START(microswap_2)
@@ -4197,6 +4233,7 @@ BENCH_START(moist_phys_end_tim)
    END DO scalar_tile_loop_1ba
    !$OMP END PARALLEL DO
 BENCH_END(moist_phys_end_tim)
+   CALL bt_checkpoint(grid, 'moist_physics_finish', 2, 0)
 
    IF (.not. config_flags%non_hydrostatic) THEN
 #ifdef DM_PARALLEL
@@ -4747,6 +4784,10 @@ BENCH_END(bc_2d_tim)
 !  after w, after filtering, we have data ready to use.
 !-----------------------------------------------------------
 
+  ! bit-hash tracer (plan.md P0.7): state at the end of the step
+  CALL bt_checkpoint(grid, 'end_step', 1, 0)
+  CALL bt_flush(grid)
+
   CALL after_all_rk_steps ( grid, config_flags,                  &
                             moist, chem, tracer, scalar,         &
                             th_phy, pi_phy, p_phy,               &
@@ -4929,7 +4970,7 @@ BENCH_END(bc_2d_tim)
          grid%prev_rainc  = 0.0
       end if
 
-      CMAQ_STEP = (mod(COUNTER, WRF_CMAQ_FREQ) .EQ. 0)
+      CMAQ_STEP = (rp_mod(COUNTER, WRF_CMAQ_FREQ) .EQ. 0)
 
       if (CMAQ_STEP) then
          CALL aqprep (grid, config_flags, grid%t_phy, p_phy,       &

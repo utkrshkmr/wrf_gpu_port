@@ -2,6 +2,7 @@
 !WRF:MODEL_LAYER:BOUNDARY
 !
 MODULE module_bc_em
+   USE module_repro_math
 
    USE module_bc, ONLY: set_physical_bc2d, set_physical_bc3d, spec_bdytend, &
                         spec_bdytend_perturb, relax_bdytend_tile, relax_bdytend, &
@@ -1317,7 +1318,7 @@ CONTAINS
        DO loop = spec_zone + 1, spec_zone + relax_zone
          fcx(loop) = 0.1 / dt * (spec_zone + relax_zone - loop) / (relax_zone - 1)
          gcx(loop) = 1.0 / dt / 50. * (spec_zone + relax_zone - loop) / (relax_zone - 1)
-         spongeweight=exp(-(loop-(spec_zone + 1))*spec_exp)
+         spongeweight=rp_exp(-(loop-(spec_zone + 1))*spec_exp)
          fcx(loop) = fcx(loop)*spongeweight
          gcx(loop) = gcx(loop)*spongeweight
        ENDDO   

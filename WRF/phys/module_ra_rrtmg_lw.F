@@ -1702,6 +1702,7 @@
 ! -------------------------------------------------------------
 
   module MersenneTwister
+   USE module_repro_math
 ! -------------------------------------------------------------
 
   use parkind, only : im => kind_im, rb => kind_rb 
@@ -1822,8 +1823,8 @@ contains
     
     nFirstLoop = max(blockSize, size(seed))
     do k = 1, nFirstLoop
-       i = mod(k + nWraps, blockSize)
-       j = mod(k - 1,      size(seed))
+       i = rp_mod(k + nWraps, blockSize)
+       j = rp_mod(k - 1,      size(seed))
        if(i == 0) then
          twister%state(i) = twister%state(blockSize - 1)
          twister%state(1) = ieor(twister%state(1),                                 &
@@ -1844,7 +1845,7 @@ contains
     !
     ! Walk through the state array, beginning where we left off in the block above
     ! 
-    do i = mod(nFirstLoop, blockSize) + nWraps + 1, blockSize - 1
+    do i = rp_mod(nFirstLoop, blockSize) + nWraps + 1, blockSize - 1
       twister%state(i) = ieor(twister%state(i),                                 &
                               ieor(twister%state(i-1),                          & 
                                    ishft(twister%state(i-1), -30_im)) * 1566083941_im) - i ! Non-linear
@@ -1853,7 +1854,7 @@ contains
     
     twister%state(0) = twister%state(blockSize - 1) 
     
-    do i = 1, mod(nFirstLoop, blockSize) + nWraps
+    do i = 1, rp_mod(nFirstLoop, blockSize) + nWraps
       twister%state(i) = ieor(twister%state(i),                                 &
                               ieor(twister%state(i-1),                          & 
                                    ishft(twister%state(i-1), -30_im)) * 1566083941_im) - i ! Non-linear
@@ -2046,6 +2047,7 @@ contains
 !     created:   $Date: 2009/04/16 19:54:22 $
 !
       module mcica_subcol_gen_lw
+   USE module_repro_math
 
 !  --------------------------------------------------------------------------
 ! |                                                                          |
@@ -2226,7 +2228,7 @@ contains
 ! Latitude in radians, decorrelation length in meters
 !         decorr_len(:) = ( am1 + am2 * exp(-(lat*180._rb/pi - am3)**2 / (am4*am4)) ) * 1.e3_rb
 ! Latitude in degrees, decorrelation length in meters
-         decorr_len(:) = ( am1 + am2 * exp(-(lat - am3)**2 / (am4*am4)) ) * 1.e3_rb
+         decorr_len(:) = ( am1 + am2 * rp_exp(-(lat - am3)**2 / (am4*am4)) ) * 1.e3_rb
       else
 ! Spatially and temporally constant decorrelation length
          decorr_len(:) = Zo_default
@@ -2541,7 +2543,7 @@ contains
             do i = 1, ncol
                alpha(i, 1) = 0._rb
                do ilev = 2,nlay
-                  alpha(i, ilev) = exp( -(hgt(i,ilev) - hgt(i,ilev-1)) * Zo_inv(i))
+                  alpha(i, ilev) = rp_exp( -(hgt(i,ilev) - hgt(i,ilev-1)) * Zo_inv(i))
                enddo
             enddo
 
@@ -2586,7 +2588,7 @@ contains
        do i = 1, ncol
           alpha(i, 1) = 0._rb
           do ilev = 2,nlay
-             alpha(i, ilev) = exp( -(hgt(i,ilev) - hgt(i,ilev-1) ) * Zo_inv(i))
+             alpha(i, ilev) = rp_exp( -(hgt(i,ilev) - hgt(i,ilev-1) ) * Zo_inv(i))
           ! Decorrelate layers when clear layer follows a cloudy layer to enforce
           ! random correlation between non-adjacent cloudy layers
              if (cldf(i,ilev) .eq. 0.0_rb .and. cldf(i,ilev-1) .gt. 0.0_rb) then 
@@ -3032,6 +3034,7 @@ contains
 !     created:   $Date: 2009/04/16 19:54:22 $
 !
       module rrtmg_lw_rtrnmc
+   USE module_repro_math
 
 !  --------------------------------------------------------------------------
 ! |                                                                          |
@@ -3254,7 +3257,7 @@ contains
          if (ibnd.eq.1 .or. ibnd.eq.4 .or. ibnd.ge.10) then
            secdiff(ibnd) = 1.66_rb
          else
-           secdiff(ibnd) = a0(ibnd) + a1(ibnd)*exp(a2(ibnd)*pwvcm)
+           secdiff(ibnd) = a0(ibnd) + a1(ibnd)*rp_exp(a2(ibnd)*pwvcm)
            if (secdiff(ibnd) .gt. 1.80_rb) secdiff(ibnd) = 1.80_rb
            if (secdiff(ibnd) .lt. 1.50_rb) secdiff(ibnd) = 1.50_rb
          endif
@@ -3286,7 +3289,7 @@ contains
             if (cldfmc(ig,lay) .eq. 1._rb) then
                ib = ngb(ig)
                odcld(lay,ig) = secdiff(ib) * taucmc(ig,lay)
-               transcld = exp(-odcld(lay,ig))
+               transcld = rp_exp(-odcld(lay,ig))
                abscld(lay,ig) = 1._rb - transcld
                efclfrac(lay,ig) = abscld(lay,ig) * cldfmc(ig,lay)
                icldlyr(lay) = 1
@@ -3529,6 +3532,7 @@ contains
 !     created:   $Date: 2009/04/16 19:54:22 $
 !
       module rrtmg_lw_setcoef
+   USE module_repro_math
 
 !  --------------------------------------------------------------------------
 ! |                                                                          |
@@ -3759,7 +3763,7 @@ contains
 !  layer pressure.  Store them in JP and JP1.  Store in FP the
 !  fraction of the difference (in ln(pressure)) between these
 !  two values that the layer pressure lies.
-         plog = log(pavel(lay))
+         plog = rp_log(pavel(lay))
 !         plog = dlog(pavel(lay))
          jp(lay) = int(36._rb - 5*(plog+0.04_rb))
          if (jp(lay) .lt. 1) then
@@ -4797,6 +4801,7 @@ contains
 !     created:   $Date: 2009/10/20 15:08:37 $
 !
       module rrtmg_lw_taumol
+   USE module_repro_math
 
 !  --------------------------------------------------------------------------
 ! |                                                                          |
@@ -5299,21 +5304,21 @@ contains
          if (specparm .ge. oneminus) specparm = oneminus
          specmult = 8._rb*(specparm)
          js = 1 + int(specmult)
-         fs = mod(specmult,1.0_rb)        
+         fs = rp_mod(specmult,1.0_rb)        
 
          speccomb1 = colh2o(lay) + rat_h2oco2_1(lay)*colco2(lay)
          specparm1 = colh2o(lay)/speccomb1
          if (specparm1 .ge. oneminus) specparm1 = oneminus
          specmult1 = 8._rb*(specparm1)
          js1 = 1 + int(specmult1)
-         fs1 = mod(specmult1,1.0_rb)
+         fs1 = rp_mod(specmult1,1.0_rb)
 
          speccomb_mn2o = colh2o(lay) + refrat_m_a*colco2(lay)
          specparm_mn2o = colh2o(lay)/speccomb_mn2o
          if (specparm_mn2o .ge. oneminus) specparm_mn2o = oneminus
          specmult_mn2o = 8._rb*specparm_mn2o
          jmn2o = 1 + int(specmult_mn2o)
-         fmn2o = mod(specmult_mn2o,1.0_rb)
+         fmn2o = rp_mod(specmult_mn2o,1.0_rb)
          fmn2omf = minorfrac(lay)*fmn2o
 !  In atmospheres where the amount of N2O is too great to be considered
 !  a minor species, adjust the column amount of N2O by an empirical factor 
@@ -5321,7 +5326,7 @@ contains
          chi_n2o = coln2o(lay)/coldry(lay)
          ratn2o = 1.e20_rb*chi_n2o/chi_mls(4,jp(lay)+1)
          if (ratn2o .gt. 1.5_rb) then
-            adjfac = 0.5_rb+(ratn2o-0.5_rb)**0.65_rb
+            adjfac = 0.5_rb+rp_pow((ratn2o-0.5_rb), 0.65_rb)
             adjcoln2o = adjfac*chi_mls(4,jp(lay)+1)*coldry(lay)*1.e-20_rb
          else
             adjcoln2o = coln2o(lay)
@@ -5332,7 +5337,7 @@ contains
          if (specparm_planck .ge. oneminus) specparm_planck=oneminus
          specmult_planck = 8._rb*specparm_planck
          jpl= 1 + int(specmult_planck)
-         fpl = mod(specmult_planck,1.0_rb)
+         fpl = rp_mod(specmult_planck,1.0_rb)
 
          ind0 = ((jp(lay)-1)*5+(jt(lay)-1))*nspa(3) + js
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(3) + js1
@@ -5476,14 +5481,14 @@ contains
          if (specparm .ge. oneminus) specparm = oneminus
          specmult = 4._rb*(specparm)
          js = 1 + int(specmult)
-         fs = mod(specmult,1.0_rb)
+         fs = rp_mod(specmult,1.0_rb)
 
          speccomb1 = colh2o(lay) + rat_h2oco2_1(lay)*colco2(lay)
          specparm1 = colh2o(lay)/speccomb1
          if (specparm1 .ge. oneminus) specparm1 = oneminus
          specmult1 = 4._rb*(specparm1)
          js1 = 1 + int(specmult1)
-         fs1 = mod(specmult1,1.0_rb)
+         fs1 = rp_mod(specmult1,1.0_rb)
 
          fac000 = (1._rb - fs) * fac00(lay)
          fac010 = (1._rb - fs) * fac10(lay)
@@ -5499,7 +5504,7 @@ contains
          if (specparm_mn2o .ge. oneminus) specparm_mn2o = oneminus
          specmult_mn2o = 4._rb*specparm_mn2o
          jmn2o = 1 + int(specmult_mn2o)
-         fmn2o = mod(specmult_mn2o,1.0_rb)
+         fmn2o = rp_mod(specmult_mn2o,1.0_rb)
          fmn2omf = minorfrac(lay)*fmn2o
 !  In atmospheres where the amount of N2O is too great to be considered
 !  a minor species, adjust the column amount of N2O by an empirical factor 
@@ -5507,7 +5512,7 @@ contains
          chi_n2o = coln2o(lay)/coldry(lay)
          ratn2o = 1.e20*chi_n2o/chi_mls(4,jp(lay)+1)
          if (ratn2o .gt. 1.5_rb) then
-            adjfac = 0.5_rb+(ratn2o-0.5_rb)**0.65_rb
+            adjfac = 0.5_rb+rp_pow((ratn2o-0.5_rb), 0.65_rb)
             adjcoln2o = adjfac*chi_mls(4,jp(lay)+1)*coldry(lay)*1.e-20_rb
          else
             adjcoln2o = coln2o(lay)
@@ -5518,7 +5523,7 @@ contains
          if (specparm_planck .ge. oneminus) specparm_planck=oneminus
          specmult_planck = 4._rb*specparm_planck
          jpl= 1 + int(specmult_planck)
-         fpl = mod(specmult_planck,1.0_rb)
+         fpl = rp_mod(specmult_planck,1.0_rb)
 
          ind0 = ((jp(lay)-13)*5+(jt(lay)-1))*nspb(3) + js
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(3) + js1
@@ -5601,21 +5606,21 @@ contains
          if (specparm .ge. oneminus) specparm = oneminus
          specmult = 8._rb*(specparm)
          js = 1 + int(specmult)
-         fs = mod(specmult,1.0_rb)
+         fs = rp_mod(specmult,1.0_rb)
 
          speccomb1 = colh2o(lay) + rat_h2oco2_1(lay)*colco2(lay)
          specparm1 = colh2o(lay)/speccomb1
          if (specparm1 .ge. oneminus) specparm1 = oneminus
          specmult1 = 8._rb*(specparm1)
          js1 = 1 + int(specmult1)
-         fs1 = mod(specmult1,1.0_rb)
+         fs1 = rp_mod(specmult1,1.0_rb)
 
          speccomb_planck = colh2o(lay)+refrat_planck_a*colco2(lay)
          specparm_planck = colh2o(lay)/speccomb_planck
          if (specparm_planck .ge. oneminus) specparm_planck=oneminus
          specmult_planck = 8._rb*specparm_planck
          jpl= 1 + int(specmult_planck)
-         fpl = mod(specmult_planck,1.0_rb)
+         fpl = rp_mod(specmult_planck,1.0_rb)
 
          ind0 = ((jp(lay)-1)*5+(jt(lay)-1))*nspa(4) + js
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(4) + js1
@@ -5753,14 +5758,14 @@ contains
          if (specparm .ge. oneminus) specparm = oneminus
          specmult = 4._rb*(specparm)
          js = 1 + int(specmult)
-         fs = mod(specmult,1.0_rb)
+         fs = rp_mod(specmult,1.0_rb)
 
          speccomb1 = colo3(lay) + rat_o3co2_1(lay)*colco2(lay)
          specparm1 = colo3(lay)/speccomb1
          if (specparm1 .ge. oneminus) specparm1 = oneminus
          specmult1 = 4._rb*(specparm1)
          js1 = 1 + int(specmult1)
-         fs1 = mod(specmult1,1.0_rb)
+         fs1 = rp_mod(specmult1,1.0_rb)
 
          fac000 = (1._rb - fs) * fac00(lay)
          fac010 = (1._rb - fs) * fac10(lay)
@@ -5776,7 +5781,7 @@ contains
          if (specparm_planck .ge. oneminus) specparm_planck=oneminus
          specmult_planck = 4._rb*specparm_planck
          jpl= 1 + int(specmult_planck)
-         fpl = mod(specmult_planck,1.0_rb)
+         fpl = rp_mod(specmult_planck,1.0_rb)
 
          ind0 = ((jp(lay)-13)*5+(jt(lay)-1))*nspb(4) + js
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(4) + js1
@@ -5872,28 +5877,28 @@ contains
          if (specparm .ge. oneminus) specparm = oneminus
          specmult = 8._rb*(specparm)
          js = 1 + int(specmult)
-         fs = mod(specmult,1.0_rb)
+         fs = rp_mod(specmult,1.0_rb)
 
          speccomb1 = colh2o(lay) + rat_h2oco2_1(lay)*colco2(lay)
          specparm1 = colh2o(lay)/speccomb1
          if (specparm1 .ge. oneminus) specparm1 = oneminus
          specmult1 = 8._rb*(specparm1)
          js1 = 1 + int(specmult1)
-         fs1 = mod(specmult1,1.0_rb)
+         fs1 = rp_mod(specmult1,1.0_rb)
 
          speccomb_mo3 = colh2o(lay) + refrat_m_a*colco2(lay)
          specparm_mo3 = colh2o(lay)/speccomb_mo3
          if (specparm_mo3 .ge. oneminus) specparm_mo3 = oneminus
          specmult_mo3 = 8._rb*specparm_mo3
          jmo3 = 1 + int(specmult_mo3)
-         fmo3 = mod(specmult_mo3,1.0_rb)
+         fmo3 = rp_mod(specmult_mo3,1.0_rb)
 
          speccomb_planck = colh2o(lay)+refrat_planck_a*colco2(lay)
          specparm_planck = colh2o(lay)/speccomb_planck
          if (specparm_planck .ge. oneminus) specparm_planck=oneminus
          specmult_planck = 8._rb*specparm_planck
          jpl= 1 + int(specmult_planck)
-         fpl = mod(specmult_planck,1.0_rb)
+         fpl = rp_mod(specmult_planck,1.0_rb)
 
          ind0 = ((jp(lay)-1)*5+(jt(lay)-1))*nspa(5) + js
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(5) + js1
@@ -6039,14 +6044,14 @@ contains
          if (specparm .ge. oneminus) specparm = oneminus
          specmult = 4._rb*(specparm)
          js = 1 + int(specmult)
-         fs = mod(specmult,1.0_rb)
+         fs = rp_mod(specmult,1.0_rb)
 
          speccomb1 = colo3(lay) + rat_o3co2_1(lay)*colco2(lay)
          specparm1 = colo3(lay)/speccomb1
          if (specparm1 .ge. oneminus) specparm1 = oneminus
          specmult1 = 4._rb*(specparm1)
          js1 = 1 + int(specmult1)
-         fs1 = mod(specmult1,1.0_rb)
+         fs1 = rp_mod(specmult1,1.0_rb)
 
          fac000 = (1._rb - fs) * fac00(lay)
          fac010 = (1._rb - fs) * fac10(lay)
@@ -6062,7 +6067,7 @@ contains
          if (specparm_planck .ge. oneminus) specparm_planck=oneminus
          specmult_planck = 4._rb*specparm_planck
          jpl= 1 + int(specmult_planck)
-         fpl = mod(specmult_planck,1.0_rb)
+         fpl = rp_mod(specmult_planck,1.0_rb)
 
          ind0 = ((jp(lay)-13)*5+(jt(lay)-1))*nspb(5) + js
          ind1 = ((jp(lay)-12)*5+(jt1(lay)-1))*nspb(5) + js1
@@ -6128,7 +6133,7 @@ contains
          chi_co2 = colco2(lay)/(coldry(lay))
          ratco2 = 1.e20_rb*chi_co2/chi_mls(2,jp(lay)+1)
          if (ratco2 .gt. 3.0_rb) then
-            adjfac = 2.0_rb+(ratco2-2.0_rb)**0.77_rb
+            adjfac = 2.0_rb+rp_pow((ratco2-2.0_rb), 0.77_rb)
             adjcolco2 = adjfac*chi_mls(2,jp(lay)+1)*coldry(lay)*1.e-20_rb
          else
             adjcolco2 = colco2(lay)
@@ -6233,14 +6238,14 @@ contains
          if (specparm .ge. oneminus) specparm = oneminus
          specmult = 8._rb*(specparm)
          js = 1 + int(specmult)
-         fs = mod(specmult,1.0_rb)
+         fs = rp_mod(specmult,1.0_rb)
 
          speccomb1 = colh2o(lay) + rat_h2oo3_1(lay)*colo3(lay)
          specparm1 = colh2o(lay)/speccomb1
          if (specparm1 .ge. oneminus) specparm1 = oneminus
          specmult1 = 8._rb*(specparm1)
          js1 = 1 + int(specmult1)
-         fs1 = mod(specmult1,1.0_rb)
+         fs1 = rp_mod(specmult1,1.0_rb)
 
          speccomb_mco2 = colh2o(lay) + refrat_m_a*colo3(lay)
          specparm_mco2 = colh2o(lay)/speccomb_mco2
@@ -6248,7 +6253,7 @@ contains
          specmult_mco2 = 8._rb*specparm_mco2
 
          jmco2 = 1 + int(specmult_mco2)
-         fmco2 = mod(specmult_mco2,1.0_rb)
+         fmco2 = rp_mod(specmult_mco2,1.0_rb)
 
 !  In atmospheres where the amount of CO2 is too great to be considered
 !  a minor species, adjust the column amount of CO2 by an empirical factor 
@@ -6256,7 +6261,7 @@ contains
          chi_co2 = colco2(lay)/(coldry(lay))
          ratco2 = 1.e20*chi_co2/chi_mls(2,jp(lay)+1)
          if (ratco2 .gt. 3.0_rb) then
-            adjfac = 3.0_rb+(ratco2-3.0_rb)**0.79_rb
+            adjfac = 3.0_rb+rp_pow((ratco2-3.0_rb), 0.79_rb)
             adjcolco2 = adjfac*chi_mls(2,jp(lay)+1)*coldry(lay)*1.e-20_rb
          else
             adjcolco2 = colco2(lay)
@@ -6267,7 +6272,7 @@ contains
          if (specparm_planck .ge. oneminus) specparm_planck=oneminus
          specmult_planck = 8._rb*specparm_planck
          jpl= 1 + int(specmult_planck)
-         fpl = mod(specmult_planck,1.0_rb)
+         fpl = rp_mod(specmult_planck,1.0_rb)
 
          ind0 = ((jp(lay)-1)*5+(jt(lay)-1))*nspa(7) + js
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(7) + js1
@@ -6412,7 +6417,7 @@ contains
          chi_co2 = colco2(lay)/(coldry(lay))
          ratco2 = 1.e20*chi_co2/chi_mls(2,jp(lay)+1)
          if (ratco2 .gt. 3.0_rb) then
-            adjfac = 2.0_rb+(ratco2-2.0_rb)**0.79_rb
+            adjfac = 2.0_rb+rp_pow((ratco2-2.0_rb), 0.79_rb)
             adjcolco2 = adjfac*chi_mls(2,jp(lay)+1)*coldry(lay)*1.e-20_rb
          else
             adjcolco2 = colco2(lay)
@@ -6494,7 +6499,7 @@ contains
          chi_co2 = colco2(lay)/(coldry(lay))
          ratco2 = 1.e20_rb*chi_co2/chi_mls(2,jp(lay)+1)
          if (ratco2 .gt. 3.0_rb) then
-            adjfac = 2.0_rb+(ratco2-2.0_rb)**0.65_rb
+            adjfac = 2.0_rb+rp_pow((ratco2-2.0_rb), 0.65_rb)
             adjcolco2 = adjfac*chi_mls(2,jp(lay)+1)*coldry(lay)*1.e-20_rb
          else
             adjcolco2 = colco2(lay)
@@ -6541,7 +6546,7 @@ contains
          chi_co2 = colco2(lay)/coldry(lay)
          ratco2 = 1.e20_rb*chi_co2/chi_mls(2,jp(lay)+1)
          if (ratco2 .gt. 3.0_rb) then
-            adjfac = 2.0_rb+(ratco2-2.0_rb)**0.65_rb
+            adjfac = 2.0_rb+rp_pow((ratco2-2.0_rb), 0.65_rb)
             adjcolco2 = adjfac*chi_mls(2,jp(lay)+1) * coldry(lay)*1.e-20_rb
          else
             adjcolco2 = colco2(lay)
@@ -6630,21 +6635,21 @@ contains
          if (specparm .ge. oneminus) specparm = oneminus
          specmult = 8._rb*(specparm)
          js = 1 + int(specmult)
-         fs = mod(specmult,1.0_rb)
+         fs = rp_mod(specmult,1.0_rb)
 
          speccomb1 = colh2o(lay) + rat_h2och4_1(lay)*colch4(lay)
          specparm1 = colh2o(lay)/speccomb1
          if (specparm1 .ge. oneminus) specparm1 = oneminus
          specmult1 = 8._rb*(specparm1)
          js1 = 1 + int(specmult1)
-         fs1 = mod(specmult1,1.0_rb)
+         fs1 = rp_mod(specmult1,1.0_rb)
 
          speccomb_mn2o = colh2o(lay) + refrat_m_a*colch4(lay)
          specparm_mn2o = colh2o(lay)/speccomb_mn2o
          if (specparm_mn2o .ge. oneminus) specparm_mn2o = oneminus
          specmult_mn2o = 8._rb*specparm_mn2o
          jmn2o = 1 + int(specmult_mn2o)
-         fmn2o = mod(specmult_mn2o,1.0_rb)
+         fmn2o = rp_mod(specmult_mn2o,1.0_rb)
 
 !  In atmospheres where the amount of N2O is too great to be considered
 !  a minor species, adjust the column amount of N2O by an empirical factor 
@@ -6652,7 +6657,7 @@ contains
          chi_n2o = coln2o(lay)/(coldry(lay))
          ratn2o = 1.e20_rb*chi_n2o/chi_mls(4,jp(lay)+1)
          if (ratn2o .gt. 1.5_rb) then
-            adjfac = 0.5_rb+(ratn2o-0.5_rb)**0.65_rb
+            adjfac = 0.5_rb+rp_pow((ratn2o-0.5_rb), 0.65_rb)
             adjcoln2o = adjfac*chi_mls(4,jp(lay)+1)*coldry(lay)*1.e-20_rb
          else
             adjcoln2o = coln2o(lay)
@@ -6663,7 +6668,7 @@ contains
          if (specparm_planck .ge. oneminus) specparm_planck=oneminus
          specmult_planck = 8._rb*specparm_planck
          jpl= 1 + int(specmult_planck)
-         fpl = mod(specmult_planck,1.0_rb)
+         fpl = rp_mod(specmult_planck,1.0_rb)
 
          ind0 = ((jp(lay)-1)*5+(jt(lay)-1))*nspa(9) + js
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(9) + js1
@@ -6809,7 +6814,7 @@ contains
          chi_n2o = coln2o(lay)/(coldry(lay))
          ratn2o = 1.e20_rb*chi_n2o/chi_mls(4,jp(lay)+1)
          if (ratn2o .gt. 1.5_rb) then
-            adjfac = 0.5_rb+(ratn2o-0.5_rb)**0.65_rb
+            adjfac = 0.5_rb+rp_pow((ratn2o-0.5_rb), 0.65_rb)
             adjcoln2o = adjfac*chi_mls(4,jp(lay)+1)*coldry(lay)*1.e-20_rb
          else
             adjcoln2o = coln2o(lay)
@@ -7030,21 +7035,21 @@ contains
          if (specparm .ge. oneminus) specparm = oneminus
          specmult = 8._rb*(specparm)
          js = 1 + int(specmult)
-         fs = mod(specmult,1.0_rb)
+         fs = rp_mod(specmult,1.0_rb)
 
          speccomb1 = colh2o(lay) + rat_h2oco2_1(lay)*colco2(lay)
          specparm1 = colh2o(lay)/speccomb1
          if (specparm1 .ge. oneminus) specparm1 = oneminus
          specmult1 = 8._rb*(specparm1)
          js1 = 1 + int(specmult1)
-         fs1 = mod(specmult1,1.0_rb)
+         fs1 = rp_mod(specmult1,1.0_rb)
 
          speccomb_planck = colh2o(lay)+refrat_planck_a*colco2(lay)
          specparm_planck = colh2o(lay)/speccomb_planck
          if (specparm_planck .ge. oneminus) specparm_planck=oneminus
          specmult_planck = 8._rb*specparm_planck
          jpl= 1 + int(specmult_planck)
-         fpl = mod(specmult_planck,1.0_rb)
+         fpl = rp_mod(specmult_planck,1.0_rb)
 
          ind0 = ((jp(lay)-1)*5+(jt(lay)-1))*nspa(12) + js
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(12) + js1
@@ -7248,21 +7253,21 @@ contains
          if (specparm .ge. oneminus) specparm = oneminus
          specmult = 8._rb*(specparm)
          js = 1 + int(specmult)
-         fs = mod(specmult,1.0_rb)
+         fs = rp_mod(specmult,1.0_rb)
 
          speccomb1 = colh2o(lay) + rat_h2on2o_1(lay)*coln2o(lay)
          specparm1 = colh2o(lay)/speccomb1
          if (specparm1 .ge. oneminus) specparm1 = oneminus
          specmult1 = 8._rb*(specparm1)
          js1 = 1 + int(specmult1)
-         fs1 = mod(specmult1,1.0_rb)
+         fs1 = rp_mod(specmult1,1.0_rb)
 
          speccomb_mco2 = colh2o(lay) + refrat_m_a*coln2o(lay)
          specparm_mco2 = colh2o(lay)/speccomb_mco2
          if (specparm_mco2 .ge. oneminus) specparm_mco2 = oneminus
          specmult_mco2 = 8._rb*specparm_mco2
          jmco2 = 1 + int(specmult_mco2)
-         fmco2 = mod(specmult_mco2,1.0_rb)
+         fmco2 = rp_mod(specmult_mco2,1.0_rb)
 
 !  In atmospheres where the amount of CO2 is too great to be considered
 !  a minor species, adjust the column amount of CO2 by an empirical factor 
@@ -7270,7 +7275,7 @@ contains
          chi_co2 = colco2(lay)/(coldry(lay))
          ratco2 = 1.e20_rb*chi_co2/3.55e-4_rb
          if (ratco2 .gt. 3.0_rb) then
-            adjfac = 2.0_rb+(ratco2-2.0_rb)**0.68_rb
+            adjfac = 2.0_rb+rp_pow((ratco2-2.0_rb), 0.68_rb)
             adjcolco2 = adjfac*3.55e-4*coldry(lay)*1.e-20_rb
          else
             adjcolco2 = colco2(lay)
@@ -7281,14 +7286,14 @@ contains
          if (specparm_mco .ge. oneminus) specparm_mco = oneminus
          specmult_mco = 8._rb*specparm_mco
          jmco = 1 + int(specmult_mco)
-         fmco = mod(specmult_mco,1.0_rb)
+         fmco = rp_mod(specmult_mco,1.0_rb)
 
          speccomb_planck = colh2o(lay)+refrat_planck_a*coln2o(lay)
          specparm_planck = colh2o(lay)/speccomb_planck
          if (specparm_planck .ge. oneminus) specparm_planck=oneminus
          specmult_planck = 8._rb*specparm_planck
          jpl= 1 + int(specmult_planck)
-         fpl = mod(specmult_planck,1.0_rb)
+         fpl = rp_mod(specmult_planck,1.0_rb)
 
          ind0 = ((jp(lay)-1)*5+(jt(lay)-1))*nspa(13) + js
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(13) + js1
@@ -7561,28 +7566,28 @@ contains
          if (specparm .ge. oneminus) specparm = oneminus
          specmult = 8._rb*(specparm)
          js = 1 + int(specmult)
-         fs = mod(specmult,1.0_rb)
+         fs = rp_mod(specmult,1.0_rb)
 
          speccomb1 = coln2o(lay) + rat_n2oco2_1(lay)*colco2(lay)
          specparm1 = coln2o(lay)/speccomb1
          if (specparm1 .ge. oneminus) specparm1 = oneminus
          specmult1 = 8._rb*(specparm1)
          js1 = 1 + int(specmult1)
-         fs1 = mod(specmult1,1.0_rb)
+         fs1 = rp_mod(specmult1,1.0_rb)
 
          speccomb_mn2 = coln2o(lay) + refrat_m_a*colco2(lay)
          specparm_mn2 = coln2o(lay)/speccomb_mn2
          if (specparm_mn2 .ge. oneminus) specparm_mn2 = oneminus
          specmult_mn2 = 8._rb*specparm_mn2
          jmn2 = 1 + int(specmult_mn2)
-         fmn2 = mod(specmult_mn2,1.0_rb)
+         fmn2 = rp_mod(specmult_mn2,1.0_rb)
 
          speccomb_planck = coln2o(lay)+refrat_planck_a*colco2(lay)
          specparm_planck = coln2o(lay)/speccomb_planck
          if (specparm_planck .ge. oneminus) specparm_planck=oneminus
          specmult_planck = 8._rb*specparm_planck
          jpl= 1 + int(specmult_planck)
-         fpl = mod(specmult_planck,1.0_rb)
+         fpl = rp_mod(specmult_planck,1.0_rb)
 
          ind0 = ((jp(lay)-1)*5+(jt(lay)-1))*nspa(15) + js
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(15) + js1
@@ -7779,21 +7784,21 @@ contains
          if (specparm .ge. oneminus) specparm = oneminus
          specmult = 8._rb*(specparm)
          js = 1 + int(specmult)
-         fs = mod(specmult,1.0_rb)
+         fs = rp_mod(specmult,1.0_rb)
 
          speccomb1 = colh2o(lay) + rat_h2och4_1(lay)*colch4(lay)
          specparm1 = colh2o(lay)/speccomb1
          if (specparm1 .ge. oneminus) specparm1 = oneminus
          specmult1 = 8._rb*(specparm1)
          js1 = 1 + int(specmult1)
-         fs1 = mod(specmult1,1.0_rb)
+         fs1 = rp_mod(specmult1,1.0_rb)
 
          speccomb_planck = colh2o(lay)+refrat_planck_a*colch4(lay)
          specparm_planck = colh2o(lay)/speccomb_planck
          if (specparm_planck .ge. oneminus) specparm_planck=oneminus
          specmult_planck = 8._rb*specparm_planck
          jpl= 1 + int(specmult_planck)
-         fpl = mod(specmult_planck,1.0_rb)
+         fpl = rp_mod(specmult_planck,1.0_rb)
 
          ind0 = ((jp(lay)-1)*5+(jt(lay)-1))*nspa(16) + js
          ind1 = (jp(lay)*5+(jt1(lay)-1))*nspa(16) + js1
@@ -7949,6 +7954,7 @@ contains
 !     created:   $Date: 2009/04/16 19:54:22 $
 !
       module rrtmg_lw_init
+   USE module_repro_math
 
 !  --------------------------------------------------------------------------
 ! |                                                                          |
@@ -8061,7 +8067,7 @@ contains
       do itr = 1, ntbl-1
          tfn = float(itr) / float(ntbl)
          tau_tbl(itr) = bpade * tfn / (1._rb - tfn)
-         exp_tbl(itr) = exp(-tau_tbl(itr))
+         exp_tbl(itr) = rp_exp(-tau_tbl(itr))
          if (exp_tbl(itr) .le. expeps) exp_tbl(itr) = expeps
          if (tau_tbl(itr) .lt. 0.06_rb) then
             tfn_tbl(itr) = tau_tbl(itr)/6._rb
@@ -8198,7 +8204,7 @@ contains
 
 !jm moved here for thread safety, 20141107
       oneminus = 1._rb - 1.e-6_rb
-      pi       = 2._rb * asin(1._rb)
+      pi       = 2._rb * rp_asin(1._rb)
       fluxfac  =  pi * 2.e4_rb  ! orig:   fluxfac = pi * 2.d4
 
 !
@@ -11525,6 +11531,7 @@ contains
 
 !------------------------------------------------------------------
 MODULE module_ra_rrtmg_lw
+   USE module_repro_math
 
 use module_model_constants, only : cp
 use module_wrf_error
@@ -11976,7 +11983,7 @@ CONTAINS
    ELSE
 ! Set trace gas volume mixing ratios, 2005 values, IPCC (2007)
 ! Annual function for co2 in WRF v4.2
-      co2 = (280. + 90.*exp(0.02*(yr-2000)))*1.e-6
+      co2 = (280. + 90.*rp_exp(0.02*(yr-2000)))*1.e-6
 !     co2 = 379.e-6
       ch4 = 1774.e-9
       n2o = 319.e-9
@@ -12220,13 +12227,13 @@ CONTAINS
                   if (tem3>thresh) then       !- Only when IWC>1.e-9 gm^-3
                     tem1=t1d(k)-273.15
                     if (tem1 < -50.0) then
-                      tem2 = re_50C*tem3**0.109
+                      tem2 = re_50C*rp_pow(tem3, 0.109)
                     elseif (tem1 < -40.0) then
-                      tem2 = re_40C*tem3**0.08
+                      tem2 = re_40C*rp_pow(tem3, 0.08)
                     elseif (tem1 < -30.0) then
-                      tem2 = re_30C*tem3**0.055
+                      tem2 = re_30C*rp_pow(tem3, 0.055)
                     else
-                      tem2 = re_20C*tem3**0.031
+                      tem2 = re_20C*rp_pow(tem3, 0.031)
                     endif
                     tem2 = max(25.,tem2)
                   endif
@@ -12440,8 +12447,8 @@ CONTAINS
                dz = dz1d(k)
                clwp(k) = ro*qc1d(k)*dz*1000.         
                ciwp(k) = ro*qi1d(k)*dz*1000.         
-               plwp(k) = (ro*qr1d(k))**0.75*dz*1000. 
-               piwp(k) = (ro*qs1d(k))**0.75*dz*1000. 
+               plwp(k) = rp_pow((ro*qr1d(k)), 0.75)*dz*1000. 
+               piwp(k) = rp_pow((ro*qs1d(k)), 0.75)*dz*1000. 
             enddo
 
 ! Cloud fraction and cloud optical depth; old approach used with RRTM_LW
@@ -12537,7 +12544,7 @@ CONTAINS
     if (progn == 1) then
 !jdfcz     if(prescribe==0) then
 
-      pi = 4.*atan(1.0)
+      pi = 4.*rp_atan(1.0)
       third=1./3.
       rhoh2o=1.e3
       relconst=3/(4.*pi*rhoh2o)
@@ -12550,7 +12557,7 @@ CONTAINS
             if( F_QNDROP ) then
               if ( qc1d(k)*pdel(ncol,k).gt.lwpmin.and. &
                    qndrop1d(k).gt.1000. ) then
-               reliq(ncol,k)=(relconst*qc1d(k)/qndrop1d(k))**third ! effective radius in m
+               reliq(ncol,k)=rp_pow((relconst*qc1d(k)/qndrop1d(k)), third) ! effective radius in m
 !           apply scaling from Martin et al., JAS 51, 1830.
                reliq(ncol,k)=1.1*reliq(ncol,k)
                reliq(ncol,k)=reliq(ncol,k)*1.e6 ! convert from m to microns

@@ -1,6 +1,7 @@
 !WRF:MODEL_LAYER:PHYSICS
 !
 MODULE module_sf_sfcdiags
+   USE module_repro_math
 
 CONTAINS
 
@@ -70,7 +71,7 @@ CONTAINS
 #endif
               ENDIF
           endif
-          TH2(I,J) = T2(I,J)*(1.E5/PSFC(I,J))**ROVCP
+          TH2(I,J) = T2(I,J)*rp_pow((1.E5/PSFC(I,J)), ROVCP)
         ENDDO
       ENDDO
 

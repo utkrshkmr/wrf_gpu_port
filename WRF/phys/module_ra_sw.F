@@ -1,6 +1,7 @@
 !WRF:MODEL_LAYER:PHYSICS
 !
 MODULE module_ra_sw
+   USE module_repro_math
 
       REAL,PRIVATE,SAVE :: CSSCA
 
@@ -405,7 +406,7 @@ CONTAINS
 !
          OLDABS=TOTABS
 !     WATER VAPOR ABSORPTION AS IN LACIS AND HANSEN (1974)
-         TOTABS=2.9*UGCM/((1.+141.5*UGCM)**0.635+5.925*UGCM)
+         TOTABS=2.9*UGCM/(rp_pow((1.+141.5*UGCM), 0.635)+5.925*UGCM)
 !     APPROXIMATE RAYLEIGH + AEROSOL SCATTERING
 !        XSCA=1.E-5*XATP(K)/XMU
 !          XSCA=(1.E-5*XATP(K)+aer_dry1(K)*bext340+aer_water1(K)*bexth2o)/XMU
@@ -420,7 +421,7 @@ CONTAINS
          XABSA=0.
          IF(XABS.LT.0.)XABS=0.
 !
-         ALW=ALOG10(WGM+1.)
+         ALW=rp_log10(WGM+1.)
          IF(ALW.GT.3.999)ALW=3.999
 !
          DO II=1,3
@@ -481,7 +482,7 @@ CONTAINS
 
 !  Parameterize diffuse fraction of global solar radiation as a function of the ratio between TOA radiation and surface global radiation
 
-        diffuse_frac = min(1.,1/(max(0.1,2.1-2.8*log(log(SDOWN(kts)/max(SDOWN(kte+1),1.e-3))))))
+        diffuse_frac = min(1.,1/(max(0.1,2.1-2.8*rp_log(rp_log(SDOWN(kts)/max(SDOWN(kte+1),1.e-3))))))
         if ((slope.eq.0).or.(diffuse_frac.eq.1).or.(csza.lt.1.e-2)) then  ! no topographic effects when all radiation is diffuse or the sun is too close to the horizon
         corr_fac = 1
         goto 140
@@ -489,11 +490,11 @@ CONTAINS
 
 ! cosine of zenith angle over sloping topography
 
-        csza_slp = ((SIN(XXLAT)*COS(HRANG))*                                          &
-                    (-cos(slp_azi)*sin(slope))-SIN(HRANG)*(sin(slp_azi)*sin(slope))+  &
-                    (COS(XXLAT)*COS(HRANG))*cos(slope))*                              &
-                   COS(DECLIN)+(COS(XXLAT)*(cos(slp_azi)*sin(slope))+                 &
-                   SIN(XXLAT)*cos(slope))*SIN(DECLIN)
+        csza_slp = ((rp_sin(XXLAT)*rp_cos(HRANG))*                                          &
+                    (-rp_cos(slp_azi)*rp_sin(slope))-rp_sin(HRANG)*(rp_sin(slp_azi)*rp_sin(slope))+  &
+                    (rp_cos(XXLAT)*rp_cos(HRANG))*rp_cos(slope))*                              &
+                   rp_cos(DECLIN)+(rp_cos(XXLAT)*(rp_cos(slp_azi)*rp_sin(slope))+                 &
+                   rp_sin(XXLAT)*rp_cos(slope))*rp_sin(DECLIN)
         IF(csza_slp.LE.1.E-4) csza_slp = 0
 
 ! Topographic shading

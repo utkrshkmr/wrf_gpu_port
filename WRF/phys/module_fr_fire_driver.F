@@ -16,6 +16,7 @@
 !
 
 module module_fr_fire_driver
+   USE module_repro_math
 ! use this module for standalone call, you only need to provide some mock-up wrf modules  
 
 use module_fr_fire_model
@@ -158,7 +159,7 @@ halo_fire_mag_sub
             run_advance_moisture = .true.
         else ! regular timestep
             if(config_flags%fmoist_freq > 0)then  ! regular timestep. go by multiples?
-                if(mod(grid%itimestep,config_flags%fmoist_freq) .eq. 0)then
+                if(rp_mod(grid%itimestep,config_flags%fmoist_freq) .eq. 0)then
                     write(msg,'(a,i10,a,i10)')'moisture model runs because timestep ',grid%itimestep,' is a multiple of ',config_flags%fmoist_freq
                     call message(msg)
                     run_advance_moisture = .true.
@@ -608,7 +609,7 @@ endif
 
 pid=0
 if(fire_print_file.gt.0)then
-    if(itimestep.le.fire_print_file.or.mod(itimestep,fire_print_file).eq.0)pid=itimestep ! print 1-fire_print_file then every fire_print_file-th
+    if(itimestep.le.fire_print_file.or.rp_mod(itimestep,fire_print_file).eq.0)pid=itimestep ! print 1-fire_print_file then every fire_print_file-th
 endif
 
 if(ifun.eq.3)then
@@ -1160,7 +1161,7 @@ subroutine fire_ignition_convert (config_flags,fire_max_ignitions,fire_ignition_
        lon_ctr=config_flags%cen_lon
        ! 1 degree in m (approximate OK)
        unit_fxlat=pi2/(360.*reradius)  ! earth circumference in m / 360 degrees
-       unit_fxlong=cos(lat_ctr*pi2/360.)*unit_fxlat  ! latitude
+       unit_fxlong=rp_cos(lat_ctr*pi2/360.)*unit_fxlat  ! latitude
     endif
 
 end subroutine fire_ignition_convert
@@ -1381,10 +1382,10 @@ endif
 #endif
 ! DME
 if (fire_lsm_zcoupling) then
-  logfwh = log(fire_lsm_zcoupling_ref)
+  logfwh = rp_log(fire_lsm_zcoupling_ref)
   fire_wind_height_local = fire_lsm_zcoupling_ref
 else
-  logfwh = log(fire_wind_height)
+  logfwh = rp_log(fire_wind_height)
   fire_wind_height_local = fire_wind_height
 endif
 
@@ -1398,12 +1399,12 @@ endif
           do k=kds,kdmax
             ht = hgtu(i,k,j)      ! height of this u point above the ground
             if( .not. ht < fire_wind_height_local) then ! found layer k this point is in
-              loght = log(ht)
+              loght = rp_log(ht)
               if(k.eq.kds)then               ! first layer, log linear interpolation from 0 at zr
-                logz0 = log(zr)
+                logz0 = rp_log(zr)
                 ua(i,j)= u(i,k,j)*(logfwh-logz0)/(loght-logz0)
               else                           ! log linear interpolation
-                loglast=log(hgtu(i,k-1,j))
+                loglast=rp_log(hgtu(i,k-1,j))
                 ua(i,j)= u(i,k-1,j) + (u(i,k,j) - u(i,k-1,j)) * ( logfwh - loglast) / (loght - loglast)
               endif
               goto 10
@@ -1433,12 +1434,12 @@ endif
           do k=kds,kdmax
             ht = hgtv(i,k,j)      ! height of this u point above the ground
             if( .not. ht < fire_wind_height_local) then ! found layer k this point is in
-              loght = log(ht)
+              loght = rp_log(ht)
               if(k.eq.kds)then               ! first layer, log linear interpolation from 0 at zr
-                logz0 = log(zr)
+                logz0 = rp_log(zr)
                 va(i,j)= v(i,k,j)*(logfwh-logz0)/(loght-logz0)
               else                           ! log linear interpolation
-                loglast=log(hgtv(i,k-1,j))
+                loglast=rp_log(hgtv(i,k-1,j))
                 va(i,j)= v(i,k-1,j) + (v(i,k,j) - v(i,k-1,j)) * ( logfwh - loglast) / (loght - loglast)
               endif
               goto 11
@@ -1580,10 +1581,10 @@ if (fire_lsm_zcoupling) then
     do i = ifts,ifte
       uf_temp=uf(i,j)
       vf_temp=vf(i,j)
-      wsf=max(sqrt(uf_temp**2.+vf_temp**2.),0.1)
+      wsf=max(sqrt(rp_pow(uf_temp, 2.)+rp_pow(vf_temp, 2.)),0.1)
       z0fc=z0f(i,j)
-      ust_d=wsf*vk_kappa/log(fire_lsm_zcoupling_ref/z0fc)
-      wsf1=(ust_d/vk_kappa)*log((fire_wind_height+z0fc)/z0fc)
+      ust_d=wsf*vk_kappa/rp_log(fire_lsm_zcoupling_ref/z0fc)
+      wsf1=(ust_d/vk_kappa)*rp_log((fire_wind_height+z0fc)/z0fc)
       uf(i,j)=wsf1*uf_temp/wsf
       vf(i,j)=wsf1*vf_temp/wsf
     enddo

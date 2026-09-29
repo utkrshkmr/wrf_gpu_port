@@ -4,6 +4,7 @@
 #define BENCH_END(A)
 
 MODULE module_first_rk_step_part2
+   USE module_repro_math
 
 CONTAINS
 
@@ -260,7 +261,7 @@ CONTAINS
       ENDIF !rand_perturb_on
 
       IF ( grid%stepsp > 0 ) THEN
-         stepsp_test = ( MOD(grid%itimestep, grid%stepsp) == 0 )
+         stepsp_test = ( rp_mod(grid%itimestep, grid%stepsp) == 0 )
       ELSE
          stepsp_test = .FALSE.
       END IF

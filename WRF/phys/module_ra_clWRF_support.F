@@ -10,6 +10,7 @@
 ! by C. Carouge.
 !-----------------------------------------------------------------------
 MODULE module_ra_clWRF_support
+   USE module_repro_math
 
   USE module_wrf_error
 
@@ -183,9 +184,9 @@ CONTAINS
              ! Calculate the julian day for each month.
              DO idata=1,max_years
                 mondayi = monday
-                MY1=MOD(yrdata(idata),4)
-                MY2=MOD(yrdata(idata),100)
-                MY3=MOD(yrdata(idata),400)
+                MY1=rp_mod(yrdata(idata),4)
+                MY2=rp_mod(yrdata(idata),100)
+                MY3=rp_mod(yrdata(idata),400)
                 IF(MY1.EQ.0.AND.MY2.NE.0.OR.MY3.EQ.0) mondayi(3)=29
                 juldata(idata) = sum(mondayi(1:mondata(idata)))+real(mondayi(mondata(idata)+1))/2.-0.5   ! 1st Jan 00:00 = 0 julian day
              ENDDO
@@ -389,9 +390,9 @@ CONTAINS
     DO ny=minyear, maxyear-1
        nday = 365
        ! Leap-year?
-       MY1=MOD(ny,4)
-       MY2=MOD(ny,100)
-       MY3=MOD(ny,400)
+       MY1=rp_mod(ny,4)
+       MY2=rp_mod(ny,100)
+       MY3=rp_mod(ny,400)
        IF(MY1.EQ.0.AND.MY2.NE.0.OR.MY3.EQ.0) nday=366
        
        if (ny < yeari) then

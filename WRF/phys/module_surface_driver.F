@@ -1,6 +1,7 @@
 !WRF:MEDIATION_LAYER:PHYSICS
 !
 MODULE module_surface_driver
+   USE module_repro_math
   real, private, parameter :: QVAPOR_MIN = 0.0, SMOIS_MIN = 0.0, SMOIS_MAX = 1.0
 CONTAINS
 
@@ -1880,7 +1881,7 @@ CONTAINS
 
    IF ( ( .NOT. decided ) .AND. &
         ( .NOT. doing_adapt_dt ) .AND. &
-        ( MOD(itimestep,stepbl) .EQ. 0 ) ) THEN
+        ( rp_mod(itimestep,stepbl) .EQ. 0 ) ) THEN
       run_param   = .TRUE.
       decided     = .TRUE.
    END IF
@@ -2483,7 +2484,7 @@ CONTAINS
               vratx(I,J) = 1.2
            END IF
 ! (Quotient P1000mb/P_PHY must be conditioned due to large value of P1000mb)
-           tratx(I,J) = (T_PHY(I,1,J)*(P1000mb*0.001/(P_PHY(I,1,J)/1000.))**RCP)  &
+           tratx(I,J) = (T_PHY(I,1,J)*rp_pow((P1000mb*0.001/(P_PHY(I,1,J)/1000.)), RCP))  &
                         /TH2(I,J)
         ENDDO
         ENDDO
@@ -2651,7 +2652,7 @@ CONTAINS
          IF ( PRESENT(RA) ) THEN
          DO j=j_start(ij),j_end(ij)
          DO i=i_start(ij),i_end(ij)
-            RA(I,J) = WSPD(I,J)/UST(I,J)**2.0
+            RA(I,J) = WSPD(I,J)/rp_pow(UST(I,J), 2.0)
          ENDDO
          ENDDO
          END IF
@@ -3024,7 +3025,7 @@ CONTAINS
              IVGTYP(I,J) == LCZ_3      .or. IVGTYP(I,J) == LCZ_4 .or. IVGTYP(I,J) == LCZ_5 .or. &
              IVGTYP(I,J) == LCZ_6      .or. IVGTYP(I,J) == LCZ_7 .or. IVGTYP(I,J) == LCZ_8 .or. &
              IVGTYP(I,J) == LCZ_9      .or. IVGTYP(I,J) == LCZ_10 .or. IVGTYP(I,J) == LCZ_11 )THEN
-            T2(I,J)   = TH_PHY(i,1,j)/((1.E5/PSFC(I,J))**RCP) !urban
+            T2(I,J)   = TH_PHY(i,1,j)/(rp_pow((1.E5/PSFC(I,J)), RCP)) !urban
             TH2(I,J) = TH_PHY(i,1,j) !urban
             Q2(I,J)   = qv_curr(i,1,j)  !urban
             U10(I,J)  = U_phy(I,1,J)                       !urban
@@ -3240,7 +3241,7 @@ CONTAINS
 	 ENDIF 
 
   IF ( iopt_run .EQ. 5 ) THEN
-     IF ( MOD(itimestep,STEPWTD) .EQ. 0 ) THEN ! STEPWTD always and only non-zero for iopt_run == 5
+     IF ( rp_mod(itimestep,STEPWTD) .EQ. 0 ) THEN ! STEPWTD always and only non-zero for iopt_run == 5
            CALL wrf_debug( 100, 'calling WTABLE' )
 
 !gmm update wtable from lateral flow and shed water to rivers
@@ -3352,7 +3353,7 @@ CONTAINS
                  ELSE
                    T2(I,J) = TSK(I,J) - HFX(I,J)/(PSFC(I,J)/(R_d * TSK(I,J))*CP*CHS2(I,J))
                  ENDIF
-                   TH2(I,J) = T2(I,J)*(1.E5/PSFC(I,J))**RCP
+                   TH2(I,J) = T2(I,J)*rp_pow((1.E5/PSFC(I,J)), RCP)
 !             ELSEIF (IVGTYP(I,J) == ISURBAN .OR. IVGTYP(I,J) == ISICE .OR. FVEGXY(I,J) == 0.0 ) THEN
               ELSEIF( IVGTYP(I,J) == ISURBAN    .or. IVGTYP(I,J) == LCZ_1 .or. IVGTYP(I,J) == LCZ_2 .or. &
                       IVGTYP(I,J) == LCZ_3      .or. IVGTYP(I,J) == LCZ_4 .or. IVGTYP(I,J) == LCZ_5 .or. &
@@ -3362,11 +3363,11 @@ CONTAINS
 
                    Q2(I,J)  = Q2MBXY(I,J)
                    T2(I,J)  = T2MBXY(I,J)
-                   TH2(I,J) = T2(i,j)*(1.E5/PSFC(i,j))**RCP
+                   TH2(I,J) = T2(i,j)*rp_pow((1.E5/PSFC(i,j)), RCP)
               ELSE
                  T2(I,J)  = FVEGXY(I,J)*T2MVXY(I,J) + (1.-FVEGXY(I,J))*T2MBXY(I,J)
                  Q2(I,J)  = FVEGXY(I,J)*Q2MVXY(I,J) + (1.-FVEGXY(I,J))*Q2MBXY(I,J)
-                 TH2(I,J) = T2(i,j)*(1.E5/PSFC(i,j))**RCP
+                 TH2(I,J) = T2(i,j)*rp_pow((1.E5/PSFC(i,j)), RCP)
               ENDIF
            ENDDO
            ENDDO
@@ -3389,8 +3390,8 @@ CONTAINS
                  Q2(I,J)  = (FVEGXY(I,J)*Q2MVXY(I,J) + (1.-FVEGXY(I,J))*Q2MBXY(I,J))*(1.-FRC_URB2D(I,J)) +   &
                              Q2_URB2D(I,J)*FRC_URB2D(I,J)
                  T2(I,J)  = (FVEGXY(I,J)*T2MVXY(I,J) + (1.-FVEGXY(I,J))*T2MBXY(I,J))*(1.-FRC_URB2D(I,J)) +   &
-                             (TH2_URB2D(i,j)/((1.E5/PSFC(i,j))**RCP))*FRC_URB2D(I,J)
-                 TH2(I,J) = T2(i,j)*(1.E5/PSFC(i,j))**RCP
+                             (TH2_URB2D(i,j)/(rp_pow((1.E5/PSFC(i,j)), RCP)))*FRC_URB2D(I,J)
+                 TH2(I,J) = T2(i,j)*rp_pow((1.E5/PSFC(i,j)), RCP)
                  U10(I,J)  = U10_URB2D(I,J)                       !urban
                  V10(I,J)  = V10_URB2D(I,J)                       !urban
                  PSIM(I,J) = PSIM_URB2D(I,J)                      !urban
@@ -3410,7 +3411,7 @@ CONTAINS
                     IVGTYP(I,J) == LCZ_3      .or. IVGTYP(I,J) == LCZ_4 .or. IVGTYP(I,J) == LCZ_5 .or. &
                     IVGTYP(I,J) == LCZ_6      .or. IVGTYP(I,J) == LCZ_7 .or. IVGTYP(I,J) == LCZ_8 .or. &
                     IVGTYP(I,J) == LCZ_9      .or. IVGTYP(I,J) == LCZ_10 .or. IVGTYP(I,J) == LCZ_11 )THEN
-                T2(I,J)   = TH_PHY(i,1,j)/((1.E5/PSFC(I,J))**RCP) !urban
+                T2(I,J)   = TH_PHY(i,1,j)/(rp_pow((1.E5/PSFC(I,J)), RCP)) !urban
                 TH2(I,J) = TH_PHY(i,1,j) !urban
                 Q2(I,J)   = qv_curr(i,1,j)  !urban
                 U10(I,J)  = U_phy(I,1,J)                       !urban
@@ -3425,7 +3426,7 @@ CONTAINS
          IF ( PRESENT(RA) ) THEN
          DO j=j_start(ij),j_end(ij)
          DO i=i_start(ij),i_end(ij)
-            RA(I,J) = WSPD(I,J)/UST(I,J)**2.0
+            RA(I,J) = WSPD(I,J)/rp_pow(UST(I,J), 2.0)
          ENDDO
          ENDDO
          END IF
@@ -3687,7 +3688,7 @@ CONTAINS
            DO j=j_start(ij),j_end(ij)
            DO i=i_start(ij),i_end(ij)
               CHKLOWQ(I,J)= 1.0
-              TH2(I,J) = T2(I,J)*(1.E5/PSFC(I,J))**RCP
+              TH2(I,J) = T2(I,J)*rp_pow((1.E5/PSFC(I,J)), RCP)
               SFCEVP(I,J)= SFCEVP(I,J) + QFX(I,J)*DTBL
            ENDDO
            ENDDO
@@ -3938,7 +3939,7 @@ CONTAINS
                   Q2(I,J) = Q2(I,J)/(1.0-Q2(I,J))
 
                   T2(I,J) = sum(t_ref2m(i,1:nump(i,j),j)*wtp(i,1:nump(i,j),j))
-                  TH2(I,J)= T2(I,J)*(1.E5/PSFC(I,J))**RCP
+                  TH2(I,J)= T2(I,J)*rp_pow((1.E5/PSFC(I,J)), RCP)
               END IF
            ENDDO
            ENDDO
@@ -4290,7 +4291,7 @@ CONTAINS
          IF (itimestep .ne. 1) THEN
            ZDIFF=(0.5*dz8w(i,1,j))-SSiBXDD(I,J)
            IF(ZDIFF.LE.ZNT(I,J)) ZDIFF=ZNT(I,J)+0.2
-           GZ1OZ0(I,J)=ALOG(ZDIFF/ZNT(I,J))
+           GZ1OZ0(I,J)=rp_log(ZDIFF/ZNT(I,J))
          ENDIF
          IF (XICE(I,J) .GE. XICE_THRESHOLD) THEN
            snowh(i,j) = 0.0
@@ -4484,7 +4485,7 @@ CONTAINS
 
      IF (distributed_ahe_opt == 2) THEN
        call cal_mon_day(julday, julyr, jmonth, jday)
-       ihour = (jmonth - 1) * 24 + MOD(INT(gmt + xtime / 60.0), 24)
+       ihour = (jmonth - 1) * 24 + rp_mod(INT(gmt + xtime / 60.0), 24)
        !$OMP PARALLEL DO   &
        !$OMP PRIVATE ( ij, i, j, k )
        DO ij = 1, num_tiles
@@ -4673,7 +4674,7 @@ CONTAINS
               ! Over fractional sea-ice points, back out an ice portion of QSFC as well.
               ! QSFC_SEA calculation as done in myjsfc for open water points
               PSFC = PINT(I,LOWLYR(I,J),J)
-              QSFC_SEA(i,j) = PQ0SEA/PSFC*EXP(A2S*(TSK(i,j)-A3S)/(TSK(i,j)-A4S))
+              QSFC_SEA(i,j) = PQ0SEA/PSFC*rp_exp(A2S*(TSK(i,j)-A3S)/(TSK(i,j)-A4S))
               QSFC(i,j) = (QSFC(i,j) - (1.0-XICE(i,j)) * QSFC_SEA(i,j)) / XICE(i,j)
 !
               HFX_SEA(i,j)  = HFX(i,j)
@@ -4776,7 +4777,7 @@ CONTAINS
               ENDIF
               TSK_SEA(i,j) = SST(i,j)
               PSFC = PINT(I,LOWLYR(I,J),J)
-              QSFC_SEA(I,J) = PQ0SEA/PSFC*EXP(A2S*(TSK_SEA(i,j)-A3S)/(TSK_SEA(i,j)-A4S))
+              QSFC_SEA(I,J) = PQ0SEA/PSFC*rp_exp(A2S*(TSK_SEA(i,j)-A3S)/(TSK_SEA(i,j)-A4S))
            ELSE
               ! This should be a land point or a true open water point
               XLAND_SEA(i,j)=xland(i,j)
@@ -5039,7 +5040,7 @@ CONTAINS
               ! Over fractional sea-ice points, back out an ice portion of QSFC as well.
               ! QSFC_SEA calculation as done in qnsesfc for open water points
               PSFC = PINT(I,LOWLYR(I,J),J)
-              QSFC_SEA(i,j) = PQ0SEA/PSFC*EXP(A2S*(TSK(i,j)-A3S)/(TSK(i,j)-A4S))
+              QSFC_SEA(i,j) = PQ0SEA/PSFC*rp_exp(A2S*(TSK(i,j)-A3S)/(TSK(i,j)-A4S))
               QSFC(i,j) = (QSFC(i,j) - (1.0-XICE(i,j)) * QSFC_SEA(i,j)) / XICE(i,j)
 !
               HFX_SEA(i,j)  = HFX(i,j)
@@ -5142,7 +5143,7 @@ CONTAINS
               ENDIF
               TSK_SEA(i,j) = SST(i,j)
               PSFC = PINT(I,LOWLYR(I,J),J)
-              QSFC_SEA(I,J) = PQ0SEA/PSFC*EXP(A2S*(TSK_SEA(i,j)-A3S)/(TSK_SEA(i,j)-A4S))
+              QSFC_SEA(I,J) = PQ0SEA/PSFC*rp_exp(A2S*(TSK_SEA(i,j)-A3S)/(TSK_SEA(i,j)-A4S))
            ELSE
               ! This should be a land point or a true open water point
               XLAND_SEA(i,j)=xland(i,j)
@@ -7011,7 +7012,7 @@ HFX_SEA, LH_SEA, QFX_SEA, QGH_SEA, QSFC_SEA, TSK_SEA,  &
 
 !------------------------------------------------------------------
 
-     pi = 4.*atan(1.)
+     pi = 4.*rp_atan(1.)
      degrad=pi/180.
 
        DO J=jts,jte
@@ -7092,11 +7093,11 @@ HFX_SEA, LH_SEA, QFX_SEA, QGH_SEA, QSFC_SEA, TSK_SEA,  &
         endif
 
 ! cosine of zenith angle over sloping topography
-        csza_slp = ((SIN(XXLAT)*COS(HRANG))*                                          &
-                    (-cos(slp_azi)*sin(slope))-SIN(HRANG)*(sin(slp_azi)*sin(slope))+  &
-                    (COS(XXLAT)*COS(HRANG))*cos(slope))*                              &
-                   COS(DECLIN)+(COS(XXLAT)*(cos(slp_azi)*sin(slope))+                 &
-                   SIN(XXLAT)*cos(slope))*SIN(DECLIN)
+        csza_slp = ((rp_sin(XXLAT)*rp_cos(HRANG))*                                          &
+                    (-rp_cos(slp_azi)*rp_sin(slope))-rp_sin(HRANG)*(rp_sin(slp_azi)*rp_sin(slope))+  &
+                    (rp_cos(XXLAT)*rp_cos(HRANG))*rp_cos(slope))*                              &
+                   rp_cos(DECLIN)+(rp_cos(XXLAT)*(rp_cos(slp_azi)*rp_sin(slope))+                 &
+                   rp_sin(XXLAT)*rp_cos(slope))*rp_sin(DECLIN)
         IF(csza_slp.LE.1.E-4) csza_slp = 0
 
 ! Topographic shading

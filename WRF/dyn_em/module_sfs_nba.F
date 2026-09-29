@@ -40,6 +40,7 @@
 !=============================================================================
 
 MODULE module_sfs_nba
+   USE module_repro_math
 
   USE module_configure, ONLY : grid_config_rec_type
 
@@ -69,11 +70,11 @@ SUBROUTINE calc_mij_constants( )
   pi = 3.1415927
   cb = 0.36
 
-  cs = ( ( 8.0*( 1.0+cb ) )/( 27.0*pi**2 ) )**0.5
-  c1 = ( ( 960.0**0.5 )*cb )/( 7.0*( 1.0+cb )*sk )
+  cs = rp_pow(( ( 8.0*( 1.0+cb ) )/( 27.0*pi**2 ) ), 0.5)
+  c1 = ( ( rp_pow(960.0, 0.5) )*cb )/( 7.0*( 1.0+cb )*sk )
   c2 = -c1
-  ce = ( ( 8.0*pi/27.0 )**( 1.0/3.0 ) )*cs**( 4.0/3.0 )
-  c3 = ( ( 27.0/( 8.0*pi ) )**( 1.0/3.0 ) )*cs**( 2.0/3.0 )
+  ce = ( rp_pow(( 8.0*pi/27.0 ), ( 1.0/3.0 )) )*rp_pow(cs, ( 4.0/3.0 ))
+  c3 = ( rp_pow(( 27.0/( 8.0*pi ) ), ( 1.0/3.0 )) )*rp_pow(cs, ( 2.0/3.0 ))
 
   RETURN
 
@@ -397,7 +398,7 @@ SUBROUTINE calc_mii( m11, m22, m33,                &
     DO k=kts,ktf
     DO i=i_start,i_end
 
-      delta = ( dx * dy / rdzw(i,k,j) )**0.33333333
+      delta = rp_pow(( dx * dy / rdzw(i,k,j) ), 0.33333333)
       a = -1.0*( cs*delta )**2
 
       m11(i,k,j) = a*(   2.0*sqrt( 2.0*smnsmn(i,k,j) )*ss11(i,k,j) &
@@ -446,7 +447,7 @@ SUBROUTINE calc_mii( m11, m22, m33,                &
     DO k=kts,ktf
     DO i=i_start,i_end
 
-      delta = ( dx * dy / rdzw(i,k,j) )**0.33333333
+      delta = rp_pow(( dx * dy / rdzw(i,k,j) ), 0.33333333)
       a = -1.0*ce*delta
       b = c3*delta
 
@@ -697,7 +698,7 @@ SUBROUTINE calc_m12( m12,                          &
     DO k=kts,ktf
     DO i=i_start,i_end
 
-      delta = ( dx * dy / rdzw(i,k,j) )**0.33333333
+      delta = rp_pow(( dx * dy / rdzw(i,k,j) ), 0.33333333)
       a = -1.0*( cs*delta )**2
 
       m12(i,k,j) = a*(   2.0*sqrt( 2.0*smnsmnd(i,k,j) )*ss12(i,k,j) &
@@ -722,7 +723,7 @@ SUBROUTINE calc_m12( m12,                          &
     DO k=kts,ktf
     DO i=i_start,i_end 
 
-      delta = ( dx * dy / rdzw(i,k,j) )**0.33333333
+      delta = rp_pow(( dx * dy / rdzw(i,k,j) ), 0.33333333)
       a = -1.0*ce*delta
       b = c3*delta
 
@@ -934,7 +935,7 @@ SUBROUTINE calc_m13( m13,                          &
     DO k=kts+1,ktf
     DO i=i_start,i_end
 
-      delta = ( dx * dy / rdzw(i,k,j) )**0.33333333
+      delta = rp_pow(( dx * dy / rdzw(i,k,j) ), 0.33333333)
       a = -1.0*( cs*delta )**2
 
       m13(i,k,j) = a*(   2.0*sqrt( 2.0*smnsmne(i,k,j) )*ss13(i,k,j) &
@@ -959,7 +960,7 @@ SUBROUTINE calc_m13( m13,                          &
     DO k=kts+1,ktf
     DO i=i_start,i_end
 
-      delta = ( dx * dy / rdzw(i,k,j) )**0.33333333
+      delta = rp_pow(( dx * dy / rdzw(i,k,j) ), 0.33333333)
       a = -1.0*ce*delta
       b = c3*delta
 
@@ -1171,7 +1172,7 @@ SUBROUTINE calc_m23( m23,                          &
     DO k=kts+1,ktf
     DO i=i_start,i_end
 
-      delta = ( dx * dy / rdzw(i,k,j) )**0.33333333
+      delta = rp_pow(( dx * dy / rdzw(i,k,j) ), 0.33333333)
       a = -1.0*( cs*delta )**2
 
       m23(i,k,j) = a*(   2.0*sqrt( 2.0*smnsmnf(i,k,j) )*ss23(i,k,j) &
@@ -1196,7 +1197,7 @@ SUBROUTINE calc_m23( m23,                          &
     DO k=kts+1,ktf
     DO i=i_start,i_end
 
-      delta = ( dx * dy / rdzw(i,k,j) )**0.33333333
+      delta = rp_pow(( dx * dy / rdzw(i,k,j) ), 0.33333333)
       a = -1.0*ce*delta
       b = c3*delta
 

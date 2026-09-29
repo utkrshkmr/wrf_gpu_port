@@ -1,4 +1,5 @@
 MODULE module_sf_noahlsm
+   USE module_repro_math
 #if defined(mpas)
 use mpas_atmphys_constants,only: CP=>cp,R_D=>R_d,XLF=>xlf,XLV=>xlv,RHOWATER=>rho_w,STBOLT=>stbolt,KARMAN=>karman
 use mpas_atmphys_utilities, only: physics_error_fatal
@@ -580,7 +581,7 @@ CONTAINS
               IF(SFCTMP <= T1) THEN
                 RU = 0.
               ELSE
-                RU = 100.*SHDFAC*FGSN*MIN((SFCTMP-T1)/5., 1.)*(1.-EXP(-XLAI))
+                RU = 100.*SHDFAC*FGSN*MIN((SFCTMP-T1)/5., 1.)*(1.-rp_exp(-XLAI))
               ENDIF
               CH = CH/(1.+RU*CH)
             ENDIF
@@ -619,7 +620,7 @@ CONTAINS
 !urban
             IF ( VEGTYP == ISURBAN ) DF1=3.24
 
-            DF1 = DF1 * EXP (SBETA * SHDFAC)
+            DF1 = DF1 * rp_exp (SBETA * SHDFAC)
 !
 ! kmh 09/03/2006
 ! kmh 03/25/2008  change SNCOVR threshold to 0.97
@@ -984,7 +985,7 @@ CONTAINS
           ELSE
            SNOTIME1=SNOTIME1+DT
 !               IF (TSNOW.LT.273.16) THEN
-                   SNOALB2=SNOALB1*(SNACCA**((SNOTIME1/86400.0)**SNACCB))
+                   SNOALB2=SNOALB1*(rp_pow(SNACCA, (rp_pow((SNOTIME1/86400.0), SNACCB))))
 !               ELSE
 !                  SNOALB2 =SNOALB1*(SNTHWA**((SNOTIME1/86400.0)**SNTHWB))
 !               ENDIF
@@ -1080,7 +1081,7 @@ CONTAINS
 ! RCT EXPRESSION FROM NOILHAN AND PLANTON (1989, MWR).
 ! ----------------------------------------------------------------------
       RCS = MAX (RCS,0.0001)
-      RCT = 1.0- 0.0016* ( (TOPT - SFCTMP)**2.0)
+      RCT = 1.0- 0.0016* ( rp_pow((TOPT - SFCTMP), 2.0))
 
 ! ----------------------------------------------------------------------
 ! CONTRIBUTION DUE TO VAPOR PRESSURE DEFICIT AT FIRST MODEL LEVEL.
@@ -1134,7 +1135,7 @@ CONTAINS
 
       RC = RSMIN / (XLAI * RCS * RCT * RCQ * RCSOIL)
 !      RR = (4.* SIGMA * RD / CP)* (SFCTMP **4.)/ (SFCPRS * CH) + 1.0
-      RR = (4.* EMISSI *SIGMA * RD / CP)* (SFCTMP **4.)/ (SFCPRS * CH) &
+      RR = (4.* EMISSI *SIGMA * RD / CP)* (rp_pow(SFCTMP, 4.))/ (SFCPRS * CH) &
              + 1.0
 
       DELTA = (SLV / CP)* DQSDT2
@@ -1164,7 +1165,7 @@ CONTAINS
 ! CSNOW IN UNITS OF CAL/(CM*HR*C), RETURNED IN W/(M*C)
 ! BASIC VERSION IS DYACHKOVA EQUATION (1960), FOR RANGE 0.1-0.4
 ! ----------------------------------------------------------------------
-      C = 0.328*10** (2.25* DSNOW)
+      C = 0.328*rp_pow(10, (2.25* DSNOW))
 !      CSNOW=UNIT*C
 
 ! ----------------------------------------------------------------------
@@ -1213,7 +1214,7 @@ CONTAINS
 
       SRATIO = (SMC - SMCDRY) / (SMCMAX - SMCDRY)
       IF (SRATIO > 0.) THEN
-        FX = SRATIO**FXEXP
+        FX = rp_pow(SRATIO, FXEXP)
         FX = MAX ( MIN ( FX, 1. ) ,0. )
       ELSE
         FX = 0.
@@ -1260,7 +1261,7 @@ CONTAINS
 
       SRATIO = (SMC - SMCDRY) / (SMCMAX - SMCDRY)
       IF (SRATIO > 0.) THEN
-        FX = SRATIO**FXEXP
+        FX = rp_pow(SRATIO, FXEXP)
         FX = MAX ( MIN ( FX, 1. ) ,0. )
       ELSE
         FX = 0.
@@ -1400,7 +1401,7 @@ CONTAINS
 ! IF STATEMENTS TO AVOID TANGENT LINEAR PROBLEMS NEAR CMC=0.0.
 ! ----------------------------------------------------------------------
             IF (CMC > 0.0) THEN
-               EC = SHDFAC * ( ( CMC / CMCMAX ) ** CFACTR ) * ETP1
+               EC = SHDFAC * ( rp_pow(( CMC / CMCMAX ), CFACTR) ) * ETP1
             ELSE
                EC = 0.0
             END IF
@@ -1527,8 +1528,8 @@ CONTAINS
  1001       Continue
               IF (.NOT.( (NLOG < 10) .AND. (KCOUNT == 0)))   goto 1002
               NLOG = NLOG +1
-              DF = ALOG ( ( PSIS * GS / HLICE ) * ( ( 1. + CK * SWL )**2.) * &
-                   ( SMCMAX / (SMC - SWL) )** BX) - ALOG ( - (               &
+              DF = rp_log ( ( PSIS * GS / HLICE ) * ( rp_pow(( 1. + CK * SWL ), 2.)) * &
+                   rp_pow(( SMCMAX / (SMC - SWL) ), BX)) - rp_log ( - (               &
                    TKELV - T0)/ TKELV)
               DENOM = 2. * CK / ( 1. + CK * SWL ) + BX / ( SMC - SWL )
               SWLK = SWL - DF / DENOM
@@ -1571,8 +1572,8 @@ CONTAINS
 ! ----------------------------------------------------------------------
          IF (KCOUNT == 0) THEN
              PRINT *,'Flerchinger USEd in NEW version. Iterations=',NLOG
-                  FK = ( ( (HLICE / (GS * ( - PSIS)))*                    &
-                       ( (TKELV - T0)/ TKELV))** ( -1/ BX))* SMCMAX
+                  FK = ( rp_pow( (HLICE / (GS * ( - PSIS)))*              &
+                       ( (TKELV - T0)/ TKELV), ( -1/ BX)))* SMCMAX
 !            FRH2O = MIN (FK, SMC)
              IF (FK < 0.02) FK = 0.02
              FREE = MIN (FK, SMC)
@@ -2164,7 +2165,7 @@ CONTAINS
 ! (SEE ADDITIONAL COMMENTS ON VEG EFFECT SUB-SFC HEAT FLX IN
 ! ROUTINE SFLX)
 ! ----------------------------------------------------------------------
-      DF1 = DF1 * EXP (SBETA * SHDFAC)
+      DF1 = DF1 * rp_exp (SBETA * SHDFAC)
 ! ----------------------------------------------------------------------
 ! COMPUTE INTERMEDIATE TERMS PASSED TO ROUTINE HRT (VIA ROUTINE
 ! SHFLX BELOW) FOR USE IN COMPUTING SUBSURFACE HEAT FLUX IN HRT
@@ -2850,7 +2851,7 @@ CONTAINS
 ! ----------------------------------------------------------------------
       IF (SNEQV < SNUP) THEN
          RSNOW = SNEQV / SNUP
-         SNCOVR = 1. - ( EXP ( - SALP * RSNOW) - RSNOW * EXP ( - SALP))
+         SNCOVR = 1. - ( rp_exp ( - SALP * RSNOW) - RSNOW * rp_exp ( - SALP))
       ELSE
          SNCOVR = 1.0
       END IF
@@ -2906,7 +2907,7 @@ CONTAINS
 
 ! GAMA IS USED TO DIVIDE FVB INTO TWO PARTS:
 ! GAMA=1 FOR XLAI=0 AND GAMA=0 FOR XLAI=6
-        GAMA = EXP(-1.* XLAI)
+        GAMA = rp_exp(-1.* XLAI)
       ELSE
         ! Define intent(out) terms for .NOT. UA_PHYS case
         FVB  = 0.0
@@ -3275,7 +3276,7 @@ CONTAINS
       ELSE
 !     From V3.9 original code (commented) replaced to allow complete melting of small snow amounts
 !        T1 = TFREEZ * SNCOVR ** SNOEXP + T12 * (1.0- SNCOVR ** SNOEXP)
-         T1 = TFREEZ * max(0.01,SNCOVR ** SNOEXP) + T12 * (1.0- max(0.01,SNCOVR ** SNOEXP))
+         T1 = TFREEZ * max(0.01,rp_pow(SNCOVR, SNOEXP)) + T12 * (1.0- max(0.01,rp_pow(SNCOVR, SNOEXP)))
          BETA = 1.0
 
 ! ----------------------------------------------------------------------
@@ -3492,7 +3493,7 @@ CONTAINS
 !       IPOL=8, FOR REL.ERROR <~ 1.8 E-5 % (7 SIGNIFICANT DIGITS)
 !       IPOL=7, FOR REL.ERROR <~ 1.8 E-4 % ...
 ! ----------------------------------------------------------------------
-      BFAC = DTHR * C1* EXP (0.08* TAVGC - C2* SNDENS)
+      BFAC = DTHR * C1* rp_exp (0.08* TAVGC - C2* SNDENS)
       IPOL = 4
       PEXP = 0.
 !        PEXP = (1. + PEXP)*BFAC*ESDC/REAL(J+1)
@@ -3576,9 +3577,9 @@ CONTAINS
       IF(UA_PHYS) THEN
 
           FV = SHDMAX * (1.-FBUR)
-          A1 = (1.-FV)**2*((1.-FGSN**2)*LOG(Z0G) + (FGSN**2)*LOG(Z0S))
-          A2 = (1.-(1.-FV)**2)*LOG(Z0BRD)
-          Z0 = EXP(A1+A2)
+          A1 = (1.-FV)**2*((1.-FGSN**2)*rp_log(Z0G) + (FGSN**2)*rp_log(Z0S))
+          A2 = (1.-(1.-FV)**2)*rp_log(Z0BRD)
+          Z0 = rp_exp(A1+A2)
 
       ELSE
 
@@ -3632,7 +3633,7 @@ CONTAINS
       IF (TEMPC <=  -15.) THEN
          DSNEW = 0.05
       ELSE
-         DSNEW = 0.05+0.0017* (TEMPC +15.)**1.5
+         DSNEW = 0.05+0.0017* rp_pow((TEMPC +15.), 1.5)
       END IF
 ! ----------------------------------------------------------------------
 ! ADJUSTMENT OF SNOW DENSITY DEPENDING ON NEW SNOWFALL
@@ -3772,7 +3773,7 @@ CONTAINS
 ! IN BELOW, REMOVE THE SQRT IN ABOVE
 ! ----------------------------------------------------------------------
          END DO
-         VAL = (1. - EXP ( - KDT * DT1))
+         VAL = (1. - rp_exp ( - KDT * DT1))
          DDT = DD * VAL
 #ifdef WRF_HYDRO
 !DJG NDHMS/WRF-Hydro edit...
@@ -3800,9 +3801,9 @@ CONTAINS
                DO JJ = J +1,IALP1
                   K = K * JJ
                END DO
-               SUM = SUM + (ACRT ** ( CVFRZ - J)) / FLOAT (K)
+               SUM = SUM + (rp_pow(ACRT, ( CVFRZ - J))) / FLOAT (K)
             END DO
-            FCR = 1. - EXP ( - ACRT) * SUM
+            FCR = 1. - rp_exp ( - ACRT) * SUM
          END IF
 
 ! ----------------------------------------------------------------------
@@ -4188,7 +4189,7 @@ IF ( OPT_THCND == 1 .OR. ( OPT_THCND == 2 .AND. (SOILTYP /= 4 .AND. SOILTYP /= 3
 ! QUARTZ' CONDUCTIVITY
       THKQTZ = 7.7
 ! SOLIDS' CONDUCTIVITY
-      THKS = (THKQTZ ** QZ)* (THKO ** (1. - QZ))
+      THKS = (rp_pow(THKQTZ, QZ))* (rp_pow(THKO, (1. - QZ)))
 
 ! UNFROZEN FRACTION (FROM 1., i.e., 100%LIQUID, TO 0. (100% FROZEN))
       XUNFROZ = SH2O / SMC
@@ -4196,8 +4197,8 @@ IF ( OPT_THCND == 1 .OR. ( OPT_THCND == 2 .AND. (SOILTYP /= 4 .AND. SOILTYP /= 3
       XU = XUNFROZ * SMCMAX
 
 ! SATURATED THERMAL CONDUCTIVITY
-      THKSAT = THKS ** (1. - SMCMAX)* THKICE ** (SMCMAX - XU)* THKW **   &
-         (XU)
+      THKSAT = rp_pow(THKS, (1. - SMCMAX))* rp_pow(THKICE, (SMCMAX - XU))* rp_pow(THKW,   &
+         (XU))
 
 ! DRY DENSITY IN KG/M3
       GAMMD = (1. - SMCMAX)*2700.
@@ -4215,7 +4216,7 @@ IF ( OPT_THCND == 1 .OR. ( OPT_THCND == 2 .AND. (SOILTYP /= 4 .AND. SOILTYP /= 3
 
          IF ( SATRATIO >  0.1 ) THEN
 
-            AKEL = LOG10 (SATRATIO) + 1.0
+            AKEL = rp_log10 (SATRATIO) + 1.0
 
 ! USE K = KDRY
          ELSE
@@ -4232,12 +4233,12 @@ IF ( OPT_THCND == 1 .OR. ( OPT_THCND == 2 .AND. (SOILTYP /= 4 .AND. SOILTYP /= 3
  
 ! use the Mccumber and Pielke approach for silt loam (4), sandy loam (3)
 
-         PSIF = PSISAT*100.*(SMCMAX/(SMC))**BEXP
+         PSIF = PSISAT*100.*rp_pow((SMCMAX/(SMC)), BEXP)
 !--- PSIF should be in [CM] to compute PF
-           PF=log10(abs(PSIF))
+           PF=rp_log10(abs(PSIF))
 !--- HK is for McCumber thermal conductivity
          IF(PF.LE.5.1) THEN
-           DF=420.*EXP(-(PF+2.7))
+           DF=420.*rp_exp(-(PF+2.7))
          ELSE
            DF=.1744
          END IF
@@ -4402,7 +4403,7 @@ IF ( OPT_THCND == 1 .OR. ( OPT_THCND == 2 .AND. (SOILTYP /= 4 .AND. SOILTYP /= 3
 ! ----------------------------------------------------------------------
       END DO
       IF (CMC .ne. 0.0) THEN
-         ETP1A = SHDFAC * PC * ETP1 * (1.0- (CMC / CMCMAX) ** CFACTR)
+         ETP1A = SHDFAC * PC * ETP1 * (1.0- rp_pow((CMC / CMCMAX), CFACTR))
       ELSE
          ETP1A = SHDFAC * PC * ETP1
       END IF
@@ -4504,16 +4505,16 @@ IF ( OPT_THCND == 1 .OR. ( OPT_THCND == 2 .AND. (SOILTYP /= 4 .AND. SOILTYP /= 3
 ! VERSION D_10CM: ........  FACTR1 = 0.2/SMCMAX
 ! WEIGHTED APPROACH...................... PABLO GRUNMANN, 28_SEP_1999.
 ! ----------------------------------------------------------------------
-      WDF = DWSAT * FACTR2 ** EXPON
+      WDF = DWSAT * rp_pow(FACTR2, EXPON)
       IF (SICEMAX .gt. 0.0) THEN
-         VKWGT = 1./ (1. + (500.* SICEMAX)**3.)
-         WDF = VKWGT * WDF + (1. - VKWGT)* DWSAT * FACTR1** EXPON
+         VKWGT = 1./ (1. + rp_pow((500.* SICEMAX), 3.))
+         WDF = VKWGT * WDF + (1. - VKWGT)* DWSAT * rp_pow(FACTR1, EXPON)
 ! ----------------------------------------------------------------------
 ! RESET THE EXPNTL COEF AND CALC THE HYDRAULIC CONDUCTIVITY
 ! ----------------------------------------------------------------------
       END IF
       EXPON = (2.0 * BEXP) + 3.0
-      WCND = DKSAT * FACTR2 ** EXPON
+      WCND = DKSAT * rp_pow(FACTR2, EXPON)
 
 ! ----------------------------------------------------------------------
   END SUBROUTINE WDFCND
@@ -4563,19 +4564,19 @@ IF ( OPT_THCND == 1 .OR. ( OPT_THCND == 2 .AND. (SOILTYP /= 4 .AND. SOILTYP /= 3
 ! ----------------------------------------------------------------------
 ! LECH'S SURFACE FUNCTIONS
 ! ----------------------------------------------------------------------
-      PSLMU (ZZ)= -0.96* log (1.0-4.5* ZZ)
+      PSLMU (ZZ)= -0.96* rp_log (1.0-4.5* ZZ)
       PSLMS (ZZ)= ZZ * RRIC -2.076* (1. -1./ (ZZ +1.))
-      PSLHU (ZZ)= -0.96* log (1.0-4.5* ZZ)
+      PSLHU (ZZ)= -0.96* rp_log (1.0-4.5* ZZ)
 
 ! ----------------------------------------------------------------------
 ! PAULSON'S SURFACE FUNCTIONS
 ! ----------------------------------------------------------------------
       PSLHS (ZZ)= ZZ * RFAC -2.076* (1. -1./ (ZZ +1.))
-      PSPMU (XX)= -2.* log ( (XX +1.)*0.5) - log ( (XX * XX +1.)*0.5)   &
-     &        +2.* ATAN (XX)                                            &
+      PSPMU (XX)= -2.* rp_log ( (XX +1.)*0.5) - rp_log ( (XX * XX +1.)*0.5)   &
+     &        +2.* rp_atan (XX)                                            &
      &- PIHF
       PSPMS (YY)= 5.* YY
-      PSPHU (XX)= -2.* log ( (XX * XX +1.)*0.5)
+      PSPHU (XX)= -2.* rp_log ( (XX * XX +1.)*0.5)
 
 ! ----------------------------------------------------------------------
 ! THIS ROUTINE SFCDIF CAN HANDLE BOTH OVER OPEN WATER (SEA, OCEAN) AND
@@ -4605,7 +4606,7 @@ IF ( OPT_THCND == 1 .OR. ( OPT_THCND == 2 .AND. (SOILTYP /= 4 .AND. SOILTYP /= 3
 !cc   If statements to avoid TANGENT LINEAR problems near zero
       BTGH = BTG * HPBL
       IF (BTGH * AKHS * DTHV .ne. 0.0) THEN
-         WSTAR2 = WWST2* ABS (BTGH * AKHS * DTHV)** (2./3.)
+         WSTAR2 = WWST2* rp_pow(ABS (BTGH * AKHS * DTHV), (2./3.))
       ELSE
          WSTAR2 = 0.0
       END IF
@@ -4616,16 +4617,16 @@ IF ( OPT_THCND == 1 .OR. ( OPT_THCND == 2 .AND. (SOILTYP /= 4 .AND. SOILTYP /= 3
       USTAR = MAX (SQRT (AKMS * SQRT (DU2+ WSTAR2)),EPSUST)
 
 ! ----------------------------------------------------------------------
-      ZT = EXP (ZILFC * SQRT (USTAR * Z0))* Z0
+      ZT = rp_exp (ZILFC * SQRT (USTAR * Z0))* Z0
       ZSLU = ZLM + ZU
 !     PRINT*,'ZSLT=',ZSLT
 !     PRINT*,'ZLM=',ZLM
 !     PRINT*,'ZT=',ZT
 
       ZSLT = ZLM + ZT
-      RLOGU = log (ZSLU / ZU)
+      RLOGU = rp_log (ZSLU / ZU)
 
-      RLOGT = log (ZSLT / ZT)
+      RLOGT = rp_log (ZSLT / ZT)
 !     PRINT*,'RLMO=',RLMO
 !     PRINT*,'ELFC=',ELFC
 !     PRINT*,'AKHS=',AKHS
@@ -4715,10 +4716,10 @@ IF ( OPT_THCND == 1 .OR. ( OPT_THCND == 2 .AND. (SOILTYP /= 4 .AND. SOILTYP /= 3
 ! ----------------------------------------------------------------------
          USTAR = MAX (SQRT (AKMS * SQRT (DU2+ WSTAR2)),EPSUST)
 
-         ZT = EXP (ZILFC * SQRT (USTAR * Z0))* Z0
+         ZT = rp_exp (ZILFC * SQRT (USTAR * Z0))* Z0
          ZSLT = ZLM + ZT
 !-----------------------------------------------------------------------
-         RLOGT = log (ZSLT / ZT)
+         RLOGT = rp_log (ZSLT / ZT)
          USTARK = USTAR * VKRM
          AKMS = MAX (USTARK / SIMM,CXCH)
 !-----------------------------------------------------------------------
@@ -4726,7 +4727,7 @@ IF ( OPT_THCND == 1 .OR. ( OPT_THCND == 2 .AND. (SOILTYP /= 4 .AND. SOILTYP /= 3
 !-----------------------------------------------------------------------
          AKHS = MAX (USTARK / SIMH,CXCH)
          IF (BTGH * AKHS * DTHV .ne. 0.0) THEN
-            WSTAR2 = WWST2* ABS (BTGH * AKHS * DTHV)** (2./3.)
+            WSTAR2 = WWST2* rp_pow(ABS (BTGH * AKHS * DTHV), (2./3.))
          ELSE
             WSTAR2 = 0.0
          END IF

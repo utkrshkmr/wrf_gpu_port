@@ -8,6 +8,7 @@
 !  This MODULE CONTAINS the following routines:
 
 MODULE module_physics_init
+   USE module_repro_math
 
    USE module_state_description
    USE module_model_constants
@@ -4962,17 +4963,17 @@ CALL lsm_mosaic_init(IVGTYP,config_flags%ISWATER,config_flags%ISURBAN,config_fla
       ps=1013.25
       ztrop=11000.
       tstrat=ts+gamma*ztrop
-      ptrop=ps*(tstrat/ts)**(-g/(gamma*r))
+      ptrop=ps*rp_pow((tstrat/ts), (-g/(gamma*r)))
 
       do k=kde,kds,-1
 ! full levels
         z=zf(k)
         if(z.le.ztrop)then
           t=ts+gamma*z
-          p=ps*(t/ts)**(-g/(gamma*r))
+          p=ps*rp_pow((t/ts), (-g/(gamma*r)))
         else
           t=tstrat
-          p=ptrop*exp(-g*(z-ztrop)/(r*tstrat))
+          p=ptrop*rp_exp(-g*(z-ztrop)/(r*tstrat))
         endif
         if(k.eq.kde)then
           ztop=zf(k)
@@ -4984,10 +4985,10 @@ CALL lsm_mosaic_init(IVGTYP,config_flags%ISWATER,config_flags%ISURBAN,config_fla
         z=0.5*(zf(k)+zf(k-1))
         if(z.le.ztrop)then
           t=ts+gamma*z
-          p=ps*(t/ts)**(-g/(gamma*r))
+          p=ps*rp_pow((t/ts), (-g/(gamma*r)))
         else
           t=tstrat
-          p=ptrop*exp(-g*(z-ztrop)/(r*tstrat))
+          p=ptrop*rp_exp(-g*(z-ztrop)/(r*tstrat))
         endif
         sh(k-1)=(p-ptop)/(ps-ptop)
         endif

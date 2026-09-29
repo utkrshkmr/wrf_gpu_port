@@ -1,4 +1,5 @@
 MODULE module_sf_noahlsm_glacial_only
+   USE module_repro_math
 #if defined(mpas)
 use mpas_atmphys_constants
 use mpas_atmphys_utilities, only: physics_error_fatal
@@ -501,7 +502,7 @@ CONTAINS
     ELSE
        SNOTIME1=SNOTIME1+DT
 !               IF (TSNOW.LT.273.16) THEN
-       SNOALB2=SNOALB1*(SNACCA**((SNOTIME1/86400.0)**SNACCB))
+       SNOALB2=SNOALB1*(rp_pow(SNACCA, (rp_pow((SNOTIME1/86400.0), SNACCB))))
 !               ELSE
 !                  SNOALB2 =SNOALB1*(SNTHWA**((SNOTIME1/86400.0)**SNTHWB))
 !               ENDIF
@@ -539,7 +540,7 @@ CONTAINS
 ! CSNOW IN UNITS OF CAL/(CM*HR*C), RETURNED IN W/(M*C)
 ! BASIC VERSION IS DYACHKOVA EQUATION (1960), FOR RANGE 0.1-0.4
 ! ----------------------------------------------------------------------
-    C = 0.328*10** (2.25* DSNOW)
+    C = 0.328*rp_pow(10, (2.25* DSNOW))
 !      CSNOW=UNIT*C
 
 ! ----------------------------------------------------------------------
@@ -1145,7 +1146,7 @@ CONTAINS
 !       IPOL=8, FOR REL.ERROR <~ 1.8 E-5 % (7 SIGNIFICANT DIGITS)
 !       IPOL=7, FOR REL.ERROR <~ 1.8 E-4 % ...
 ! ----------------------------------------------------------------------
-      BFAC = DTHR * C1* EXP (0.08* TAVGC - C2* SNDENS)
+      BFAC = DTHR * C1* rp_exp (0.08* TAVGC - C2* SNDENS)
       IPOL = 4
       PEXP = 0.
 !        PEXP = (1. + PEXP)*BFAC*ESDC/REAL(J+1)
@@ -1252,7 +1253,7 @@ CONTAINS
     IF ( TEMPC <=  -15. ) THEN
        DSNEW = 0.05
     ELSE
-       DSNEW = 0.05 + 0.0017 * ( TEMPC + 15. ) ** 1.5
+       DSNEW = 0.05 + 0.0017 * rp_pow(( TEMPC + 15. ), 1.5)
     ENDIF
 
 ! ----------------------------------------------------------------------

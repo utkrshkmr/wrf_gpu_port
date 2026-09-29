@@ -1,6 +1,7 @@
 !WRF:MODEL_LAYER:PHYSICS
 
 MODULE module_diagnostics_driver
+   USE module_repro_math
 
 CONTAINS
 
@@ -809,7 +810,7 @@ CONTAINS
       !  Process the diags if this is the correct time step OR
       !  if this is an adaptive timestep forecast.
 
-         TIME_TO_DO_PL_DIAGS : IF ( ( ( MOD(NINT(curr_secs2+grid%dt),NINT(config_flags%p_lev_interval)) .EQ. 0 ) ) .OR. &
+         TIME_TO_DO_PL_DIAGS : IF ( ( ( rp_mod(NINT(curr_secs2+grid%dt),NINT(config_flags%p_lev_interval)) .EQ. 0 ) ) .OR. &
                ( config_flags%use_adaptive_time_step ) ) THEN
 
             !$OMP PARALLEL DO   &
@@ -880,7 +881,7 @@ CONTAINS
       !  Process the diags if this is the correct time step OR
       !  if this is an adaptive timestep forecast.
 
-         TIME_TO_DO_ZL_DIAGS : IF ( ( ( MOD(NINT(curr_secs2+grid%dt),NINT(config_flags%z_lev_interval)) .EQ. 0 ) ) .OR. &
+         TIME_TO_DO_ZL_DIAGS : IF ( ( ( rp_mod(NINT(curr_secs2+grid%dt),NINT(config_flags%z_lev_interval)) .EQ. 0 ) ) .OR. &
                ( config_flags%use_adaptive_time_step ) ) THEN
 
             !$OMP PARALLEL DO   &

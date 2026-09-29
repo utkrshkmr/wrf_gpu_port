@@ -435,6 +435,7 @@ SUBROUTINE compute_eta ( znw , &
                          ids , ide , jds , jde , kds , kde ,    &
                          ims , ime , jms , jme , kms , kme ,    &
                          its , ite , jts , jte , kts , kte )
+   USE module_repro_math
 
       !  Compute eta levels, either using given values from the namelist (hardly
       !  a computation, yep, I know), or assuming a constant dz above the PBL,
@@ -514,12 +515,12 @@ SUBROUTINE compute_eta ( znw , &
 
       DO k = 1, prac_levels-1
         pb = znu_prac(k)*(p_surf - p_top) + p_top
-        temp = MAX ( tiso, t00 + A*LOG(pb/p00) )
+        temp = MAX ( tiso, t00 + A*rp_log(pb/p00) )
         IF ( pb .LT. p_strat ) THEN
-          temp = tiso + A_strat*LOG(pb/p_strat)
+          temp = tiso + A_strat*rp_log(pb/p_strat)
         END IF
-        t_init = temp*(p00/pb)**(r_d/cp) - t0
-        alb(k) = (r_d/p1000mb)*(t_init+t0)*(pb/p1000mb)**cvpm
+        t_init = temp*rp_pow((p00/pb), (r_d/cp)) - t0
+        alb(k) = (r_d/p1000mb)*(t_init+t0)*rp_pow((pb/p1000mb), cvpm)
       END DO
 
       !  Base state mu is defined as base state surface pressure minus p_top
@@ -570,23 +571,23 @@ SUBROUTINE compute_eta ( znw , &
 
         pb = 0.5*(eta_levels(k)+znw_prac(kk)) * (p_surf - p_top) + p_top
 
-        temp = MAX ( tiso, t00 + A*LOG(pb/p00) )
+        temp = MAX ( tiso, t00 + A*rp_log(pb/p00) )
         IF ( pb .LT. p_strat ) THEN
-          temp = tiso + A_strat * LOG ( pb/p_strat )
+          temp = tiso + A_strat * rp_log ( pb/p_strat )
         END IF
 !       temp =             t00 + A*LOG(pb/p00)
-        t_init = temp*(p00/pb)**(r_d/cp) - t0
-        alb(k) = (r_d/p1000mb)*(t_init+t0)*(pb/p1000mb)**cvpm
+        t_init = temp*rp_pow((p00/pb), (r_d/cp)) - t0
+        alb(k) = (r_d/p1000mb)*(t_init+t0)*rp_pow((pb/p1000mb), cvpm)
         eta_levels(k+1) = eta_levels(k) - dz*g / ( mub*alb(k) )
         pb = 0.5*(eta_levels(k)+eta_levels(k+1)) * (p_surf - p_top) + p_top
 
-        temp = MAX ( tiso, t00 + A*LOG(pb/p00) )
+        temp = MAX ( tiso, t00 + A*rp_log(pb/p00) )
         IF ( pb .LT. p_strat ) THEN
-          temp = tiso + A_strat * LOG ( pb/p_strat )
+          temp = tiso + A_strat * rp_log ( pb/p_strat )
         END IF
 !       temp =             t00 + A*LOG(pb/p00)
-        t_init = temp*(p00/pb)**(r_d/cp) - t0
-        alb(k) = (r_d/p1000mb)*(t_init+t0)*(pb/p1000mb)**cvpm
+        t_init = temp*rp_pow((p00/pb), (r_d/cp)) - t0
+        alb(k) = (r_d/p1000mb)*(t_init+t0)*rp_pow((pb/p1000mb), cvpm)
         eta_levels(k+1) = eta_levels(k) - dz*g / ( mub*alb(k) )
         pb = 0.5*(eta_levels(k)+eta_levels(k+1)) * (p_surf - p_top) + p_top
 
@@ -613,12 +614,12 @@ SUBROUTINE compute_eta ( znw , &
         DO loop = 1 , 10
           DO k = 8, kte-1-2-1
             pb = (znw(k)+znw(k+1))*0.5 * (p_surf - p_top) + p_top
-            temp = MAX ( tiso, t00 + A*LOG(pb/p00) )
+            temp = MAX ( tiso, t00 + A*rp_log(pb/p00) )
             IF ( pb .LT. p_strat ) THEN
-              temp = tiso + A_strat * LOG ( pb/p_strat )
+              temp = tiso + A_strat * rp_log ( pb/p_strat )
             END IF
-            t_init = temp*(p00/pb)**(r_d/cp) - t0
-            alb(k) = (r_d/p1000mb)*(t_init+t0)*(pb/p1000mb)**cvpm
+            t_init = temp*rp_pow((p00/pb), (r_d/cp)) - t0
+            alb(k) = (r_d/p1000mb)*(t_init+t0)*rp_pow((pb/p1000mb), cvpm)
             znw(k+1) = znw(k) - dz*g / ( mub*alb(k) )
           END DO
           pb = pb_max
@@ -635,12 +636,12 @@ SUBROUTINE compute_eta ( znw , &
 
         DO k = 1, kde-1-2
           pb = (znw(k)+znw(k+1))*0.5 * (p_surf - p_top) + p_top
-          temp = MAX ( tiso, t00 + A*LOG(pb/p00) )
+          temp = MAX ( tiso, t00 + A*rp_log(pb/p00) )
           IF ( pb .LT. p_strat ) THEN
-            temp = tiso + A_strat * LOG ( pb/p_strat )
+            temp = tiso + A_strat * rp_log ( pb/p_strat )
           END IF
-          t_init = temp*(p00/pb)**(r_d/cp) - t0
-          alb(k) = (r_d/p1000mb)*(t_init+t0)*(pb/p1000mb)**cvpm
+          t_init = temp*rp_pow((p00/pb), (r_d/cp)) - t0
+          alb(k) = (r_d/p1000mb)*(t_init+t0)*rp_pow((pb/p1000mb), cvpm)
         END DO
 
         phb(1) = 0.
@@ -689,12 +690,12 @@ SUBROUTINE compute_eta ( znw , &
 
       DO k = 8, kte-1
         pb = (znw(k)+znw(k+1))*0.5 * (p_surf - p_top) + p_top
-        temp = MAX ( tiso, t00 + A*LOG(pb/p00) )
+        temp = MAX ( tiso, t00 + A*rp_log(pb/p00) )
         IF ( pb .LT. p_strat ) THEN
-          temp = tiso + A_strat * LOG ( pb/p_strat )
+          temp = tiso + A_strat * rp_log ( pb/p_strat )
         END IF
-        t_init = temp*(p00/pb)**(r_d/cp) - t0
-        alb(k) = (r_d/p1000mb)*(t_init+t0)*(pb/p1000mb)**cvpm
+        t_init = temp*rp_pow((p00/pb), (r_d/cp)) - t0
+        alb(k) = (r_d/p1000mb)*(t_init+t0)*rp_pow((pb/p1000mb), cvpm)
         phb(k) = phb(k-1) - (znw(k)-znw(k-1)) * mub*alb(k-1)
       END DO
       phb(kte) = phb(kte-1) - (znw(kte)-znw(kte-1)) * mub*alb(kte-1)
@@ -815,6 +816,7 @@ SUBROUTINE adjust_tempqv ( mub, save_mub, c3, c4, znw, p_top, &
                            ids , ide , jds , jde , kds , kde , &
                            ims , ime , jms , jme , kms , kme , &
                            ips , ipe , jps , jpe , kps , kpe )
+   USE module_repro_math
 
    !USE module_configure
    !USE module_domain
@@ -850,11 +852,11 @@ SUBROUTINE adjust_tempqv ( mub, save_mub, c3, c4, znw, p_top, &
          DO i = ips , MIN(ipe, ide-1)
             p_old(i,k,j) = c4(k) +         c3(k)*save_mub(i,j) + p_top + pp(i,k,j)
             IF ( use_theta_m .EQ. 1 ) THEN
-               tc = (th(i,k,j)+300.)*(p_old(i,k,j)/1.e5)**(2./7.)/(1.+R_v/R_d*qv(i,k,j)) - 273.15
+               tc = (th(i,k,j)+300.)*rp_pow((p_old(i,k,j)/1.e5), (2./7.))/(1.+R_v/R_d*qv(i,k,j)) - 273.15
             ELSE
-               tc = (th(i,k,j)+300.)*(p_old(i,k,j)/1.e5)**(2./7.)                        - 273.15
+               tc = (th(i,k,j)+300.)*rp_pow((p_old(i,k,j)/1.e5), (2./7.))                        - 273.15
             END IF
-            es = 610.78*exp(17.0809*tc/(234.175+tc))
+            es = 610.78*rp_exp(17.0809*tc/(234.175+tc))
             e = qv(i,k,j)*p_old(i,k,j)/(0.622+qv(i,k,j))
             rh(i,k,j) = e/es
          END DO
@@ -878,8 +880,8 @@ SUBROUTINE adjust_tempqv ( mub, save_mub, c3, c4, znw, p_top, &
             ELSE
                th(i,k,j) = (thloc+dth)                       -300.
             END IF
-            tc = (thloc+dth)*(p_new(i,k,j)/1.e5)**(2./7.) - 273.15
-            es = 610.78*exp(17.0809*tc/(234.175+tc))
+            tc = (thloc+dth)*rp_pow((p_new(i,k,j)/1.e5), (2./7.)) - 273.15
+            es = 610.78*rp_exp(17.0809*tc/(234.175+tc))
             e = rh(i,k,j)*es
             qv(i,k,j) = 0.622*e/(p_new(i,k,j)-e)
          END DO
@@ -1040,6 +1042,7 @@ SUBROUTINE compute_vcoord_1d_coeffs ( ht, etac, znw, &
                                       znu, &
                                       c1f, c2f, c3f, c4f, &
                                       c1h, c2h, c3h, c4h )
+   USE module_repro_math
 
    IMPLICIT NONE
 
@@ -1088,7 +1091,7 @@ SUBROUTINE compute_vcoord_1d_coeffs ( ht, etac, znw, &
             c3f(k) = 0.
          END IF
       ELSE IF ( hybrid_opt .EQ. 3 ) THEN
-         c3f(k) = znw(k)*sin(0.5*3.14159*znw(k))**2
+         c3f(k) = znw(k)*rp_sin(0.5*3.14159*znw(k))**2
          IF      ( k .EQ. kds ) THEN
             c3f(k) = 1.
          ELSE IF ( k .EQ. kde ) THEN
@@ -1161,7 +1164,7 @@ SUBROUTINE compute_vcoord_1d_coeffs ( ht, etac, znw, &
 
    DO j = jts, MIN(jde-1,jte)
       DO i = its, MIN(ide-1,ite)
-         p_surf = p00 * EXP ( -t00/a + ( (t00/a)**2 - 2.*g*ht(i,j)/a/r_d ) **0.5 )
+         p_surf = p00 * rp_exp ( -t00/a + rp_pow(( (t00/a)**2 - 2.*g*ht(i,j)/a/r_d ), 0.5) )
          DO k=1, kde-1
             press_above = c3f(k+1)*(p_surf-p_top) + c4f(k+1) + p_top
             press_below = c3f(k  )*(p_surf-p_top) + c4f(k  ) + p_top

@@ -2,6 +2,7 @@
 !
 
 MODULE module_pbl_driver
+   USE module_repro_math
   real, private, parameter :: QCLOUD_MIN = 0.0
   real, private, parameter :: QVAPOR_MIN = 0.0
   real, private, parameter :: QKE_MIN = 1.e-4
@@ -938,7 +939,7 @@ CONTAINS
 
    IF ( ( .NOT. decided ) .AND. &
         ( .NOT. doing_adapt_dt ) .AND. &
-        ( MOD(itimestep,stepbl) .EQ. 0 ) ) THEN
+        ( rp_mod(itimestep,stepbl) .EQ. 0 ) ) THEN
       run_param   = .TRUE.
       decided     = .TRUE.
    END IF
@@ -1119,8 +1120,8 @@ CONTAINS
 ! fix the values for the surface fluxes (source/sink terms)
 ! here for momentum the resolution is done implicitely
 ! while for heat and moisture is done explicitely 
-            a_u(i,1,j)=(-ust(I,J)*ust(I,J))/dz8w(i,1,j)/((u_phy(i,1,j)**2+v_phy(i,1,j)**2.)**.5)           
-            a_v(i,1,j)=(-ust(I,J)*ust(I,J))/dz8w(i,1,j)/((u_phy(i,1,j)**2+v_phy(i,1,j)**2.)**.5)
+            a_u(i,1,j)=(-ust(I,J)*ust(I,J))/dz8w(i,1,j)/(rp_pow((u_phy(i,1,j)**2+rp_pow(v_phy(i,1,j), 2.)), .5))           
+            a_v(i,1,j)=(-ust(I,J)*ust(I,J))/dz8w(i,1,j)/(rp_pow((u_phy(i,1,j)**2+rp_pow(v_phy(i,1,j), 2.)), .5))
             b_t(i,1,j)=hfx(i,j)/rho(i,1,j)/CP/dz8w(i,1,j)
             b_q(i,1,j)=qfx(i,j)/rho(i,1,j)/dz8w(i,1,j)
 !! if you want to solve also the heat and moisture fluxes implicitely, uncomment the following lines.
@@ -2271,7 +2272,7 @@ CONTAINS
 
      IF (distributed_ahe_opt == 1) THEN
        call cal_mon_day(julday, julyr, jmonth, jday)
-       ihour = (jmonth - 1) * 24 + MOD(INT(gmt + xtime / 60.0), 24)
+       ihour = (jmonth - 1) * 24 + rp_mod(INT(gmt + xtime / 60.0), 24)
        DO j = jts, jte
        DO i = its, ite
          ! Volumetric heat capacity of air = 1200 J/(K m3)

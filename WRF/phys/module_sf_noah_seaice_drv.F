@@ -1,4 +1,5 @@
 module module_sf_noah_seaice_drv
+   USE module_repro_math
 #if defined(mpas)
 use mpas_atmphys_utilities, only: physics_message,physics_error_fatal
 #define FATAL_ERROR(M) call physics_error_fatal( M )
@@ -273,8 +274,8 @@ contains
           Q2     = QV3D(I,1,J) / ( 1.0 + QV3D(I,1,J) )
 
           ! Calculate TH2 via Exner function
-          APES   = ( 1.E5 / PSFC )   ** CAPA
-          APELM  = ( 1.E5 / SFCPRS ) ** CAPA
+          APES   = rp_pow(( 1.E5 / PSFC ), CAPA)
+          APELM  = rp_pow(( 1.E5 / SFCPRS ), CAPA)
           TH2    = ( SFCTMP * APELM ) / APES
 
           ! Q2SAT is specific humidity
@@ -306,7 +307,7 @@ contains
           IF ( SNOW(I,J) .GT. 0.0 ) THEN
              ! If snow on surface, use ice saturation properties
              SFCTSNO = SFCTMP ! Lowest model Air temperature
-             E2SAT = 611.2 * EXP ( 6174. * ( 1./273.15 - 1./SFCTSNO ) )
+             E2SAT = 611.2 * rp_exp ( 6174. * ( 1./273.15 - 1./SFCTSNO ) )
              Q2SATI = 0.622 * E2SAT / ( SFCPRS - E2SAT )
              Q2SATI = Q2SATI / ( 1.0 + Q2SATI )    ! Convert to specific humidity
              ! T1 is skin temperature

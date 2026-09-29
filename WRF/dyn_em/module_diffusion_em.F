@@ -2,6 +2,7 @@
 ! WRF:MODEL_LAYER:PHYSICS
 
     MODULE module_diffusion_em
+   USE module_repro_math
 
     USE module_bc, only: set_physical_bc3d, set_physical_bc2d ! XZ
     USE module_state_description, only: p_m23, p_m13, p_m22, p_m33, p_r23, p_r13, p_r12, p_m12, p_m11, &
@@ -1431,8 +1432,8 @@ SUBROUTINE cal_dampkm( config_flags,xkmh,xkhh,xkmv,xkhv,                       &
 
          kmmvmax=dz*dz/dt
          tmp=min(deltaz(i)/zdamp,1.)
-         dampk(i,k,j)=cos(degrad90*tmp)*cos(degrad90*tmp)*kmmax*dampcoef
-         dampkv(i,k,j)=cos(degrad90*tmp)*cos(degrad90*tmp)*kmmvmax*dampcoef
+         dampk(i,k,j)=rp_cos(degrad90*tmp)*rp_cos(degrad90*tmp)*kmmax*dampcoef
+         dampkv(i,k,j)=rp_cos(degrad90*tmp)*rp_cos(degrad90*tmp)*kmmvmax*dampcoef
 ! set upper limit on vertical K (based on horizontal K)
          dampkv(i,k,j)=min(dampkv(i,k,j),dampk(i,k,j))
 
@@ -1457,8 +1458,8 @@ SUBROUTINE cal_dampkm( config_flags,xkmh,xkhh,xkmv,xkhv,                       &
 
          kmmvmax=dz*dz/dt
          tmp=min(deltaz(i)/zdamp,1.)
-         dampk(i,k,j)=cos(degrad90*tmp)*cos(degrad90*tmp)*kmmax*dampcoef
-         dampkv(i,k,j)=cos(degrad90*tmp)*cos(degrad90*tmp)*kmmvmax*dampcoef
+         dampk(i,k,j)=rp_cos(degrad90*tmp)*rp_cos(degrad90*tmp)*kmmax*dampcoef
+         dampkv(i,k,j)=rp_cos(degrad90*tmp)*rp_cos(degrad90*tmp)*kmmvmax*dampcoef
 ! set upper limit on vertical K (based on horizontal K)
          dampkv(i,k,j)=min(dampkv(i,k,j),dampk(i,k,j))
       ENDDO
@@ -1627,7 +1628,7 @@ END SUBROUTINE cal_dampkm
     DO k = kts, ktf
     DO i = i_start, i_end
       tc         = t(i,k,j) - SVPT0
-      es         = 1000.0 * SVP1 * EXP( SVP2 * tc / ( t(i,k,j) - SVP3 ) )
+      es         = 1000.0 * SVP1 * rp_exp( SVP2 * tc / ( t(i,k,j) - SVP3 ) )
       qvs(i,k,j) = EP_2 * es / ( p(i,k,j) - es )
     END DO
     END DO
@@ -1663,7 +1664,7 @@ END SUBROUTINE cal_dampkm
     DO j = j_start, j_end
     DO i = i_start, i_end
       tmpdz     = 1.0 / rdz(i,k+1,j) + 0.5 / rdzw(i,k,j)
-      thetasfc  = T8w(i,kts,j) / ( p8w(i,k,j) / p1000mb )**( R_d / Cp )
+      thetasfc  = T8w(i,kts,j) / rp_pow(( p8w(i,k,j) / p1000mb ), ( R_d / Cp ))
       IF ( moist(i,k,j,P_QV) .GE. qvs(i,k,j) .OR. qctmp(i,k,j) .GE. qc_cr) THEN
         qvsfc     = cf1 * qvs(i,1,j) +  &
                     cf2 * qvs(i,2,j) +  &
@@ -1894,7 +1895,7 @@ SUBROUTINE smag_km( config_flags,xkmh,xkmv,xkhh,xkhv,BN2,                      &
          mlen_h=sqrt(dx/msftx(i,j) * dy/msfty(i,j))
          mlen_v= 1./rdzw(i,k,j)
          tmp=max(0.,def2(i,k,j)-BN2(i,k,j)/pr)
-         tmp=tmp**0.5
+         tmp=rp_pow(tmp, 0.5)
          xkmh(i,k,j)=max(c_s*c_s*mlen_h*mlen_h*tmp, 1.0E-6*mlen_h*mlen_h )
          xkmh(i,k,j)=min(xkmh(i,k,j), mix_upper_bound * mlen_h * mlen_h / dt )
          xkmv(i,k,j)=max(c_s*c_s*mlen_v*mlen_v*tmp, 1.0E-6*mlen_v*mlen_v )
@@ -1910,9 +1911,9 @@ SUBROUTINE smag_km( config_flags,xkmh,xkmv,xkhh,xkhv,BN2,                      &
       DO j = j_start, j_end
       DO k = kts, ktf
       DO i = i_start, i_end
-         deltas=(dx/msftx(i,j) * dy/msfty(i,j)/rdzw(i,k,j))**0.33333333
+         deltas=rp_pow((dx/msftx(i,j) * dy/msfty(i,j)/rdzw(i,k,j)), 0.33333333)
          tmp=max(0.,def2(i,k,j)-BN2(i,k,j)/pr)
-         tmp=tmp**0.5
+         tmp=rp_pow(tmp, 0.5)
          xkmh(i,k,j)=max(c_s*c_s*deltas*deltas*tmp, 1.0E-6*deltas*deltas )
          xkmh(i,k,j)=min(xkmh(i,k,j), mix_upper_bound * dx/msftx(i,j) * dy/msfty(i,j) / dt )
          xkmv(i,k,j)=xkmh(i,k,j)
@@ -2186,7 +2187,7 @@ END SUBROUTINE smag2d_km
     DO j = j_start, j_end
     DO i = i_start, i_end
       tmpdz         = 1.0 / rdzw(i,k+1,j) + 1.0 / rdzw(i,k,j)
-      thetasfc      = T8w(i,kts,j) / ( p8w(i,k,j) / p1000mb )**( R_d / Cp )
+      thetasfc      = T8w(i,kts,j) / rp_pow(( p8w(i,k,j) / p1000mb ), ( R_d / Cp ))
       dthrdn(i,k,j) = ( theta(i,k+1,j) - thetasfc ) / tmpdz
     END DO
     END DO
@@ -2195,7 +2196,7 @@ END SUBROUTINE smag2d_km
     DO j = j_start, j_end
     DO i = i_start, i_end
       tmpdz         = 1.0 / rdz(i,k,j) + 0.5 / rdzw(i,k,j)
-      thetatop      = T8w(i,kde,j) / ( p8w(i,kde,j) / p1000mb )**( R_d / Cp )
+      thetatop      = T8w(i,kde,j) / rp_pow(( p8w(i,kde,j) / p1000mb ), ( R_d / Cp ))
       dthrdn(i,k,j) = ( thetatop - theta(i,k-1,j) ) / tmpdz
     END DO
     END DO
@@ -2209,7 +2210,7 @@ END SUBROUTINE smag2d_km
         deltas = 1.0 / rdzw(i,k,j)
         mlen_v = deltas
         IF ( dthrdn(i,k,j) .GT. 0.) THEN
-          mlen_s = 0.76 * tmp / ( ABS( g / theta(i,k,j) * dthrdn(i,k,j) ) )**0.5
+          mlen_s = 0.76 * tmp / rp_pow(( ABS( g / theta(i,k,j) * dthrdn(i,k,j) ) ), 0.5)
           mlen_v = MIN( mlen_v, mlen_s )
         END IF
         xkmh(i,k,j)  = MAX( c_k * tmp * mlen_h, 1.0E-6 * mlen_h * mlen_h )
@@ -2236,7 +2237,7 @@ END SUBROUTINE smag2d_km
       DO k = kts, ktf
       DO i = i_start, i_end
         tmp          = SQRT( MAX( tke(i,k,j), tke_seed ) )
-        deltas       = ( dx/msftx(i,j) * dy/msfty(i,j) / rdzw(i,k,j) )**0.33333333
+        deltas       = rp_pow(( dx/msftx(i,j) * dy/msfty(i,j) / rdzw(i,k,j) ), 0.33333333)
         xkmh(i,k,j)  = c_k * tmp * l_scale(i,k,j)
         xkmh(i,k,j)  = MIN( mix_upper_bound * dx/msftx(i,j) * dy/msfty(i,j) / dt,  xkmh(i,k,j) )
         xkmv(i,k,j)  = c_k * tmp * l_scale(i,k,j)
@@ -2302,7 +2303,7 @@ END SUBROUTINE smag2d_km
               deltas = 1.0 / rdzw(i,k,j)
               mlen_v = deltas
           IF ( dthrdn(i,k,j) .GT. 0.) THEN
-              mlen_s = 0.76 * tmp / ( ABS( g / theta(i,k,j) * dthrdn(i,k,j)))**0.5
+              mlen_s = 0.76 * tmp / rp_pow(( ABS( g / theta(i,k,j) * dthrdn(i,k,j))), 0.5)
               mlen_v = MIN( mlen_v, mlen_s )
           END IF
 ! length scales multiplied by partial function for grid-size dependency
@@ -2389,7 +2390,7 @@ END SUBROUTINE smag2d_km
     DO j = j_start, j_end
     DO k = kts, ktf
     DO i = i_start, i_end
-      deltas         = ( dx/msftx(i,j) * dy/msfty(i,j) / rdzw(i,k,j) )**0.33333333
+      deltas         = rp_pow(( dx/msftx(i,j) * dy/msfty(i,j) / rdzw(i,k,j) ), 0.33333333)
       l_scale(i,k,j) = deltas
 
       IF ( BN2(i,k,j) .gt. 1.0e-6 ) THEN
@@ -2528,7 +2529,7 @@ END SUBROUTINE smag2d_km
     DO j = j_start, j_end
     DO i = i_start, i_end
       tmpdz         = 1.0 / rdzw(i,k+1,j) + 1.0 / rdzw(i,k,j)
-      thetasfc      = T8w(i,kts,j) / ( p8w(i,k,j) / p1000mb )**( R_d / Cp )
+      thetasfc      = T8w(i,kts,j) / rp_pow(( p8w(i,k,j) / p1000mb ), ( R_d / Cp ))
       dthrdn(i,k,j) = ( theta(i,k+1,j) - thetasfc ) / tmpdz
     END DO
     END DO
@@ -2537,7 +2538,7 @@ END SUBROUTINE smag2d_km
     DO j = j_start, j_end
     DO i = i_start, i_end
       tmpdz         = 1.0 / rdz(i,k,j) + 0.5 / rdzw(i,k,j)
-      thetatop      = T8w(i,kde,j) / ( p8w(i,kde,j) / p1000mb )**( R_d / Cp )
+      thetatop      = T8w(i,kde,j) / rp_pow(( p8w(i,kde,j) / p1000mb ), ( R_d / Cp ))
       dthrdn(i,k,j) = ( thetatop - theta(i,k-1,j) ) / tmpdz
     END DO
     END DO
@@ -2609,7 +2610,7 @@ END SUBROUTINE smag2d_km
     DO i = i_start, i_end
        IF( dthrdn(i,k,j).GT.0.0 ) THEN
         N2 = gtr*dthrdn(i,k,j)
-        qcv = (gtr*MAX(sflux(i,j),0.0)*elt(i,j))**(1.0/3.0)
+        qcv = rp_pow((gtr*MAX(sflux(i,j),0.0)*elt(i,j)), (1.0/3.0))
         elb(i,k,j) = qtke(i,k,j)/sqrt(N2)*(alp2 + alp3*sqrt(qcv/(elt(i,j)*sqrt(N2))))
         elf(i,k,j) = alp2*qtke(i,k,j)/sqrt(N2)
        ELSE
@@ -2627,7 +2628,7 @@ END SUBROUTINE smag2d_km
        IF (rmol(i,j) .GT. 0.0) THEN
          els(i,k,j) = karman*za(i,k,j)/(1.0+2.7*min(za(i,k,j)*rmol(i,j),1.0))
        ELSE
-         coe = (1.0 - alp4*za(i,k,j)*rmol(i,j))**0.2
+         coe = rp_pow((1.0 - alp4*za(i,k,j)*rmol(i,j)), 0.2)
          els(i,k,j) = 1.0*karman*za(i,k,j)*coe
        ENDIF
     ENDDO
@@ -2653,7 +2654,7 @@ END SUBROUTINE smag2d_km
          h1=MIN(h1,maxdz)         ! 1/2 transition layer depth
          h2=h1/2.0                ! 1/4 transition layer depth
  
-         wt=.5*TANH((za(i,k,j) - (zi2+h1))/h2) + .5
+         wt=.5*rp_tanh((za(i,k,j) - (zi2+h1))/h2) + .5
          dlk(i,k,j) = dlk(i,k,j)*(1.-wt) + 0.4*elmin(i,k,j)*wt  
     ENDDO
     ENDDO
@@ -2790,7 +2791,7 @@ END SUBROUTINE smag2d_km
                     bbb=(theta(i,izz+1,j)-theta(i,izz,j))/dzt
                     IF(bbb.NE.0) THEN
                        tl = (-beta * (theta(i,izz,j) - theta(i,k,j))               &
-                          + sqrt(max(0.,(beta*(theta(i,izz,j)-theta(i,k,j)))**2.   &
+                          + sqrt(max(0.,rp_pow((beta*(theta(i,izz,j)-theta(i,k,j))), 2.)   &
                           + 2.*bbb*beta*(tke(i,k,j) - zup_inf))))/bbb/beta
                     ELSE
                        IF (theta(i,izz,j) .NE. theta(i,k,j)) THEN
@@ -2827,7 +2828,7 @@ END SUBROUTINE smag2d_km
                         bbb = (theta(i,izz,j) - theta(i,izz-1,j))/dzt
                            IF(bbb.NE.0.) THEN
                               tl = (beta*(theta(i,izz,j) - theta(i,k,j))    &
-                                 + sqrt(max(0.,(beta*(theta(i,izz,j) - theta(i,k,j)))**2. &
+                                 + sqrt(max(0.,rp_pow((beta*(theta(i,izz,j) - theta(i,k,j))), 2.) &
                                  + 2.*bbb*beta*(tke(i,k,j) - zdo_sup))))/bbb/beta
                            ELSE
                               IF(theta(i,izz,j).NE.theta(i,k,j)) THEN
@@ -5130,13 +5131,13 @@ END SUBROUTINE vertical_diffusion_s
      IF(sfcflg(i,j))THEN
        bfx0  = max(sflux(i,j),0.)
        wstar3(i,j) = (govrth(i,j)*bfx0*hpbl(i,j))
-       wstar(i,j)  = (wstar3(i,j))**h1
+       wstar(i,j)  = rp_pow((wstar3(i,j)), h1)
      ELSE
        wstar(i,j)  = 0.
        wstar3(i,j) = 0.
      ENDIF
        ust3 = ust(i,j)**3
-       wscale(i,j) = (ust3 + phifac*karman*wstar3(i,j)*0.5)**h1
+       wscale(i,j) = rp_pow((ust3 + phifac*karman*wstar3(i,j)*0.5), h1)
        wscale(i,j) = MIN(wscale(i,j), ust(i,j)*16.0)
        wscale(i,j) = MAX(wscale(i,j), ust(i,j)/5.0 )
   ENDDO
@@ -5162,7 +5163,7 @@ END SUBROUTINE vertical_diffusion_s
      IF(pblflg(i,j))THEN
        k = kpbl(i,j) - 1
        wm3           = wstar3(i,j) + 5. * ust(i,j)**3
-       wm2(i,j)      = wm3**h2
+       wm2(i,j)      = rp_pow(wm3, h2)
        bfxpbl(i,j)   = -0.15*thv(i,1,j)/g*wm3/hpbl(i,j)
        dthv(i,j)     = max(thv(i,k+1,j) - thv(i,k,j),tmin)
        dtheta        = max(th_phy(i,k+1,j) - th_phy(i,k,j),tmin)
@@ -5179,7 +5180,7 @@ END SUBROUTINE vertical_diffusion_s
        deltaoh(i,j)  = min(deltaoh(i,j), hpbl(i,j))
  
        if ((du .ne. 0) .or. (dv .ne. 0)) then
-           rigs(i,j) = govrth(i,j)*dthv(i,j)*deltaoh(i,j)/(du**2.+dv**2.)
+           rigs(i,j) = govrth(i,j)*dthv(i,j)*deltaoh(i,j)/(rp_pow(du, 2.)+rp_pow(dv, 2.))
            rigs(i,j) = max(min(rigs(i,j), rigsmax),rimin)
        else
            rigs(i,j) = rigsmax
@@ -5194,7 +5195,7 @@ END SUBROUTINE vertical_diffusion_s
   DO k = kts, ktf
   DO i = i_start, i_end
        IF(pblflg(i,j))THEN
-          entfacmf(i,k,j) = sqrt(((zq(i,k+1,j) - hpbl(i,j))/deltaoh(i,j))**2.)
+          entfacmf(i,k,j) = sqrt(rp_pow(((zq(i,k+1,j) - hpbl(i,j))/deltaoh(i,j)), 2.))
        ENDIF
   ENDDO
   ENDDO
@@ -5229,7 +5230,7 @@ END SUBROUTINE vertical_diffusion_s
              ELSE IF (zfacmf(i,k,j).LE.mlfrac) THEN
                nlflux(i,k,j) =  amf2*zfacmf(i,k,j)+bmf2
              ENDIF
-             nlflux(i,k,j) = nlflux(i,k,j) + hfxpbl(i,j)*exp(-entfacmf(i,k,j))
+             nlflux(i,k,j) = nlflux(i,k,j) + hfxpbl(i,j)*rp_exp(-entfacmf(i,k,j))
              nlflux(i,k,j) = nlflux(i,k,j)*pth1
            ENDIF
         ENDDO
@@ -5253,8 +5254,8 @@ END SUBROUTINE nonlocal_flux
 
    if (h .ne. 0) then
       doh   = d/h
-      num   = a1*(doh)**b1 + a2*(doh)**b2+a3
-      den   = a4*(doh)**b1 + a5*(doh)**b2+a6
+      num   = a1*rp_pow((doh), b1) + a2*rp_pow((doh), b2)+a3
+      den   = a4*rp_pow((doh), b1) + a5*rp_pow((doh), b2)+a6
       pthnl = a7*num/den + (1. - a7)
    else
       pthnl = 1.
@@ -5282,8 +5283,8 @@ END SUBROUTINE nonlocal_flux
 
    if (h .ne. 0) then
       doh  = d/h
-      num  = a1*(doh)**b1 + a2*(doh)**b2+a3
-      den  = a4*(doh)**b1 + a5*(doh)**b2+a6
+      num  = a1*rp_pow((doh), b1) + a2*rp_pow((doh), b2)+a3
+      den  = a4*rp_pow((doh), b1) + a5*rp_pow((doh), b2)+a6
       pthl = a7*num/den+(1. - a7)
    else
       pthl = 1.
@@ -5309,8 +5310,8 @@ END SUBROUTINE nonlocal_flux
 
    if (h .ne. 0) then
       doh = d/h
-      num = a1*(doh)**b1 + a2*(doh)**b2
-      den = a3*(doh)**b1 + a4*(doh)**b2+a5
+      num = a1*rp_pow((doh), b1) + a2*rp_pow((doh), b2)
+      den = a3*rp_pow((doh), b1) + a4*rp_pow((doh), b2)+a5
       pu  = num/den
    else
       pu = 1.
@@ -6496,7 +6497,7 @@ END SUBROUTINE phy_bc
       DO j = j_start, j_end
       DO k = kts, ktf
       DO i = i_start, i_end
-        deltas  = ( dx/msftx(i,j) * dy/msfty(i,j) / rdzw(i,k,j) )**0.33333333
+        deltas  = rp_pow(( dx/msftx(i,j) * dy/msfty(i,j) / rdzw(i,k,j) ), 0.33333333)
         tketmp  = MAX( tke(i,k,j), 1.0e-6 )
 
 ! Apply Deardorff's (1980) "wall effect" at the bottom of the domain.
@@ -6516,7 +6517,7 @@ END SUBROUTINE phy_bc
           l_diss(i,k,j) = (1.0-pu1)*l_scale(i,k,j)/coefc + pu1*dlk(i,k,j)/coefc_m
         ELSE 
           tendency(i,k,j) = tendency(i,k,j) - &
-                           (c1(k)*mu(i,j)+c2(k)) * coefc * tketmp**1.5 / l_scale(i,k,j)
+                           (c1(k)*mu(i,j)+c2(k)) * coefc * rp_pow(tketmp, 1.5) / l_scale(i,k,j)
         ENDIF !
       END DO
       END DO
@@ -8189,7 +8190,7 @@ END SUBROUTINE phy_bc
  
            d(k)  =   tke(i,k,j)
            IF (l_diss(i,k,j) .ne. 0) THEN
-               d(k) = d(k) + 0.5*dt*tke(i,k,j)**1.5/l_diss(i,k,j)
+               d(k) = d(k) + 0.5*dt*rp_pow(tke(i,k,j), 1.5)/l_diss(i,k,j)
            ENDIF
         ENDDO
  

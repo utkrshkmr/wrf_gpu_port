@@ -44,6 +44,7 @@ END MODULE module_interp_info
                               xstag, ystag,                         &  ! staggering of field
                               ipos, jpos,                           &  ! Position of lower left of nest in CD
                               nri, nrj                              )  ! Nest ratio, i- and j-directions
+   USE module_repro_math
 
      USE module_interp_info      
 
@@ -82,7 +83,7 @@ END MODULE module_interp_info
                                xstag, ystag,                         &  ! staggering of field
                                ipos, jpos,                           &  ! Position of lower left of nest in CD
                                nri, nrj)                                ! Nest ratio, i- and j-directions
-     ELSE IF ( MOD(interp_method_type,10) .EQ. SINT             ) THEN
+     ELSE IF ( rp_mod(interp_method_type,10) .EQ. SINT             ) THEN
        CALL interp_fcn_sint  ( cfld,                                 &  ! CD field
                                cids, cide, ckds, ckde, cjds, cjde,   &
                                cims, cime, ckms, ckme, cjms, cjme,   &
@@ -834,6 +835,7 @@ END MODULE module_interp_info
 !=================================================================================
 
    FUNCTION compute_CGLL ( ni , ipos , nri , istag ) RESULT ( CGLL_loc )
+   USE module_repro_math
 
       IMPLICIT NONE
 
@@ -850,12 +852,12 @@ END MODULE module_interp_info
 
       starting_position = ipos
       increments_of_CG_cells = ( ni - 1 ) / nri
-      ioff = MOD ( nri , 2 )
+      ioff = rp_mod ( nri , 2 )
 
       IF      ( istag .EQ. MOMENTUM_STAG   ) THEN
-         location_of_LL_wrt_this_CG =   MOD ( ( ni - 1 ) , nri )          /   ( nri + ioff )       - istag ! zero
+         location_of_LL_wrt_this_CG =   rp_mod ( ( ni - 1 ) , nri )          /   ( nri + ioff )       - istag ! zero
       ELSE IF ( istag .EQ. MASS_POINT_STAG ) THEN
-         location_of_LL_wrt_this_CG = ( MOD ( ( ni - 1 ) , nri ) + ioff ) / ( ( nri + ioff ) / 2 ) - istag
+         location_of_LL_wrt_this_CG = ( rp_mod ( ( ni - 1 ) , nri ) + ioff ) / ( ( nri + ioff ) / 2 ) - istag
       ELSE
          CALL wrf_error_fatal ( 'Hold on there pard, there are only two staggerings I accept.' )
       END IF
@@ -884,6 +886,7 @@ END MODULE module_interp_info
                            xstag, ystag,                         &  ! staggering of field
                            ipos, jpos,                           &  ! Position of lower left of nest in CD
                            nri, nrj                             )   ! nest ratios
+   USE module_repro_math
      USE module_configure
 
      IMPLICIT NONE
@@ -974,12 +977,12 @@ END MODULE module_interp_info
 
         DO nj = njts, njte+joff
            cj = jpos + (nj-1) / nrj ! j coord of CD point 
-           jp = mod ( nj-1 , nrj )  ! coord of ND w/i CD point
+           jp = rp_mod ( nj-1 , nrj )  ! coord of ND w/i CD point
            nk = k
            ck = nk
            DO ni = nits, nite+ioff
                ci = ipos + (ni-1) / nri      ! i coord of CD point 
-               ip = mod ( ni-1 , nri )  ! coord of ND w/i CD point
+               ip = rp_mod ( ni-1 , nri )  ! coord of ND w/i CD point
                if ( ( ni-ioff .ge. nits ) .and. ( nj-joff .ge. njts ) ) then
                   if ( imask ( ni, nj ) .eq. 1 .or. imask ( ni-ioff, nj-joff ) .eq. 1  ) then
                     nfld( ni-ioff, nk, nj-joff ) = psca( ci , cj, ip+1 + (jp)*nri )
@@ -1070,6 +1073,7 @@ END MODULE module_interp_info
                               cght_min_p,nght_min_p,                &  ! height (m) at min press, want CG value
                               cmin_p,nmin_p,                        &  ! min pressure (Pa) in column, want CG value
                               zn, p_top                             )  ! eta levels
+   USE module_repro_math
      USE module_timing
 !    USE module_configure
      USE module_model_constants , ONLY : g , r_d, cp, p1000mb, t0
@@ -1156,7 +1160,7 @@ END MODULE module_interp_info
 
      DO j = cjts-2 , cjte+2
         DO i = cits-2 , cite+2
-           p_surf = p00 * EXP ( -t00/a + ( (t00/a)**2 - 2.*g*cht(i,j)/a/r_d ) **0.5 )
+           p_surf = p00 * rp_exp ( -t00/a + rp_pow(( (t00/a)**2 - 2.*g*cht(i,j)/a/r_d ), 0.5) )
            DO k = ckts , ckte
               cpb(i,k,j) = zn(k)*(p_surf - p_top) + p_top  
            END DO
@@ -1164,8 +1168,8 @@ END MODULE module_interp_info
               cfld_max_p(i,j) = cght_max_p(i,j) * g
               cfld_min_p(i,j) = cght_min_p(i,j) * g
            ELSE
-              cfld_max_p(i,j) = ct_max_p(i,j) * (p1000mb/cmax_p(i,j))**(r_d/cp) - t0
-              cfld_min_p(i,j) = ct_min_p(i,j) * (p1000mb/cmin_p(i,j))**(r_d/cp) - t0
+              cfld_max_p(i,j) = ct_max_p(i,j) * rp_pow((p1000mb/cmax_p(i,j)), (r_d/cp)) - t0
+              cfld_min_p(i,j) = ct_min_p(i,j) * rp_pow((p1000mb/cmin_p(i,j)), (r_d/cp)) - t0
            END IF
         END DO
      END DO
@@ -1177,7 +1181,7 @@ END MODULE module_interp_info
 
      DO j = njts , MIN(njde-1,njte)
         DO i = nits , MIN(nide-1,nite)
-           p_surf = p00 * EXP ( -t00/a + ( (t00/a)**2 - 2.*g*nht(i,j)/a/r_d ) **0.5 )
+           p_surf = p00 * rp_exp ( -t00/a + rp_pow(( (t00/a)**2 - 2.*g*nht(i,j)/a/r_d ), 0.5) )
            DO k = nkts , nkte
               npb(i,k,j) = zn(k)*(p_surf - p_top) + p_top  
            END DO
@@ -1227,15 +1231,15 @@ END MODULE module_interp_info
         !  means that the CG point for "4" is to the left, and the CG LL point for "5" and "6"
         !  is in the current CG index.  
 
-        cj = jpos + (nj-1)/nrj - jstag + (MOD(nj-1,nrj)+1 + nrj/2)/nrj
+        cj = jpos + (nj-1)/nrj - jstag + (rp_mod(nj-1,nrj)+1 + nrj/2)/nrj
 
 
         !  What is the weighting for this CG point to the FG point, j-weight only.
 
         IF ( ystag ) THEN
-           wy = 1. - ( REAL(MOD(nj+(nrj-1)/2,nrj)) / REAL(nrj) +  1. / REAL (2 * nrj) )
+           wy = 1. - ( REAL(rp_mod(nj+(nrj-1)/2,nrj)) / REAL(nrj) +  1. / REAL (2 * nrj) )
         ELSE
-           wy = 1. - ( REAL(MOD(nj+(nrj-1)/2,nrj)) / REAL(nrj)                        )
+           wy = 1. - ( REAL(rp_mod(nj+(nrj-1)/2,nrj)) / REAL(nrj)                        )
         END IF
 
         !  Vertical dim of the nest domain.
@@ -1248,14 +1252,14 @@ END MODULE module_interp_info
  
               !  The coarse grid location that is to the lower left of the FG point.
 
-              ci = ipos + (ni-1)/nri - istag + (MOD(ni-1,nri)+1 + nri/2)/nri
+              ci = ipos + (ni-1)/nri - istag + (rp_mod(ni-1,nri)+1 + nri/2)/nri
 
               !  Weights in the x-direction.
 
               IF ( xstag ) THEN
-                 wx = 1. - ( REAL(MOD(ni+(nri-1)/2,nri)) / REAL(nri) +  1. / REAL (2 * nri) )
+                 wx = 1. - ( REAL(rp_mod(ni+(nri-1)/2,nri)) / REAL(nri) +  1. / REAL (2 * nri) )
               ELSE
-                 wx = 1. - ( REAL(MOD(ni+(nri-1)/2,nri)) / REAL(nri)                        )
+                 wx = 1. - ( REAL(rp_mod(ni+(nri-1)/2,nri)) / REAL(nri)                        )
               END IF
 
               !  The pressure of the FG point.
@@ -1407,6 +1411,7 @@ END MODULE module_interp_info
                            xstag, ystag,                         &  ! staggering of field
                            ipos, jpos,                           &  ! Position of lower left of nest in CD
                            nri, nrj                             )   ! nest ratios
+   USE module_repro_math
      USE module_configure
      IMPLICIT NONE
 
@@ -1460,7 +1465,7 @@ END MODULE module_interp_info
      IF ( xstag ) istag = 0
      IF ( ystag ) jstag = 0
 
-     IF( MOD(nrj,2) .NE. 0) THEN  ! odd refinement ratio
+     IF( rp_mod(nrj,2) .NE. 0) THEN  ! odd refinement ratio
 
         IF      ( ( .NOT. xstag ) .AND. ( .NOT. ystag ) ) THEN
            DO cj = MAX(jpos+spec_zone,cjts),MIN(jpos+(njde-njds)/nrj-jstag-spec_zone,cjte)
@@ -1471,7 +1476,7 @@ END MODULE module_interp_info
                     ni = (ci-ipos)*nri + nri/2 + 1
                     cfld( ci, ck, cj ) = 0.
                     DO ijpoints = 1 , nri * nrj
-                       ipoints = MOD((ijpoints-1),nri) + 1 - nri/2 - 1
+                       ipoints = rp_mod((ijpoints-1),nri) + 1 - nri/2 - 1
                        jpoints = (ijpoints-1)/nri + 1 - nrj/2 - 1
                        cfld( ci, ck, cj ) =  cfld( ci, ck, cj ) + &
                                              1./REAL(nri*nrj) * nfld( ni+ipoints , nk , nj+jpoints )
@@ -1525,7 +1530,7 @@ END MODULE module_interp_info
                     ni = (ci-ipos)*nri + 1
                     cfld( ci, ck, cj ) = 0.
                     DO ijpoints = (nri+1)/2 , (nri+1)/2 + nri*(nri-1) , nri
-                       ipoints = MOD((ijpoints-1),nri) + 1 - nri/2 - 1
+                       ipoints = rp_mod((ijpoints-1),nri) + 1 - nri/2 - 1
                        jpoints = (ijpoints-1)/nri + 1 - nrj/2 - 1
                        cfld( ci, ck, cj ) =  cfld( ci, ck, cj ) + &
                                              1./REAL(nri    ) * nfld( ni+ipoints , nk , nj+jpoints )
@@ -1547,7 +1552,7 @@ END MODULE module_interp_info
                     ni = (ci-ipos)*nri + nri/2 + 1
                     cfld( ci, ck, cj ) = 0.
                     DO ijpoints = ( nrj*nrj +1 )/2 - nrj/2 , ( nrj*nrj +1 )/2 - nrj/2 + nrj-1
-                       ipoints = MOD((ijpoints-1),nri) + 1 - nri/2 - 1
+                       ipoints = rp_mod((ijpoints-1),nri) + 1 - nri/2 - 1
                        jpoints = (ijpoints-1)/nri + 1 - nrj/2 - 1
                        cfld( ci, ck, cj ) =  cfld( ci, ck, cj ) + &
                                              1./REAL(    nrj) * nfld( ni+ipoints , nk , nj+jpoints )
@@ -1564,7 +1569,7 @@ END MODULE module_interp_info
 
      !  Even refinement ratio
 
-     ELSE IF ( MOD(nrj,2) .EQ. 0) THEN
+     ELSE IF ( rp_mod(nrj,2) .EQ. 0) THEN
         IF ( ( .NOT. xstag ) .AND. ( .NOT. ystag ) ) THEN
 
         !  This is a simple schematic of the feedback indexing used in the even
@@ -1648,7 +1653,7 @@ END MODULE module_interp_info
                     ni = (ci-ipos)*nri + istag
                     cfld( ci, ck, cj ) = 0.
                     DO ijpoints = 1 , nri * nrj
-                       ipoints = MOD((ijpoints-1),nri)
+                       ipoints = rp_mod((ijpoints-1),nri)
                        jpoints = (ijpoints-1)/nri
                        cfld( ci, ck, cj ) =  cfld( ci, ck, cj ) + &
                                              1./REAL(nri*nrj) * nfld( ni+ipoints , nk , nj+jpoints )
@@ -1700,7 +1705,7 @@ END MODULE module_interp_info
                     ni = (ci-ipos)*nri + 1
                     cfld( ci, ck, cj ) = 0.
                     DO ijpoints = 1 , nri*nrj , nri
-                       ipoints = MOD((ijpoints-1),nri)
+                       ipoints = rp_mod((ijpoints-1),nri)
                        jpoints = (ijpoints-1)/nri
                        cfld( ci, ck, cj ) =  cfld( ci, ck, cj ) + &
                                              1./REAL(nri    ) * nfld( ni+ipoints , nk , nj+jpoints )
@@ -1723,7 +1728,7 @@ END MODULE module_interp_info
                     ni = (ci-ipos)*nri + 1
                     cfld( ci, ck, cj ) = 0.
                     DO ijpoints = 1 , nri
-                       ipoints = MOD((ijpoints-1),nri)
+                       ipoints = rp_mod((ijpoints-1),nri)
                        jpoints = (ijpoints-1)/nri
                        cfld( ci, ck, cj ) =  cfld( ci, ck, cj ) + &
                                              1./REAL(nri    ) * nfld( ni+ipoints , nk , nj+jpoints )
@@ -1757,6 +1762,7 @@ END MODULE module_interp_info
                            xstag, ystag,                         &  ! staggering of field
                            ipos, jpos,                           &  ! Position of lower left of nest in CD
                            nri, nrj                             )   ! nest ratios
+   USE module_repro_math
      USE module_configure
      USE module_wrf_error
      IMPLICIT NONE
@@ -1790,7 +1796,7 @@ END MODULE module_interp_info
      IF ( xstag ) istag = 0
      IF ( ystag ) jstag = 0
 
-     IF( MOD(nrj,2) .NE. 0) THEN  ! odd refinement ratio
+     IF( rp_mod(nrj,2) .NE. 0) THEN  ! odd refinement ratio
 
         DO cj = MAX(jpos+spec_zone,cjts),MIN(jpos+(njde-njds)/nrj-jstag-spec_zone,cjte)
            nj = (cj-jpos)*nrj + jstag + 1
@@ -1839,6 +1845,7 @@ END MODULE module_interp_info
                            xstag, ystag,                         &  ! staggering of field
                            ipos, jpos,                           &  ! Position of lower left of nest in CD
                            nri, nrj                             )   ! nest ratios
+   USE module_repro_math
      USE module_configure
      USE module_wrf_error
      IMPLICIT NONE
@@ -1872,7 +1879,7 @@ END MODULE module_interp_info
      IF ( xstag ) istag = 0
      IF ( ystag ) jstag = 0
 
-     IF( MOD(nrj,2) .NE. 0) THEN  ! odd refinement ratio
+     IF( rp_mod(nrj,2) .NE. 0) THEN  ! odd refinement ratio
 
         DO cj = MAX(jpos+spec_zone,cjts),MIN(jpos+(njde-njds)/nrj-jstag-spec_zone,cjte)
            nj = (cj-jpos)*nrj + jstag + 1
@@ -2230,6 +2237,7 @@ END MODULE module_interp_info
 !                          cbdy_tye, nbdy_tye,                       &
                            parent_id,nest_id                        &!cyl    
                            )   ! boundary arrays
+   USE module_repro_math
      USE module_configure
      IMPLICIT NONE
 
@@ -2277,12 +2285,12 @@ END MODULE module_interp_info
      DO nj = njts, njte
      
         cj = jpos + (nj-1) / nrj     ! j coord of CD point 
-        jp = mod ( nj , nrj )  ! coord of ND w/i CD point
+        jp = rp_mod ( nj , nrj )  ! coord of ND w/i CD point
         DO nk = nkts, nkte
            ck = nk
            DO ni = nits, nite
               ci = ipos + (ni-1) / nri      ! j coord of CD point 
-              ip = mod ( ni , nri )  ! coord of ND w/i CD point
+              ip = rp_mod ( ni , nri )  ! coord of ND w/i CD point
               ! This is a trivial implementation of the interp_fcn; just copies
               ! the values from the CD into the ND
               nfld( ni, nk, nj ) = cfld( ci , ck , cj )
@@ -2444,6 +2452,7 @@ END MODULE module_interp_info
                            cbdy_tye, bdy_tye,                       &
                            cdt, ndt                              &
                                         )
+   USE module_repro_math
 
 !    USE module_configure , ONLY : nl_get_spec_zone, nl_get_relax_zone
      USE module_state_description
@@ -2561,12 +2570,12 @@ END MODULE module_interp_info
 
         DO nj1 = MAX(njds,njts-1), MIN(njde+joff,njte+joff+1) 
            cj = jpos + (nj1-1) / nrj     ! j coord of CD point 
-           jp = mod ( nj1-1 , nrj )  ! coord of ND w/i CD point
+           jp = rp_mod ( nj1-1 , nrj )  ! coord of ND w/i CD point
            nk = k
            ck = nk
            DO ni1 = MAX(nids,nits-1), MIN(nide+ioff,nite+ioff+1)
                ci = ipos + (ni1-1) / nri      ! j coord of CD point 
-               ip = mod ( ni1-1 , nri )  ! coord of ND w/i CD point
+               ip = rp_mod ( ni1-1 , nri )  ! coord of ND w/i CD point
 
                ni = ni1-ioff
                nj = nj1-joff
@@ -2813,6 +2822,7 @@ END MODULE module_interp_info
                            xstag, ystag,                         &  ! staggering of field
                            ipos, jpos,                           &  ! Position of lower left of nest in CD
                            nri, nrj                             )   ! nest ratios
+   USE module_repro_math
      USE module_configure
      IMPLICIT NONE
 
@@ -2844,13 +2854,13 @@ END MODULE module_interp_info
 
      DO nj = njts, njte
         cj = jpos + (nj-1) / nrj     ! j coord of CD point 
-        jp = mod ( nj , nrj )  ! coord of ND w/i CD point
+        jp = rp_mod ( nj , nrj )  ! coord of ND w/i CD point
         DO nk = nkts, nkte
            ck = nk
            DO ni = nits, nite
               if ( imask(ni,nj) .NE. 1 ) cycle
               ci = ipos + (ni-1) / nri      ! j coord of CD point 
-              ip = mod ( ni , nri )  ! coord of ND w/i CD point
+              ip = rp_mod ( ni , nri )  ! coord of ND w/i CD point
               ! This is a trivial implementation of the interp_fcn; just copies
               ! the values from the CD into the ND
               nfld( ni, nk, nj ) = cfld( ci , ck , cj )
@@ -2875,6 +2885,7 @@ END MODULE module_interp_info
                            xstag, ystag,                         &  ! staggering of field
                            ipos, jpos,                           &  ! Position of lower left of nest in CD
                            nri, nrj                             )   ! nest ratios
+   USE module_repro_math
      USE module_configure
      IMPLICIT NONE
 
@@ -2906,12 +2917,12 @@ END MODULE module_interp_info
 
      DO nj = njts, njte
         cj = jpos + (nj-1) / nrj     ! j coord of CD point 
-        jp = mod ( nj , nrj )  ! coord of ND w/i CD point
+        jp = rp_mod ( nj , nrj )  ! coord of ND w/i CD point
         DO nk = nkts, nkte
            ck = nk
            DO ni = nits, nite
               ci = ipos + (ni-1) / nri      ! j coord of CD point 
-              ip = mod ( ni , nri )  ! coord of ND w/i CD point
+              ip = rp_mod ( ni , nri )  ! coord of ND w/i CD point
               ! This is a trivial implementation of the interp_fcn; just copies
               ! the values from the CD into the ND
               nfld( ni, nk, nj ) = cfld( ci , ck , cj )
@@ -2940,6 +2951,7 @@ END MODULE module_interp_info
                            cxlong,   nxlong,                     &
                            cdx, ndx,                             &
                            cid, nid                            ) 
+   USE module_repro_math
      USE module_configure
 
      IMPLICIT NONE
@@ -3044,12 +3056,12 @@ END MODULE module_interp_info
    ! from the CD tile.
      DO nj = njts, njte
         cj = jpos + (nj-1) / nrj     ! j coord of CD point
-        jp = mod ( nj , nrj )  ! coord of ND w/i CD point
+        jp = rp_mod ( nj , nrj )  ! coord of ND w/i CD point
         DO nk = nkts, nkte
            ck = nk
            DO ni = nits, nite
               ci = ipos + (ni-1) / nri      ! j coord of CD point
-              ip = mod ( ni , nri )  ! coord of ND w/i CD point
+              ip = rp_mod ( ni , nri )  ! coord of ND w/i CD point
               ! This is a trivial implementation of the interp_fcn; just copies
               ! the values from the CD into the ND
               if ( imask(ni,nj) .eq. 1 ) then
@@ -3079,6 +3091,7 @@ END MODULE module_interp_info
                            xstag, ystag,                         &  ! staggering of field
                            ipos, jpos,                           &  ! Position of lower left of nest in CD
                            nri, nrj                             )   ! nest ratios
+   USE module_repro_math
      USE module_configure
      IMPLICIT NONE
 
@@ -3110,12 +3123,12 @@ END MODULE module_interp_info
 
      DO nj = njts, njte
         cj = jpos + (nj-1) / nrj     ! j coord of CD point 
-        jp = mod ( nj , nrj )  ! coord of ND w/i CD point
+        jp = rp_mod ( nj , nrj )  ! coord of ND w/i CD point
         DO nk = nkts, nkte
            ck = nk
            DO ni = nits, nite
               ci = ipos + (ni-1) / nri      ! j coord of CD point 
-              ip = mod ( ni , nri )  ! coord of ND w/i CD point
+              ip = rp_mod ( ni , nri )  ! coord of ND w/i CD point
               ! This is a trivial implementation of the interp_fcn; just copies
               ! the values from the CD into the ND
               if ( imask(ni,nj) .eq. 1 ) then
@@ -3145,6 +3158,7 @@ END MODULE module_interp_info
                            ipos, jpos,                           &  ! Position of lower left of nest in CD
                            nri, nrj,                             &  ! nest ratios
                            clu, nlu                              )
+   USE module_repro_math
 
       USE module_configure
       USE module_wrf_error
@@ -3195,7 +3209,7 @@ END MODULE module_interp_info
        IF ( enable ) THEN
 
          DO nj = njts, njte
-            IF ( MOD ( nrj , 2 ) .EQ. 0 ) THEN
+            IF ( rp_mod ( nrj , 2 ) .EQ. 0 ) THEN
                cj = ( nj + (nrj/2)-1 ) / nrj + jpos -1 ! first coarse position equal to or below nest point
             ELSE
                cj = ( nj + (nrj-1)/2 ) / nrj + jpos -1 ! first coarse position equal to or below nest point
@@ -3204,7 +3218,7 @@ END MODULE module_interp_info
                ck = nk
                DO ni = nits, nite
                   IF ( imask(ni, nj) .NE. 1 ) cycle
-                  IF ( MOD ( nri , 2 ) .EQ. 0 ) THEN
+                  IF ( rp_mod ( nri , 2 ) .EQ. 0 ) THEN
                      ci = ( ni + (nri/2)-1 ) / nri + ipos -1 ! first coarse position equal to or to the left of nest point
                   ELSE
                      ci = ( ni + (nri-1)/2 ) / nri + ipos -1 ! first coarse position equal to or to the left of nest point
@@ -3230,15 +3244,15 @@ END MODULE module_interp_info
 
                   !  For odd ratios, at (nri+1)/2, we are on the coarse grid point, so dx = 0
 
-                  IF ( MOD ( nri , 2 ) .EQ. 0 ) THEN
-                     dx = ( REAL ( MOD ( ni+(nri-1)/2 , nri ) ) + 0.5 ) / REAL ( nri ) 
+                  IF ( rp_mod ( nri , 2 ) .EQ. 0 ) THEN
+                     dx = ( REAL ( rp_mod ( ni+(nri-1)/2 , nri ) ) + 0.5 ) / REAL ( nri ) 
                   ELSE 
-                     dx =   REAL ( MOD ( ni+(nri-1)/2 , nri ) )         / REAL ( nri ) 
+                     dx =   REAL ( rp_mod ( ni+(nri-1)/2 , nri ) )         / REAL ( nri ) 
                   END IF
-                  IF ( MOD ( nrj , 2 ) .EQ. 0 ) THEN
-                     dy = ( REAL ( MOD ( nj+(nrj-1)/2 , nrj ) ) + 0.5 ) / REAL ( nrj ) 
+                  IF ( rp_mod ( nrj , 2 ) .EQ. 0 ) THEN
+                     dy = ( REAL ( rp_mod ( nj+(nrj-1)/2 , nrj ) ) + 0.5 ) / REAL ( nrj ) 
                   ELSE 
-                     dy =   REAL ( MOD ( nj+(nrj-1)/2 , nrj ) )         / REAL ( nrj ) 
+                     dy =   REAL ( rp_mod ( nj+(nrj-1)/2 , nrj ) )         / REAL ( nrj ) 
                   END IF
    
                   !  This is a "land only" field.  If this is a water point, no operations required.
@@ -3335,12 +3349,12 @@ END MODULE module_interp_info
                  DO ni = nits, nite
                     IF ( imask(ni, nj) .NE. 1 ) cycle
                     IF ( nfld(ni,nk,nj) .EQ. -1 ) THEN
-                       IF ( MOD ( nrj , 2 ) .EQ. 0 ) THEN
+                       IF ( rp_mod ( nrj , 2 ) .EQ. 0 ) THEN
                           cj = ( nj + (nrj/2)-1 ) / nrj + jpos -1 ! first coarse position equal to or below nest point
                        ELSE
                           cj = ( nj + (nrj-1)/2 ) / nrj + jpos -1 ! first coarse position equal to or below nest point
                        END IF
-                       IF ( MOD ( nri , 2 ) .EQ. 0 ) THEN
+                       IF ( rp_mod ( nri , 2 ) .EQ. 0 ) THEN
                           ci = ( ni + (nri/2)-1 ) / nri + ipos -1 ! first coarse position equal to or to the left of nest point
                        ELSE
                           ci = ( ni + (nri-1)/2 ) / nri + ipos -1 ! first coarse position equal to or to the left of nest point
@@ -3394,6 +3408,7 @@ END MODULE module_interp_info
                            ipos, jpos,                           &  ! Position of lower left of nest in CD
                            nri, nrj,                             &  ! nest ratios
                            clu, nlu, cflag, nflag                )
+   USE module_repro_math
 
       USE module_configure
       USE module_wrf_error
@@ -3439,7 +3454,7 @@ END MODULE module_interp_info
          !  Loop over each i,k,j in the nested domain.
 
          DO nj = njts, njte
-            IF ( MOD ( nrj , 2 ) .EQ. 0 ) THEN
+            IF ( rp_mod ( nrj , 2 ) .EQ. 0 ) THEN
                cj = ( nj + (nrj/2)-1 ) / nrj + jpos -1 ! first coarse position equal to or below nest point
             ELSE
                cj = ( nj + (nrj-1)/2 ) / nrj + jpos -1 ! first coarse position equal to or below nest point
@@ -3448,7 +3463,7 @@ END MODULE module_interp_info
                ck = nk
                DO ni = nits, nite
 !dave             IF ( imask(ni, nj) .NE. 1 ) cycle
-                  IF ( MOD ( nri , 2 ) .EQ. 0 ) THEN
+                  IF ( rp_mod ( nri , 2 ) .EQ. 0 ) THEN
                      ci = ( ni + (nri/2)-1 ) / nri + ipos -1 ! first coarse position equal to or to the left of nest point
                   ELSE
                      ci = ( ni + (nri-1)/2 ) / nri + ipos -1 ! first coarse position equal to or to the left of nest point
@@ -3474,15 +3489,15 @@ END MODULE module_interp_info
 
                   !  At ni=2, we are on the coarse grid point, so dx = 0
 
-                  IF ( MOD ( nri , 2 ) .EQ. 0 ) THEN
-                     dx = ( REAL ( MOD ( ni+(nri-1)/2 , nri ) ) + 0.5 ) / REAL ( nri ) 
+                  IF ( rp_mod ( nri , 2 ) .EQ. 0 ) THEN
+                     dx = ( REAL ( rp_mod ( ni+(nri-1)/2 , nri ) ) + 0.5 ) / REAL ( nri ) 
                   ELSE 
-                     dx =   REAL ( MOD ( ni+(nri-1)/2 , nri ) )         / REAL ( nri ) 
+                     dx =   REAL ( rp_mod ( ni+(nri-1)/2 , nri ) )         / REAL ( nri ) 
                   END IF
-                  IF ( MOD ( nrj , 2 ) .EQ. 0 ) THEN
-                     dy = ( REAL ( MOD ( nj+(nrj-1)/2 , nrj ) ) + 0.5 ) / REAL ( nrj ) 
+                  IF ( rp_mod ( nrj , 2 ) .EQ. 0 ) THEN
+                     dy = ( REAL ( rp_mod ( nj+(nrj-1)/2 , nrj ) ) + 0.5 ) / REAL ( nrj ) 
                   ELSE 
-                     dy =   REAL ( MOD ( nj+(nrj-1)/2 , nrj ) )         / REAL ( nrj ) 
+                     dy =   REAL ( rp_mod ( nj+(nrj-1)/2 , nrj ) )         / REAL ( nrj ) 
                   END IF
    
                   !  This is a "water only" field.  If this is a land point, no operations required.
@@ -3578,12 +3593,12 @@ END MODULE module_interp_info
                  DO ni = nits, nite
 !dave               IF ( imask(ni, nj) .NE. 1 ) cycle
                     IF ( nfld(ni,nk,nj) .EQ. -4 ) THEN
-                       IF ( MOD ( nrj , 2 ) .EQ. 0 ) THEN
+                       IF ( rp_mod ( nrj , 2 ) .EQ. 0 ) THEN
                           cj = ( nj + (nrj/2)-1 ) / nrj + jpos -1 ! first coarse position equal to or below nest point
                        ELSE
                           cj = ( nj + (nrj-1)/2 ) / nrj + jpos -1 ! first coarse position equal to or below nest point
                        END IF
-                       IF ( MOD ( nri , 2 ) .EQ. 0 ) THEN
+                       IF ( rp_mod ( nri , 2 ) .EQ. 0 ) THEN
                           ci = ( ni + (nri/2)-1 ) / nri + ipos -1 ! first coarse position equal to or to the left of nest point
                        ELSE
                           ci = ( ni + (nri-1)/2 ) / nri + ipos -1 ! first coarse position equal to or to the left of nest point
@@ -3639,6 +3654,7 @@ END MODULE module_interp_info
                            ctslb,ntslb,                          &  ! soil temps
                            cnum_soil_layers,nnum_soil_layers,    &  ! number of soil layers for tslb
                            ciswater, niswater                    )  ! iswater category
+   USE module_repro_math
 
       USE module_configure
       USE module_wrf_error
@@ -3682,7 +3698,7 @@ END MODULE module_interp_info
          !  Loop over each i,k,j in the nested domain.
 
          DO nj = njts, MIN(njde-1,njte)
-            IF ( MOD ( nrj , 2 ) .EQ. 0 ) THEN
+            IF ( rp_mod ( nrj , 2 ) .EQ. 0 ) THEN
                cj = ( nj + (nrj/2)-1 ) / nrj + jpos -1 ! first coarse position equal to or below nest point
             ELSE
                cj = ( nj + (nrj-1)/2 ) / nrj + jpos -1 ! first coarse position equal to or below nest point
@@ -3690,7 +3706,7 @@ END MODULE module_interp_info
             DO nk = nkts, nkte
                ck = nk
                DO ni = nits, MIN(nide-1,nite)
-                  IF ( MOD ( nri , 2 ) .EQ. 0 ) THEN
+                  IF ( rp_mod ( nri , 2 ) .EQ. 0 ) THEN
                      ci = ( ni + (nri/2)-1 ) / nri + ipos -1 ! first coarse position equal to or to the left of nest point
                   ELSE
                      ci = ( ni + (nri-1)/2 ) / nri + ipos -1 ! first coarse position equal to or to the left of nest point
@@ -3713,15 +3729,15 @@ END MODULE module_interp_info
 
                   !  At ni=2, we are on the coarse grid point, so dx = 0
 
-                  IF ( MOD ( nri , 2 ) .EQ. 0 ) THEN
-                     dx = ( REAL ( MOD ( ni+(nri-1)/2 , nri ) ) + 0.5 ) / REAL ( nri ) 
+                  IF ( rp_mod ( nri , 2 ) .EQ. 0 ) THEN
+                     dx = ( REAL ( rp_mod ( ni+(nri-1)/2 , nri ) ) + 0.5 ) / REAL ( nri ) 
                   ELSE 
-                     dx =   REAL ( MOD ( ni+(nri-1)/2 , nri ) )         / REAL ( nri ) 
+                     dx =   REAL ( rp_mod ( ni+(nri-1)/2 , nri ) )         / REAL ( nri ) 
                   END IF
-                  IF ( MOD ( nrj , 2 ) .EQ. 0 ) THEN
-                     dy = ( REAL ( MOD ( nj+(nrj-1)/2 , nrj ) ) + 0.5 ) / REAL ( nrj ) 
+                  IF ( rp_mod ( nrj , 2 ) .EQ. 0 ) THEN
+                     dy = ( REAL ( rp_mod ( nj+(nrj-1)/2 , nrj ) ) + 0.5 ) / REAL ( nrj ) 
                   ELSE 
-                     dy =   REAL ( MOD ( nj+(nrj-1)/2 , nrj ) )         / REAL ( nrj ) 
+                     dy =   REAL ( rp_mod ( nj+(nrj-1)/2 , nrj ) )         / REAL ( nrj ) 
                   END IF
    
                   !  This is a "water only" field.  If this is a land point, no operations required.
@@ -3945,6 +3961,7 @@ END MODULE module_interp_info
                       nri, nrj,                             &  
                       ipos, jpos                            &  ! Position of lower left of nest in 
                       )
+   USE module_repro_math
    
       USE module_configure
       IMPLICIT NONE
@@ -3979,7 +3996,7 @@ END MODULE module_interp_info
    
       smoothing_passes : DO loop = 1 , smooth_passes * 2
    
-         n  =  2 - MOD ( loop , 2 )
+         n  =  2 - rp_mod ( loop , 2 )
     
          DO k = ckts , ckte
    
@@ -4087,6 +4104,7 @@ END MODULE module_interp_info
                            ipos, jpos,                           &  ! Position of lower left of nest in CD
                            nri, nrj,                             &  ! nest ratios
                            clu, nlu, cflag, nflag ) 
+   USE module_repro_math
 
       USE module_configure
       USE module_wrf_error
@@ -4138,7 +4156,7 @@ END MODULE module_interp_info
         IF ( enable ) THEN
           DO nj = njts, njte
             ! first coarse position equal to or below nest point
-            IF ( MOD ( nrj , 2 ) .EQ. 0 ) THEN
+            IF ( rp_mod ( nrj , 2 ) .EQ. 0 ) THEN
                cj = ( nj + (nrj/2)-1 ) / nrj + jpos -1
             ELSE
                cj = ( nj + (nrj-1)/2 ) / nrj + jpos -1
@@ -4148,7 +4166,7 @@ END MODULE module_interp_info
                DO ni = nits, nite
                   IF ( imask(ni, nj) .NE. 1 ) cycle
                   ! first coarse position equal to or to the left of nest point
-                  IF ( MOD ( nri , 2 ) .EQ. 0 ) THEN
+                  IF ( rp_mod ( nri , 2 ) .EQ. 0 ) THEN
                      ci = ( ni + (nri/2)-1 ) / nri + ipos -1
                   ELSE
                      ci = ( ni + (nri-1)/2 ) / nri + ipos -1
@@ -4170,15 +4188,15 @@ END MODULE module_interp_info
 
                   !  For odd ratios, at (nri+1)/2, we are on the coarse grid point, so dx = 0
 
-                  IF ( MOD ( nri , 2 ) .EQ. 0 ) THEN
-                     dx = ( REAL ( MOD ( ni+(nri-1)/2 , nri ) ) + 0.5 ) / REAL ( nri )
+                  IF ( rp_mod ( nri , 2 ) .EQ. 0 ) THEN
+                     dx = ( REAL ( rp_mod ( ni+(nri-1)/2 , nri ) ) + 0.5 ) / REAL ( nri )
                   ELSE
-                     dx =   REAL ( MOD ( ni+(nri-1)/2 , nri ) )         / REAL ( nri )
+                     dx =   REAL ( rp_mod ( ni+(nri-1)/2 , nri ) )         / REAL ( nri )
                   END IF
-                  IF ( MOD ( nrj , 2 ) .EQ. 0 ) THEN
-                     dy = ( REAL ( MOD ( nj+(nrj-1)/2 , nrj ) ) + 0.5 ) / REAL ( nrj )
+                  IF ( rp_mod ( nrj , 2 ) .EQ. 0 ) THEN
+                     dy = ( REAL ( rp_mod ( nj+(nrj-1)/2 , nrj ) ) + 0.5 ) / REAL ( nrj )
                   ELSE
-                     dy =   REAL ( MOD ( nj+(nrj-1)/2 , nrj ) )         / REAL ( nrj )
+                     dy =   REAL ( rp_mod ( nj+(nrj-1)/2 , nrj ) )         / REAL ( nrj )
                   END IF
 
                   ! Nested cell is a water cell.

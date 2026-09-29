@@ -1,5 +1,6 @@
 !=================================================================================================================
  module sf_sfclayrev
+   USE module_repro_math
  use ccpp_kind_types,only: kind_phys
 
  implicit none
@@ -227,7 +228,7 @@
     tgdsa(i)=tsk(i)                                    
 !PSFC cb
 !   thgb(i)=tsk(i)*(100./psfc(i))**rovcp                
-    thgb(i)=tsk(i)*(p1000mb/psfcpa(i))**rovcp   
+    thgb(i)=tsk(i)*rp_pow((p1000mb/psfcpa(i)), rovcp)   
  5 continue                                               
 !                                                            
 !-----DECOUPLE FLUX-FORM VARIABLES TO GIVE U,V,T,THETA,THETA-VIR.,
@@ -255,7 +256,7 @@
     pl=p1d(i)/1000.
     scr3(i)=t1d(i)                                                   
 !   thcon=(100./pl)**rovcp                                                 
-    thcon=(p1000mb*0.001/pl)**rovcp
+    thcon=rp_pow((p1000mb*0.001/pl), rovcp)
     thx(i)=scr3(i)*thcon                                               
     scr4(i)=scr3(i)                                                    
     thvx(i)=thx(i)                                                     
@@ -278,14 +279,14 @@
  50 continue                                                                 
 !
  do 60 i=its,ite
-    e1=svp1*exp(svp2*(tgdsa(i)-svpt0)/(tgdsa(i)-svp3))                       
+    e1=svp1*rp_exp(svp2*(tgdsa(i)-svpt0)/(tgdsa(i)-svp3))                       
     !the saturation vapor pressure for salty water is on average 2% lower
     if(xland(i).gt.1.5 .and. lakemask(i).eq.0.) e1=e1*salinity_factor
     !for land points qsfc can come from previous time step
     if(xland(i).gt.1.5.or.qsfc(i).le.0.0)qsfc(i)=ep2*e1/(psfc(i)-e1)                                                 
 !QGH CHANGED TO USE LOWEST-LEVEL AIR TEMP CONSISTENT WITH MYJSFC CHANGE
 !Q2SAT = QGH IN LSM
-    e1=svp1*exp(svp2*(t1d(i)-svpt0)/(t1d(i)-svp3))                       
+    e1=svp1*rp_exp(svp2*(t1d(i)-svpt0)/(t1d(i)-svp3))                       
     pl=p1d(i)/1000.
     qgh(i)=ep2*e1/(pl-e1)                                                 
     cpm(i)=cp*(1.+0.8*qx(i))                                   
@@ -315,9 +316,9 @@
 !-----CALCULATE BULK RICHARDSON NO. OF SURFACE LAYER, ACCORDING TO               
 !     AKB(1976), EQ(12).                                                                            
  do 260 i = its,ite
-    gz1oz0(i)=alog((za(i)+znt(i))/znt(i))   ! log((z+z0)/z0)                                     
-    gz2oz0(i)=alog((2.+znt(i))/znt(i))      ! log((2+z0)/z0)                           
-    gz10oz0(i)=alog((10.+znt(i))/znt(i))    ! log((10+z0)z0)                    
+    gz1oz0(i)=rp_log((za(i)+znt(i))/znt(i))   ! log((z+z0)/z0)                                     
+    gz2oz0(i)=rp_log((2.+znt(i))/znt(i))      ! log((2+z0)/z0)                           
+    gz10oz0(i)=rp_log((10.+znt(i))/znt(i))    ! log((10+z0)z0)                    
     if((xland(i)-1.5).ge.0)then                                            
        zl=znt(i)                                                            
     else                                                                     
@@ -336,7 +337,7 @@
     if(xland(i).lt.1.5) then
        fluxc = max(hfx(i)/rhox(i)/cp                    &
              + ep1*tskv*qfx(i)/rhox(i),0.)
-       vconv = vconvc*(g/tgdsa(i)*pblh(i)*fluxc)**.33
+       vconv = vconvc*rp_pow((g/tgdsa(i)*pblh(i)*fluxc), .33)
     else
        if(-dthvdz.ge.0)then
           dthvm=-dthvdz
@@ -348,7 +349,7 @@
        vconv = sqrt(dthvm)
     endif
 ! MAHRT AND SUN LOW-RES CORRECTION
-    vsgd = 0.32 * (max(dx(i)/5000.-1.,0.))**.33
+    vsgd = 0.32 * rp_pow((max(dx(i)/5000.-1.,0.)), .33)
     wspd(i)=sqrt(wspd(i)*wspd(i)+vconv*vconv+vsgd*vsgd)
     wspd(i)=amax1(wspd(i),0.1)
     br(i)=govrth(i)*za(i)*dthvdz/(wspd(i)*wspd(i))                        
@@ -518,18 +519,18 @@
        zl=0.01                                                                
     endif                                                                    
 !
-    psiq=alog(karman*ust(i)*za(i)/xka+za(i)/zl)-pq(i)
-    psiq2=alog(karman*ust(i)*2./xka+2./zl)-pq2(i)
+    psiq=rp_log(karman*ust(i)*za(i)/xka+za(i)/zl)-pq(i)
+    psiq2=rp_log(karman*ust(i)*2./xka+2./zl)-pq2(i)
 
 ! AHW: mods to compute ck, cd
-    psiq10=alog(karman*ust(i)*10./xka+10./zl)-pq10(i)
+    psiq10=rp_log(karman*ust(i)*10./xka+10./zl)-pq10(i)
 
 ! v3.7: using fairall 2003 to compute z0q and z0t over water:
 !       adapted from module_sf_mynn.f
     if((xland(i)-1.5).ge.0.) then
        visc=(1.32+0.009*(scr3(i)-273.15))*1.e-5
        restar=ust(i)*znt(i)/visc
-       z0t = (5.5e-5)*(restar**(-0.60))
+       z0t = (5.5e-5)*(rp_pow(restar, (-0.60)))
        z0t = min(z0t,1.0e-4)
        z0t = max(z0t,2.0e-9)
        z0q = z0t
@@ -555,8 +556,8 @@
              psih2(i)=psih_unstable(zol2)-psih_unstable(zol0)
           endif
        endif
-       psit=alog((za(i)+z0t)/z0t)-psih(i)
-       psit2=alog((2.+z0t)/z0t)-psih2(i)
+       psit=rp_log((za(i)+z0t)/z0t)-psih(i)
+       psit2=rp_log((2.+z0t)/z0t)-psih2(i)
 
        zolzz=zol(i)*(za(i)+z0q)/za(i)    ! (z+z0q)/L
        zol10=zol(i)*(10.+z0q)/za(i)   ! (10+z0q)/L
@@ -579,9 +580,9 @@
              endif
           endif
 !
-          psiq=alog((za(i)+z0q)/z0q)-psih(i)
-          psiq2=alog((2.+z0q)/z0q)-psih2(i)
-          psiq10=alog((10.+z0q)/z0q)-psih10(i)
+          psiq=rp_log((za(i)+z0q)/z0q)-psih(i)
+          psiq2=rp_log((2.+z0q)/z0q)-psih2(i)
+          psiq10=rp_log((10.+z0q)/z0q)-psih10(i)
        endif
 
        if(present(isftcflx)) then
@@ -616,10 +617,10 @@
              endif
           endif
 !
-          psiq=alog((za(i)+z0q)/z0q)-psih(i)
+          psiq=rp_log((za(i)+z0q)/z0q)-psih(i)
           psit=psiq
-          psiq2=alog((2.+z0q)/z0q)-psih2(i)
-          psiq10=alog((10.+z0q)/z0q)-psih10(i)
+          psiq2=rp_log((2.+z0q)/z0q)-psih2(i)
+          psiq10=rp_log((10.+z0q)/z0q)-psih10(i)
           psit2=psiq2
        endif
        if(isftcflx.eq.2 .and. (xland(i)-1.5).ge.0.) then
@@ -635,7 +636,7 @@
 !
 ! ... paj: compute psih for z0t for temperature ...
 !
-          z0t=znt(i)/exp(gz0ozt)
+          z0t=znt(i)/rp_exp(gz0ozt)
 !
           zolzz=zol(i)*(za(i)+z0t)/za(i) ! (z+z0t)/L
           zol10=zol(i)*(10.+z0t)/za(i)   ! (10+z0t)/L
@@ -660,11 +661,11 @@
 !
 !         psit=gz1oz0(i)-psih(i)+restar2
 !         psit2=gz2oz0(i)-psih2(i)+restar2
-          psit=alog((za(i)+z0t)/z0t)-psih(i)
-          psit2=alog((2.+z0t)/z0t)-psih2(i)
+          psit=rp_log((za(i)+z0t)/z0t)-psih(i)
+          psit2=rp_log((2.+z0t)/z0t)-psih2(i)
 !
           gz0ozq=0.40*(7.3*sqrt(sqrt(restar))*sqrt(0.60)-5.)
-          z0q=znt(i)/exp(gz0ozq)
+          z0q=znt(i)/rp_exp(gz0ozq)
 !
           zolzz=zol(i)*(za(i)+z0q)/za(i) ! (z+z0q)/L
           zol10=zol(i)*(10.+z0q)/za(i)   ! (10+z0q)/L
@@ -687,9 +688,9 @@
              endif
           endif
 !
-          psiq=alog((za(i)+z0q)/z0q)-psih(i)
-          psiq2=alog((2.+z0q)/z0q)-psih2(i)
-          psiq10=alog((10.+z0q)/z0q)-psih10(i)
+          psiq=rp_log((za(i)+z0q)/z0q)-psih(i)
+          psiq2=rp_log((2.+z0q)/z0q)-psih2(i)
+          psiq10=rp_log((10.+z0q)/z0q)-psih10(i)
 !         psiq=gz1oz0(i)-psih(i)+2.28*sqrt(sqrt(restar))-2.
 !         psiq2=gz2oz0(i)-psih2(i)+2.28*sqrt(sqrt(restar))-2.
 !         psiq10=gz10oz0(i)-psih(i)+2.28*sqrt(sqrt(restar))-2.
@@ -711,14 +712,14 @@
 !         If iz0tlnd = 2, use traditional value
 
           if(iz0tlnd.eq.1) then
-             czil = 10.0 ** ( -0.40 * ( zl / 0.07 ) )
+             czil = rp_pow(10.0, ( -0.40 * ( zl / 0.07 ) ))
           elseif(iz0tlnd.eq.2) then
              czil = 0.1 
           endif
 !
 ! ... paj: compute phish for z0t over land
 !
-          z0t=znt(i)/exp(czil*karman*sqrt(restar))
+          z0t=znt(i)/rp_exp(czil*karman*sqrt(restar))
 !
           zolzz=zol(i)*(za(i)+z0t)/za(i) ! (z+z0t)/L
           zol10=zol(i)*(10.+z0t)/za(i)   ! (10+z0t)/L
@@ -741,8 +742,8 @@
              endif
           endif
 !
-          psiq=alog((za(i)+z0t)/z0t)-psih(i)
-          psiq2=alog((2.+z0t)/z0t)-psih2(i)
+          psiq=rp_log((za(i)+z0t)/z0t)-psih(i)
+          psiq2=rp_log((2.+z0t)/z0t)-psih2(i)
           psit=psiq
           psit2=psiq2
 !
@@ -764,7 +765,7 @@
     v10(i)=vx(i)*psix10/psix                                   
     th2(i)=thgb(i)+dtg*psit2/psit                                
     q2(i)=qsfc(i)+(qx(i)-qsfc(i))*psiq2/psiq                   
-    t2(i) = th2(i)*(psfcpa(i)/p1000mb)**rovcp                     
+    t2(i) = th2(i)*rp_pow((psfcpa(i)/p1000mb), rovcp)                     
 !                                                                                
     if((xland(i)-1.5).lt.0.)then                                            
        ust(i)=amax1(ust(i),0.001)
@@ -818,9 +819,9 @@
 !            znt(i)=0.011*ust(i)*ust(i)/g+ozo
 !            znt(i)=max(znt(i),3.50e-5)
 ! AHW 2012:
-             zw  = min((ust(i)/1.06)**(0.3),1.0)
+             zw  = min(rp_pow((ust(i)/1.06), (0.3)),1.0)
              zn1 = 0.011*ust(i)*ust(i)/g + ozo
-             zn2 = 10.*exp(-9.5*ust(i)**(-.3333)) + &
+             zn2 = 10.*rp_exp(-9.5*rp_pow(ust(i), (-.3333))) + &
                    0.11*1.5e-5/amax1(ust(i),0.01)
              znt(i)=(1.0-zw) * zn1 + zw * zn2
              znt(i)=min(znt(i),2.85e-3)
@@ -968,11 +969,11 @@
  zol3=zol2+zol20 ! (z+z0)/L
 
  if(ri2.lt.0) then
-    psix2=log((z+z0)/z0)-(psim_unstable(zol3)-psim_unstable(zol20))
-    psih2=log((z+z0)/z0)-(psih_unstable(zol3)-psih_unstable(zol20))
+    psix2=rp_log((z+z0)/z0)-(psim_unstable(zol3)-psim_unstable(zol20))
+    psih2=rp_log((z+z0)/z0)-(psih_unstable(zol3)-psih_unstable(zol20))
  else
-    psix2=log((z+z0)/z0)-(psim_stable(zol3)-psim_stable(zol20))
-    psih2=log((z+z0)/z0)-(psih_stable(zol3)-psih_stable(zol20))
+    psix2=rp_log((z+z0)/z0)-(psim_stable(zol3)-psim_stable(zol20))
+    psih2=rp_log((z+z0)/z0)-(psih_stable(zol3)-psih_stable(zol20))
  endif
 
  zolri2=zol2*psih2/psix2**2-ri2
@@ -986,7 +987,7 @@
 !
  real(kind=kind_phys) function psim_stable_full(zolf)
  real(kind=kind_phys),intent(in):: zolf
- psim_stable_full=-6.1*log(zolf+(1+zolf**2.5)**(1./2.5))
+ psim_stable_full=-6.1*rp_log(zolf+rp_pow((1+rp_pow(zolf, 2.5)), (1./2.5)))
 
  return
  end function psim_stable_full
@@ -994,7 +995,7 @@
 !=================================================================================================================
  real(kind=kind_phys) function psih_stable_full(zolf)
  real(kind=kind_phys),intent(in):: zolf
- psih_stable_full=-5.3*log(zolf+(1+zolf**1.1)**(1./1.1))
+ psih_stable_full=-5.3*rp_log(zolf+rp_pow((1+rp_pow(zolf, 1.1)), (1./1.1)))
 
  return
  end function psih_stable_full
@@ -1003,13 +1004,13 @@
  real(kind=kind_phys) function psim_unstable_full(zolf)
  real(kind=kind_phys),intent(in):: zolf
  real(kind=kind_phys):: psimc,psimk,x,y,ym
- x=(1.-16.*zolf)**.25
- psimk=2*ALOG(0.5*(1+X))+ALOG(0.5*(1+X*X))-2.*ATAN(X)+2.*ATAN(1.)
+ x=rp_pow((1.-16.*zolf), .25)
+ psimk=2*rp_log(0.5*(1+X))+rp_log(0.5*(1+X*X))-2.*rp_atan(X)+2.*rp_atan(1.)
 
- ym=(1.-10.*zolf)**0.33
- psimc=(3./2.)*log((ym**2.+ym+1.)/3.)-sqrt(3.)*ATAN((2.*ym+1)/sqrt(3.))+4.*ATAN(1.)/sqrt(3.)
+ ym=rp_pow((1.-10.*zolf), 0.33)
+ psimc=(3./2.)*rp_log((rp_pow(ym, 2.)+ym+1.)/3.)-sqrt(3.)*rp_atan((2.*ym+1)/sqrt(3.))+4.*rp_atan(1.)/sqrt(3.)
 
- psim_unstable_full=(psimk+zolf**2*(psimc))/(1+zolf**2.)
+ psim_unstable_full=(psimk+zolf**2*(psimc))/(1+rp_pow(zolf, 2.))
 
  return
  end function psim_unstable_full
@@ -1018,13 +1019,13 @@
  real(kind=kind_phys) function psih_unstable_full(zolf)
  real(kind=kind_phys),intent(in):: zolf
  real(kind=kind_phys):: psihc,psihk,y,yh
- y=(1.-16.*zolf)**.5
- psihk=2.*log((1+y)/2.)
+ y=rp_pow((1.-16.*zolf), .5)
+ psihk=2.*rp_log((1+y)/2.)
 
- yh=(1.-34.*zolf)**0.33
- psihc=(3./2.)*log((yh**2.+yh+1.)/3.)-sqrt(3.)*ATAN((2.*yh+1)/sqrt(3.))+4.*ATAN(1.)/sqrt(3.)
+ yh=rp_pow((1.-34.*zolf), 0.33)
+ psihc=(3./2.)*rp_log((rp_pow(yh, 2.)+yh+1.)/3.)-sqrt(3.)*rp_atan((2.*yh+1)/sqrt(3.))+4.*rp_atan(1.)/sqrt(3.)
 
- psih_unstable_full=(psihk+zolf**2*(psihc))/(1+zolf**2.)
+ psih_unstable_full=(psihk+zolf**2*(psihc))/(1+rp_pow(zolf, 2.))
 
  return
  end function psih_unstable_full
@@ -1107,8 +1108,8 @@
     effective_depth = water_depth
  endif
  
- depth_b = 1 / 30.0 * log (1260.0 / effective_depth)
- depth_dependent_z0 = exp((2.7 * ust - 1.8 / depth_b) / (ust + 0.17 / depth_b) )
+ depth_b = 1 / 30.0 * rp_log (1260.0 / effective_depth)
+ depth_dependent_z0 = rp_exp((2.7 * ust - 1.8 / depth_b) / (ust + 0.17 / depth_b) )
  depth_dependent_z0 = MIN(depth_dependent_z0,0.1)
 
  return

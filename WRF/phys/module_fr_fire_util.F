@@ -6,6 +6,7 @@
 ! 
 
 module module_fr_fire_util
+   USE module_repro_math
 
 ! various method selection parameters
 ! 1. add the parameter and its static default here
@@ -634,7 +635,7 @@ jsz2 = jde2-jds2+1
 
 ! check mesh sizes
 if(isz1.le.0.or.jsz1.le.0.or.isz2.le.0.or.jsz2.le.0)goto 9
-if(mod(isz1,isz2).ne.0.or.mod(jsz1,jsz2).ne.0)goto 9
+if(rp_mod(isz1,isz2).ne.0.or.rp_mod(jsz1,jsz2).ne.0)goto 9
 
 ! compute mesh ratios
 ir=isz1/isz2
@@ -662,8 +663,8 @@ jr=jsz1/jsz2
 ih=ir/2
 jh=jr/2
 ! 0 if coarse cell center coincides with fine, 1 if not
-ip=mod(ir+1,2)
-jp=mod(jr+1,2)
+ip=rp_mod(ir+1,2)
+jp=rp_mod(jr+1,2)
 
 call interpolate_2d_w(ip,jp,ih,jh,ir,jr,              &
       ids2,ide2,jds2,jde2,ims2,ime2,jms2,jme2,v2, &  ! in  
@@ -731,7 +732,7 @@ jsz2 = jde2-jds2+1
 
 ! check mesh sizes
 if(isz1.le.0.or.jsz1.le.0.or.isz2.le.0.or.jsz2.le.0)goto 9
-if(mod(isz1,isz2).ne.0.or.mod(jsz1,jsz2).ne.0)goto 9
+if(rp_mod(isz1,isz2).ne.0.or.rp_mod(jsz1,jsz2).ne.0)goto 9
 
 ! compute mesh ratios
 ir=isz1/isz2
@@ -750,8 +751,8 @@ jr=jsz1/jsz2
 ih=(ir+1)/2
 jh=(jr+1)/2
 ! 0 if coarse cell center coincides with fine, 1 if not
-ip=mod(ir,2)
-jp=mod(jr,2)
+ip=rp_mod(ir,2)
+jp=rp_mod(jr,2)
 
 
 call interpolate_2d_w(ip,jp,ih,jh,ir,jr,              &

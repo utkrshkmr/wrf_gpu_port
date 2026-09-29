@@ -3,6 +3,7 @@
 ! Routines dealing with the atmosphere
 
 module module_fr_fire_atm
+   USE module_repro_math
 
 use module_model_constants, only: cp,xlv
 use module_fr_fire_util
@@ -224,11 +225,11 @@ SUBROUTINE fire_tendency( &
                 z_w = z_at_w(i,k,j) - zs(i,j) ! should be zero when k=k_st
 
                 ! --- heat flux
-                fact_g = cp_i * EXP( - alfg_i * z_w )
+                fact_g = cp_i * rp_exp( - alfg_i * z_w )
                 IF ( z_w < z1can ) THEN
                    fact_c = cp_i
                 ELSE
-                   fact_c = cp_i * EXP( - alfc_i * (z_w - z1can) )
+                   fact_c = cp_i * rp_exp( - alfc_i * (z_w - z1can) )
                 END IF
                 hfx(i,k,j) = fact_g * grnhfx(i,j) + fact_c * canhfx(i,j)
 
@@ -238,11 +239,11 @@ SUBROUTINE fire_tendency( &
 
                 ! --- vapor flux
 
-                fact_g = xlv_i * EXP( - alfg_i * z_w )
+                fact_g = xlv_i * rp_exp( - alfg_i * z_w )
                 IF (z_w < z1can) THEN
                    fact_c = xlv_i
                 ELSE
-                   fact_c = xlv_i * EXP( - alfc_i * (z_w - z1can) )
+                   fact_c = xlv_i * rp_exp( - alfc_i * (z_w - z1can) )
                 END IF
                 qfx(i,k,j) = fact_g * grnqfx(i,j) + fact_c * canqfx(i,j)
             
@@ -337,8 +338,8 @@ SUBROUTINE tg_dist(ims,ime, kms,kme, jms,jme, &
    xia = (fire_tg_lb-fire_peak_hgt)/(0.5*fire_ext_depth)
    xib = (fire_tg_ub-fire_peak_hgt)/(0.5*fire_ext_depth)
 
-   phi_a = 0.5*(1.+tanh(acoef*xia+bcoef*(xia**3)))
-   phi_b = 0.5*(1.+tanh(acoef*xib+bcoef*(xib**3)))
+   phi_a = 0.5*(1.+rp_tanh(acoef*xia+bcoef*(xia**3)))
+   phi_b = 0.5*(1.+rp_tanh(acoef*xib+bcoef*(xib**3)))
 
    DO j = j_st,j_en
       DO k = k_st,k_en
@@ -346,7 +347,7 @@ SUBROUTINE tg_dist(ims,ime, kms,kme, jms,jme, &
 
             xi=(z_w-fire_peak_hgt)/(0.5*fire_ext_depth)
 
-            prop_temp = 0.5*(acoef+3.*bcoef*(xi**2))/(0.5*fire_ext_depth)*(1.-(tanh(acoef*xi+bcoef*(xi**3)))**2)
+            prop_temp = 0.5*(acoef+3.*bcoef*(xi**2))/(0.5*fire_ext_depth)*(1.-(rp_tanh(acoef*xi+bcoef*(xi**3)))**2)
             prop_temp = prop_temp / (phi_b-phi_a)
    
             !discretize the continuous function
