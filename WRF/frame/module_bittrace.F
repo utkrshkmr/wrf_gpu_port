@@ -43,6 +43,7 @@ MODULE module_bittrace
    INTEGER, SAVE :: bt_level = -1
    INTEGER, SAVE :: bt_from = 0, bt_to = HUGE(0)
    INTEGER, SAVE :: bt_unit(max_domains) = -1
+   LOGICAL, SAVE :: bt_opened(max_domains) = .FALSE.   ! NEWUNIT numbers are negative
 
 CONTAINS
 
@@ -127,10 +128,11 @@ CONTAINS
       glob = loc
 #endif
       IF (.NOT. wrf_dm_on_monitor()) RETURN
-      IF (bt_unit(grid%id) < 0) THEN
+      IF (.NOT. bt_opened(grid%id)) THEN
          WRITE (fn, '(a,i2.2,a)') 'bittrace.d', grid%id, '.txt'
          OPEN (NEWUNIT=bt_unit(grid%id), FILE=TRIM(fn), STATUS='REPLACE', ACTION='WRITE', IOSTAT=ios)
          IF (ios /= 0) CALL wrf_error_fatal('bittrace: cannot open '//TRIM(fn))
+         bt_opened(grid%id) = .TRUE.
       END IF
       WRITE (bt_unit(grid%id), '(i9,1x,i1,1x,a,1x,a,1x,z16.16,1x,z16.16)') grid%itimestep, rk, &
          TRIM(tag), TRIM(name), glob(1), glob(2)
@@ -265,7 +267,7 @@ CONTAINS
       TYPE(domain), INTENT(IN) :: grid
       IF (bt_level <= 0) RETURN
 #ifndef NO_FLUSH_SUPPORT
-      IF (bt_unit(grid%id) >= 0) FLUSH (bt_unit(grid%id))
+      IF (bt_opened(grid%id)) FLUSH (bt_unit(grid%id))
 #endif
    END SUBROUTINE bt_flush
 
