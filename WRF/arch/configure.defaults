@@ -2339,6 +2339,159 @@ RLFLAGS         =
 CC_TOOLS        =      /usr/bin/gcc -Wall
 NETCDFPAR_BUILD	=      CONFIGURE_NETCDFPAR_BUILD
 
+###########################################################
+#ARCH    Linux x86_64, NVHPC nvfortran, GPU port CPU-REF # serial dmpar
+#
+# WRF GPU port (plan.md 4, P0.4): reproducible CPU reference, built and run on CCR CPU nodes
+# Flags are the same in all three GPU-port stanzas apart from the device
+# options, so the CPU reference and the GPU build run the same arithmetic:
+# no FMA, IEEE semantics, no flush-to-zero, no reassociation, portable host
+# target (-tp=haswell).  OMP is deliberately not commented out: with dmpar,
+# configure only uncomments OMP for smpar/dm+sm (arch/Config.pl), and $(OMP)
+# must reach every compile (FCBASEOPTS_NO_G) and the link (LDFLAGS).
+DESCRIPTION     =       NVHPC ($SFC/$SCC) GPU port CPU-REF
+DMPARALLEL      =       # 1
+OMPCPP          =
+OMP             =       
+OMPCC           =
+SFC             =       nvfortran
+SCC             =       nvc
+CCOMP           =       nvc
+DM_FC           =       mpif90
+DM_CC           =       mpicc
+FC              =       CONFIGURE_FC
+CC              =       CONFIGURE_CC
+LD              =       $(FC)
+RWORDSIZE       =       CONFIGURE_RWORDSIZE
+PROMOTION       =       -r$(RWORDSIZE) -i4
+ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_SUBR  CONFIGURE_D_CTSM -DREPRO_MATH -DWRF_POOL
+CFLAGS_LOCAL    =       -w -O2 -Kieee -tp=haswell
+LDFLAGS_LOCAL   =
+CPLUSPLUSLIB    =
+ESMF_LDFLAG     =       $(CPLUSPLUSLIB)
+FCOPTIM         =       -O2 -Kieee -Mnofma -Mnoflushz -Mnodaz -Mvect=noassoc -tp=haswell -Mrecursive
+FCREDUCEDOPT    =       $(FCOPTIM)
+FCNOOPT         =       -O0 -Kieee -Mnofma -Mnoflushz -Mnodaz -tp=haswell -Mrecursive
+FCDEBUG         =       
+FORMAT_FIXED    =       -Mfixed
+FORMAT_FREE     =       -Mfree
+FCSUFFIX        =
+BYTESWAPIO      =       -byteswapio
+FCBASEOPTS_NO_G =       -w $(FORMAT_FREE) $(BYTESWAPIO) $(OMP)
+FCBASEOPTS      =       $(FCBASEOPTS_NO_G) $(FCDEBUG)
+MODULE_SRCH_FLAG =     -module $(WRF_SRC_ROOT_DIR)/main
+TRADFLAG        =      CONFIGURE_TRADFLAG
+CPP             =      /lib/cpp CONFIGURE_CPPFLAGS
+AR              =      ar
+ARFLAGS         =      ru
+M4              =      m4 -B 14000
+RANLIB          =      ranlib
+RLFLAGS         =
+CC_TOOLS        =      $(SCC)
+NETCDFPAR_BUILD	=      CONFIGURE_NETCDFPAR_BUILD
+
+###########################################################
+#ARCH    Linux x86_64, NVHPC nvfortran, GPU port GPU-REPRO # serial dmpar
+#
+# WRF GPU port (plan.md 4, P0.4): GPU build that must equal CPU-REF bit for bit (A100 cc80, H100 cc90)
+# Flags are the same in all three GPU-port stanzas apart from the device
+# options, so the CPU reference and the GPU build run the same arithmetic:
+# no FMA, IEEE semantics, no flush-to-zero, no reassociation, portable host
+# target (-tp=haswell).  OMP is deliberately not commented out: with dmpar,
+# configure only uncomments OMP for smpar/dm+sm (arch/Config.pl), and $(OMP)
+# must reach every compile (FCBASEOPTS_NO_G) and the link (LDFLAGS).
+DESCRIPTION     =       NVHPC ($SFC/$SCC) GPU port GPU-REPRO
+DMPARALLEL      =       # 1
+OMPCPP          =
+OMP             =       -mp=gpu -gpu=cc80,cc90,nofma,noflushz -Minfo=mp
+OMPCC           =
+SFC             =       nvfortran
+SCC             =       nvc
+CCOMP           =       nvc
+DM_FC           =       mpif90
+DM_CC           =       mpicc
+FC              =       CONFIGURE_FC
+CC              =       CONFIGURE_CC
+LD              =       $(FC)
+RWORDSIZE       =       CONFIGURE_RWORDSIZE
+PROMOTION       =       -r$(RWORDSIZE) -i4
+ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_SUBR  CONFIGURE_D_CTSM -DREPRO_MATH -DWRF_POOL -DWRF_GPU
+CFLAGS_LOCAL    =       -w -O2 -Kieee -tp=haswell
+LDFLAGS_LOCAL   =
+CPLUSPLUSLIB    =
+ESMF_LDFLAG     =       $(CPLUSPLUSLIB)
+FCOPTIM         =       -O2 -Kieee -Mnofma -Mnoflushz -Mnodaz -Mvect=noassoc -tp=haswell -Mrecursive
+FCREDUCEDOPT    =       $(FCOPTIM)
+FCNOOPT         =       -O0 -Kieee -Mnofma -Mnoflushz -Mnodaz -tp=haswell -Mrecursive
+FCDEBUG         =       
+FORMAT_FIXED    =       -Mfixed
+FORMAT_FREE     =       -Mfree
+FCSUFFIX        =
+BYTESWAPIO      =       -byteswapio
+FCBASEOPTS_NO_G =       -w $(FORMAT_FREE) $(BYTESWAPIO) $(OMP)
+FCBASEOPTS      =       $(FCBASEOPTS_NO_G) $(FCDEBUG)
+MODULE_SRCH_FLAG =     -module $(WRF_SRC_ROOT_DIR)/main
+TRADFLAG        =      CONFIGURE_TRADFLAG
+CPP             =      /lib/cpp CONFIGURE_CPPFLAGS
+AR              =      ar
+ARFLAGS         =      ru
+M4              =      m4 -B 14000
+RANLIB          =      ranlib
+RLFLAGS         =
+CC_TOOLS        =      $(SCC)
+NETCDFPAR_BUILD	=      CONFIGURE_NETCDFPAR_BUILD
+
+###########################################################
+#ARCH    Linux x86_64, NVHPC nvfortran, GPU port GPU-DEBUG # serial dmpar
+#
+# WRF GPU port (plan.md 4, P0.4): GPU-REPRO plus debug information and fine-grained tracing
+# Flags are the same in all three GPU-port stanzas apart from the device
+# options, so the CPU reference and the GPU build run the same arithmetic:
+# no FMA, IEEE semantics, no flush-to-zero, no reassociation, portable host
+# target (-tp=haswell).  OMP is deliberately not commented out: with dmpar,
+# configure only uncomments OMP for smpar/dm+sm (arch/Config.pl), and $(OMP)
+# must reach every compile (FCBASEOPTS_NO_G) and the link (LDFLAGS).
+DESCRIPTION     =       NVHPC ($SFC/$SCC) GPU port GPU-DEBUG
+DMPARALLEL      =       # 1
+OMPCPP          =
+OMP             =       -mp=gpu -gpu=cc80,cc90,nofma,noflushz -Minfo=mp -gpu=lineinfo
+OMPCC           =
+SFC             =       nvfortran
+SCC             =       nvc
+CCOMP           =       nvc
+DM_FC           =       mpif90
+DM_CC           =       mpicc
+FC              =       CONFIGURE_FC
+CC              =       CONFIGURE_CC
+LD              =       $(FC)
+RWORDSIZE       =       CONFIGURE_RWORDSIZE
+PROMOTION       =       -r$(RWORDSIZE) -i4
+ARCH_LOCAL      =       -DNONSTANDARD_SYSTEM_SUBR  CONFIGURE_D_CTSM -DREPRO_MATH -DWRF_POOL -DWRF_GPU -DWRF_GPU_TRACE_FINE
+CFLAGS_LOCAL    =       -w -O2 -Kieee -tp=haswell
+LDFLAGS_LOCAL   =
+CPLUSPLUSLIB    =
+ESMF_LDFLAG     =       $(CPLUSPLUSLIB)
+FCOPTIM         =       -O2 -Kieee -Mnofma -Mnoflushz -Mnodaz -Mvect=noassoc -tp=haswell -Mrecursive
+FCREDUCEDOPT    =       $(FCOPTIM)
+FCNOOPT         =       -O0 -Kieee -Mnofma -Mnoflushz -Mnodaz -tp=haswell -Mrecursive
+FCDEBUG         =       -g -traceback
+FORMAT_FIXED    =       -Mfixed
+FORMAT_FREE     =       -Mfree
+FCSUFFIX        =
+BYTESWAPIO      =       -byteswapio
+FCBASEOPTS_NO_G =       -w $(FORMAT_FREE) $(BYTESWAPIO) $(OMP)
+FCBASEOPTS      =       $(FCBASEOPTS_NO_G) $(FCDEBUG)
+MODULE_SRCH_FLAG =     -module $(WRF_SRC_ROOT_DIR)/main
+TRADFLAG        =      CONFIGURE_TRADFLAG
+CPP             =      /lib/cpp CONFIGURE_CPPFLAGS
+AR              =      ar
+ARFLAGS         =      ru
+M4              =      m4 -B 14000
+RANLIB          =      ranlib
+RLFLAGS         =
+CC_TOOLS        =      $(SCC)
+NETCDFPAR_BUILD	=      CONFIGURE_NETCDFPAR_BUILD
+
 #insert new stanza before the Fujitsu block, keep Fujitsu at the end of the list
 ###########################################################
 #ARCH  NULL

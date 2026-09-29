@@ -1,0 +1,98 @@
+# Apptainer definition for the WRF GPU port (plan.md P0.0).
+#
+# One image for everything: the CPU reference (CPU-REF) on CCR CPU nodes and
+# the GPU builds on the A100 / H100 nodes.  Never mix images between runs
+# that are compared with each other.
+#
+# Build (needs network access to nvcr.io and the source tarball sites):
+#   apptainer build --build-arg NVHPC_TAG=<tag> wrf-gpu.sif wrf-gpu.def
+#   apptainer inspect wrf-gpu.sif        # record the digest in port/ENVIRONMENT.md
+#
+# NVHPC_TAG is an image tag of nvcr.io/nvidia/nvhpc of the form
+# <nvhpc version>-devel-cuda<version>-ubuntu22.04 (list the tags on
+# catalog.ngc.nvidia.com).  Pin one version for the whole port: T-FMA,
+# T-SUBNORM and the F-* probes are only valid for the version they ran with.
+
+Bootstrap: docker
+From: nvcr.io/nvidia/nvhpc:{{ NVHPC_TAG }}
+
+%arguments
+    NVHPC_TAG=25.1-devel-cuda12.6-ubuntu22.04
+    HDF5_VERSION=1.14.4-3
+    NETCDF_C_VERSION=4.9.2
+    NETCDF_F_VERSION=4.6.1
+
+%labels
+    Description WRF v4.6.0 + WRF-Fire GPU port toolchain (NVHPC, OpenMPI, netCDF)
+    NVHPC_TAG {{ NVHPC_TAG }}
+
+%environment
+    export NETCDF=/opt/netcdf
+    export HDF5=/opt/netcdf
+    export PATH=/opt/netcdf/bin:$(cat /opt/mpi_bin_dir 2>/dev/null):$PATH
+    export LD_LIBRARY_PATH=/opt/netcdf/lib:$LD_LIBRARY_PATH
+    export WRFIO_NCD_LARGE_FILE_SUPPORT=1
+    export OMP_NUM_THREADS=1
+    export LC_ALL=C
+
+%post
+    set -e
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update
+    apt-get install -y --no-install-recommends csh tcsh m4 perl make git curl ca-certificates \
+        file time zlib1g-dev libcurl4-openssl-dev python3 python3-pip python3-dev gfortran gcc
+    pip3 install --no-cache-dir numpy netCDF4 mpmath
+
+    # MPI shipped with the HPC SDK (wrappers use nvfortran / nvc)
+    MPIBIN=$(dirname $(ls -d /opt/nvidia/hpc_sdk/Linux_x86_64/*/comm_libs/mpi/bin/mpif90 | head -1))
+    echo "$MPIBIN" > /opt/mpi_bin_dir
+    export PATH=$MPIBIN:$PATH
+
+    export CC=nvc FC=nvfortran F77=nvfortran CXX=nvc++
+    export CFLAGS="-O2 -fPIC" FCFLAGS="-O2 -fPIC" FFLAGS="-O2 -fPIC"
+    mkdir -p /opt/src /opt/netcdf && cd /opt/src
+
+    # HDF5 (serial; WRF writes netCDF-4/HDF5 or classic files through netCDF)
+    H=hdf5-{{ HDF5_VERSION }}
+    curl -fsSL -o $H.tar.gz https://github.com/HDFGroup/hdf5/releases/download/hdf5_{{ HDF5_VERSION }}/$H.tar.gz \
+      || curl -fsSL -o $H.tar.gz https://support.hdfgroup.org/ftp/HDF5/releases/$H/src/$H.tar.gz
+    tar xzf $H.tar.gz && cd hdf5-* && ./configure --prefix=/opt/netcdf --enable-fortran --disable-tests && \
+        make -j 8 && make install && cd /opt/src
+
+    # netCDF-C
+    curl -fsSL -o nc.tar.gz https://github.com/Unidata/netcdf-c/archive/refs/tags/v{{ NETCDF_C_VERSION }}.tar.gz
+    tar xzf nc.tar.gz && cd netcdf-c-{{ NETCDF_C_VERSION }} && \
+        CPPFLAGS=-I/opt/netcdf/include LDFLAGS=-L/opt/netcdf/lib ./configure --prefix=/opt/netcdf \
+            --disable-dap --disable-byterange --disable-libxml2 && \
+        make -j 8 && make install && cd /opt/src
+
+    # netCDF-Fortran
+    curl -fsSL -o nf.tar.gz https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v{{ NETCDF_F_VERSION }}.tar.gz
+    tar xzf nf.tar.gz && cd netcdf-fortran-{{ NETCDF_F_VERSION }} && \
+        CPPFLAGS=-I/opt/netcdf/include LDFLAGS=-L/opt/netcdf/lib LD_LIBRARY_PATH=/opt/netcdf/lib \
+            ./configure --prefix=/opt/netcdf && make -j 8 && make install && cd /
+
+    # netCDF-Fortran again with gfortran, for the T-UNINIT builds (gfortran
+    # -finit-real=snan / zero, plan.md P0.10); netCDF-C is shared.
+    cd /opt/src && rm -rf netcdf-fortran-{{ NETCDF_F_VERSION }} && tar xzf nf.tar.gz && \
+        cd netcdf-fortran-{{ NETCDF_F_VERSION }} && \
+        CC=gcc FC=gfortran F77=gfortran CFLAGS="-O2 -fPIC" FCFLAGS="-O2 -fPIC" FFLAGS="-O2 -fPIC" \
+        CPPFLAGS=-I/opt/netcdf/include LDFLAGS=-L/opt/netcdf/lib LD_LIBRARY_PATH=/opt/netcdf/lib \
+            ./configure --prefix=/opt/netcdf-gnu && make -j 8 && make install && cd /
+    for d in include lib; do for f in /opt/netcdf/$d/libnetcdf.* /opt/netcdf/$d/netcdf.h /opt/netcdf/$d/netcdf_*.h; do \
+        [ -e "$f" ] && ln -sf "$f" /opt/netcdf-gnu/$d/ ; done; done
+
+    rm -rf /opt/src
+    # record versions for port/ENVIRONMENT.md
+    { nvfortran --version | head -2; mpif90 --version | head -1; /opt/netcdf/bin/nc-config --version; \
+      /opt/netcdf/bin/nf-config --version; python3 -c 'import numpy, netCDF4, mpmath; print("numpy", numpy.__version__, "netCDF4", netCDF4.__version__, "mpmath", mpmath.__version__)'; } \
+      > /opt/versions.txt 2>&1
+
+%runscript
+    exec "$@"
+
+%test
+    nvfortran --version
+    mpif90 --version
+    /opt/netcdf/bin/nf-config --version
+    cat /opt/versions.txt
