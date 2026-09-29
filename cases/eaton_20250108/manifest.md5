@@ -1,0 +1,17 @@
+# WRF GPU-port input manifest (port/manifest.py), case eaton_20250108
+# Inputs: md5s reported from the CCR run folder runs/20260928_124741.
+# Tables: md5s of WRF v4.6.0 WRF/run/ in this repository (CAMtr_volume_mixing_ratio -> .SSP245).
+#   Confirm on CCR with: python3 port/manifest.py check <run folder> -m cases/eaton_20250108/manifest.md5
+# require-absent: namelist.fire
+4a50bf559d1486b00b486287fdd3c567 *wrfinput_d01
+f53040929f3d0ec486cfe6ffb8a054a2 *wrfinput_d02
+51cffbc8a8c6f53203a35b301e519582 *wrfbdy_d01
+789644f15ebe66e27cc8754cebeca672 *LANDUSE.TBL
+6eb070410dec6e2c19b14f4b31668e3b *VEGPARM.TBL
+08d304bf8e16d1711338b60f106f2e05 *SOILPARM.TBL
+ff190522fff25f5c9f2b0f9bcbd44540 *GENPARM.TBL
+cca35064272525e14a319899872b06b7 *RRTMG_LW_DATA
+91ff8dbf5021486fc65fce8fc339fd74 *ozone.formatted
+18e03f9c260c072655e59fdb302bea35 *ozone_lat.formatted
+77b03759f60a735720112be94778333e *ozone_plev.formatted
+7e59a1764ee8dbdb3c9d35e2327d5ed7 *CAMtr_volume_mixing_ratio
