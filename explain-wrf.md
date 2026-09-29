@@ -332,7 +332,7 @@ identical streams. Output (netCDF) and clocks are identical by construction.
 
 **Design:**
 
-- New file `WRF/share/module_repro_math.F` provides `elemental` functions with generic interfaces for `REAL(4)` and
+- New file `WRF/frame/module_repro_math.F` provides `elemental` functions with generic interfaces for `REAL(4)` and
   `REAL(8)`: `rp_exp`, `rp_log`, `rp_log10`, `rp_pow(x,y)`, `rp_sin`, `rp_cos`, `rp_tan`, `rp_atan`,
   `rp_atan2`, `rp_tanh`, `rp_mod`. Each is marked `!$omp declare target`.
 - `#ifdef REPRO_MATH` selects the portable implementations; otherwise each `rp_*` calls the intrinsic, so a build
@@ -503,10 +503,10 @@ wrf_gpu_port/
 |---|---:|---|---|
 | `dyn_em/` | 73k | ARW dynamical core: `solve_em.F`, advection, acoustic steps, diffusion, BCs | **Yes**: all time-step routines |
 | `phys/` | 671k | Physics schemes and drivers, WRF-Fire, `physics_mmm/`, `noahmp/` | **Only the schemes in §13, drivers, fire** |
-| `share/` | 51k | Mediation (I/O, nesting), `module_bc.F`, `solve_interface.F` | `module_bc.F`, new `module_repro_math.F`, sync points |
-| `frame/` | 24k | Domain type, allocation, tiles, `integrate` loop | Mapping hooks |
+| `share/` | 51k | Mediation (I/O, nesting), `module_bc.F`, `solve_interface.F` | `module_bc.F`, sync points |
+| `frame/` | 24k | Domain type, allocation, tiles, `integrate` loop | Mapping hooks; new `module_repro_math.F`, tracer, routing, pool |
 | `external/` | 155k | RSL_LITE (MPI), I/O libraries, ESMF time | No (single rank) |
-| `main/` | 16k | `wrf.F`, `real_em.F`, `module_wrf_top.F` | No |
+| `main/` | 16k | `wrf.F`, `real_em.F`, `module_wrf_top.F` | `module_wrf_top.F` (routing init, sync points) |
 | `Registry/`, `tools/` | — / 11k | Registry tables and code generator | `gen_allocs.c`, `gen_defs.c` |
 | `arch/` | 13k | `configure.defaults` compiler stanzas | New stanzas |
 | `run/`, `test/em_fire/` | — | Runtime tables; ideal fire case | Test data |

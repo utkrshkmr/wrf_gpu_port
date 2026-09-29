@@ -285,7 +285,7 @@ calls it first and aborts on mismatch.
     files are checked separately (`T-BUILD-*` compiles them once without `-w`).
 - Build CPU-REF with `./configure` (choose the stanza, option `dmpar`, nesting `basic`) then `./compile em_real`.
 
-### P0.5 Reproducible math module `WRF/share/module_repro_math.F`
+### P0.5 Reproducible math module `WRF/frame/module_repro_math.F`
 
 **Interface:**
 
@@ -321,8 +321,9 @@ calls it first and aborts on mismatch.
 - `x**0.5` becomes `SQRT(x)`; identical for the same reason.
 - `x**n` with integer `n ≥ 3` stays as is if `T-IPOW` passes (P0.6).
 
-**Build:** add the file to `WRF/share/Makefile` (`MODULES`) and to `WRF/main/depend.common`
-(`module_repro_math.o` before every user).
+**Build:** add the file to `WRF/frame/Makefile` (`MODULES`, first entry) and to `WRF/main/depend.common`
+(`module_repro_math.o` before every user). It lives in `frame/`, not `share/`, because `frame/libmassv.F` (`vspow`)
+uses it and `frame` is compiled before `share`.
 
 **Tests**, in `port/tests/repro_math/`:
 
@@ -1642,7 +1643,7 @@ d02 steps from 02:20 (4 radiation calls per domain).
 
 | File | Purpose |
 |---|---|
-| `WRF/share/module_repro_math.F` | reproducible math (P0.5) |
+| `WRF/frame/module_repro_math.F` | reproducible math (P0.5) |
 | `WRF/frame/module_bittrace.F` | bit-hash tracer (P0.7) |
 | `WRF/frame/module_gpu_route.F` | per-routine switch, NVTX interfaces (P0.8, P1.10) |
 | `WRF/frame/module_gpu_scratch.F`, `WRF/frame/module_gpu_work.F` | pool and work arrays (P1.6, P1.7) |
