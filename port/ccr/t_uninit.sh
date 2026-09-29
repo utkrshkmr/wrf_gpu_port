@@ -2,8 +2,9 @@
 # T-UNINIT (plan.md P0.10, added in Phase 0): does WRF read local variables
 # or automatic arrays before writing them, on the paths this case runs?
 #
-# Builds the current commit twice with gfortran (GNU dmpar stanza, netCDF
-# from /opt/netcdf-gnu in the image, no -DWRF_POOL, no -DREPRO_MATH):
+# Builds the current commit twice with gfortran (GNU stanza, serial: the
+# image's MPI is built for nvfortran; netCDF from /opt/netcdf-gnu; no
+# -DWRF_POOL, no -DREPRO_MATH):
 #   nan : -finit-real=snan -finit-integer=-8388607 -finit-logical=true
 #   zero: -finit-real=zero -finit-integer=0        -finit-logical=false
 # and runs the development case with each (1 rank, level-2 trace):
@@ -26,11 +27,16 @@ case ${1:?build|submit|check} in
       b=$T/build_$v; mkdir -p "$b"
       git -C "$PORT_REPO" archive HEAD WRF | tar -x -C "$b" --strip-components=1
       cd "$b"
-      opt=$(inimg bash -c "NETCDF=/opt/netcdf-gnu ./configure < /dev/null 2>/dev/null" | grep "GNU (gfortran/gcc)" | head -1 | sed -E 's/.*[^0-9]([0-9]+)\. \(dmpar\).*/\1/')
+      opt=$(inimg bash -c "NETCDF=/opt/netcdf-gnu ./configure < /dev/null 2>/dev/null" | grep "GNU (gfortran/gcc)" | head -1 | sed -E 's/^ *([0-9]+)\. \(serial\).*/\1/')
+      [ -n "$opt" ] || die "GNU serial option not offered by configure"
       inimg bash -c "export NETCDF=/opt/netcdf-gnu; printf '%s\n1\n' $opt | ./configure > configure.log 2>&1"
       if [ $v = nan ]; then fl="-finit-real=snan -finit-integer=-8388607 -finit-logical=true"
       else fl="-finit-real=zero -finit-integer=0 -finit-logical=false"; fi
+      base=$(sed -n 's/^FCBASEOPTS_NO_G *= *//p' configure.wrf | head -1)
       sed -i "s/^\(FCBASEOPTS_NO_G *=.*\)$/\1 $fl/" configure.wrf
+      # module_mp_morr_two_moment_aero.F has routines with a bare SAVE statement and
+      # gfortran rejects -finit-* for their automatic arrays; the case does not use it
+      printf 'module_mp_morr_two_moment_aero.o : FCBASEOPTS_NO_G = %s\n' "$base" >> configure.wrf
       inimg bash -c "export NETCDF=/opt/netcdf-gnu; ./compile -j 8 em_real > compile.log 2>&1" || true
       [ -x main/wrf.exe ] || die "gfortran build $v failed ($b/compile.log)"
     done ;;
