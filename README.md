@@ -5,7 +5,8 @@ CPU baseline that the GPU port is verified against, so nothing newer than v4.6.0
 included.
 
 For the GPU porting guide (architecture, time-step kernels, data movement, porting plan and
-verification), see [explain-wrf.md](explain-wrf.md).
+verification), see [explain-wrf.md](explain-wrf.md). The step-by-step execution plan for A100 80 GB and
+H100 80 GB (tasks, kernels, wiring, tests, gates and performance analysis) is [plan.md](plan.md).
 
 | Directory          | Upstream                                              | Version                       | Commit                                     |
 |--------------------|-------------------------------------------------------|-------------------------------|--------------------------------------------|

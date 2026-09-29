@@ -9,6 +9,9 @@ The scope is set by the run configuration you provided (`namelist.input`, `namel
 facts that shape the port were taken from it. All file and line references are relative to this repository and
 point at the unmodified v4.6.0 sources.
 
+The task-by-task execution plan (kernels, wiring, tests, gates and performance analysis for A100 80 GB and H100
+80 GB) is in [plan.md](plan.md).
+
 ---
 
 ## Contents
@@ -108,7 +111,7 @@ d02 (SGS stress output); `damp_opt = 3` (w damping inside `advance_w`, `zdamp = 
 | Option | Value | Scheme |
 |---|---|---|
 | `mp_physics` | 6 | WSM6 |
-| `ra_lw_physics` | 4 | RRTMG LW (internally double precision, `kind_rb = 8`) |
+| `ra_lw_physics` | 4 | RRTMG LW (single precision in WRF: `kind_rb = kind(1.0)`, `module_ra_rrtmg_lw.F:42`) |
 | `ra_sw_physics` | 1 | Dudhia SW |
 | `radt` | 1 min | → every 20 d01 steps, every 180 d02 steps |
 | `sf_sfclay_physics` | 1 | Revised MM5 surface layer (`sfclayrev`) |
@@ -259,8 +262,9 @@ implicit data mapping.
 | Fits this case? | very likely not | expected | expected | expected | expected |
 
 WRF's stencil kernels are limited by memory bandwidth, so expect H100 SXM/NVL to be clearly faster than A100 for
-the same code. Fast FP64 on both parts matters here: RRTMG runs in double precision, and the reproducible math
-functions evaluate in double ([§4.4](#44-reproducible-math-module)). Unified/HMM memory (`-gpu=mem:unified`) is
+the same code. Fast FP64 on both parts matters here because the reproducible math functions evaluate single-precision
+results in double precision ([§4.4](#44-reproducible-math-module)); RRTMG LW itself runs in single precision in
+WRF. Unified/HMM memory (`-gpu=mem:unified`) is
 available on both GPUs with open kernel modules. It's useful for bring-up experiments, but **don't use it in
 production**: page migration makes performance unpredictable.
 
@@ -333,10 +337,11 @@ identical streams. Output (netCDF) and clocks are identical by construction.
   `rp_atan2`, `rp_tanh`, `rp_mod`. Each is marked `!$omp declare target`.
 - `#ifdef REPRO_MATH` selects the portable implementations; otherwise each `rp_*` calls the intrinsic, so a build
   without the flag behaves exactly like upstream.
-- **Single precision** (most of WRF): use correctly rounded algorithms that evaluate in double precision (the
-  approach of the CORE-MATH project's binary32 functions). They're as accurate as possible (≤ 0.5 ulp) and
-  **identical on any IEEE machine by definition**.
-- **Double precision** (RRTMG): a fixed portable algorithm (fdlibm/musl style) written only with IEEE basic
+- **Single precision** (nearly all of WRF, RRTMG LW included): use correctly rounded algorithms that evaluate in
+  double precision (the approach of the CORE-MATH project's binary32 functions). They're as accurate as possible
+  (≤ 0.5 ulp) and **identical on any IEEE machine by definition**.
+- **Double precision** (the few `REAL(8)` callers on executed paths, e.g. the greenhouse-gas scalars from
+  `read_CAMgases`): a fixed portable algorithm (fdlibm/musl style) written only with IEEE basic
   operations and exact bit manipulation (`TRANSFER`, `IAND`, `ISHFT`, `SCALE`, `EXPONENT`). With R2–R4 it gives
   identical bits on CPU and GPU, even though it isn't necessarily correctly rounded.
 - **Testing:** exhaustive for binary32 (all 2³² inputs, CPU vs GPU bit-compare, and error against a high-precision
@@ -858,7 +863,7 @@ fine; batching species is an optional optimization.
 | Scheme (option) | Domains | Entry → core | Pattern | Notes |
 |---|---|---|---|---|
 | WSM6 (`mp 6`) | both | `microphysics_driver` → `wsm6` (`phys/module_mp_wsm6.F`, 240 lines) → `mp_wsm6_run` (`physics_mmm/mp_wsm6.F90`, 2449), `mp_wsm6_effectRad_run` | E | many `exp`/`log`/`pow` (§4.4); sedimentation sub-stepping is sequential per column (keep it so) |
-| RRTMG LW (`ra_lw 4`) | both, every 1 min | `radiation_driver` → `RRTMG_LWRAD` (`phys/module_ra_rrtmg_lw.F`, 14.6k) | D | `kind_rb = 8` (double); k-distribution tables from `RRTMG_LW_DATA` (module data → device once); McICA generator (integer, deterministic) |
+| RRTMG LW (`ra_lw 4`) | both, every 1 min | `radiation_driver` → `RRTMG_LWRAD` (`phys/module_ra_rrtmg_lw.F`, 14.6k) | D | `kind_rb = kind(1.0)` (single precision; the `RWORDSIZE` selection above it is disabled by `#if 0`); k-distribution tables from `RRTMG_LW_DATA` (module data → device once); McICA generator (integer, deterministic) |
 | Dudhia SW (`ra_sw 1`) | both, every 1 min | `radiation_driver` → `SWRAD` (`phys/module_ra_sw.F`, 538) | D | trig for solar geometry (`rp_sin/cos`) |
 | Radiation prep | both | `radiation_driver` per-point loops (cloud fraction `icloud = 1`, solar zenith, tendency conversion) | A/D | only the branches your options take |
 | sfclayrev (`sfclay 1`) | both | `surface_driver` → `SFCLAYREV` (`phys/module_sf_sfclayrev.F`) → `sf_sfclayrev_pre_run`/`_run` (`physics_mmm/sf_sfclayrev.F90`) | E (2D) | many `log` (stability functions) |
@@ -1047,6 +1052,8 @@ While a routine `R` is not yet ported, bracket its call with `target update from
 ---
 
 ## 19. Porting plan with verification gates
+
+This section is the overview. [plan.md](plan.md) breaks each phase into tasks, kernels, tests and gates.
 
 Every gate uses the tools in §4.5. **"Bitwise" means the bit-hash logs are identical and `diffwrf` shows no
 differences.**
