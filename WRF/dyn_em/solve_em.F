@@ -266,7 +266,10 @@ SUBROUTINE solve_em ( grid , config_flags  &
 !</pre>
 !</DESCRIPTION>
 
-! GPU port (plan.md P1.6): associate the i1 scratch arrays with the pool (-DWRF_POOL)
+! GPU port (plan.md P1.6): associate the i1 scratch arrays with the pool (-DWRF_POOL).
+! They are then CONTIGUOUS pointers, so they are passed to explicit-shape dummies as
+! sections (e.g. moist_tend(:,:,:,im)), never as element designators (not allowed for
+! pointers); both forms pass the same storage.
 #include "i1_assoc.inc"
 
 ! Initialize timers if compiled with -DBENCH
@@ -542,7 +545,7 @@ SUBROUTINE solve_em ( grid , config_flags  &
      !$OMP PRIVATE ( ij )
      DO ij = 1 , grid%num_tiles
        im = P_Qv
-       CALL set_physical_bc3d( moist_old(ims,kms,jms,im), 'p', config_flags,  &
+       CALL set_physical_bc3d( moist_old(:,:,:,im),       'p', config_flags,  &
                                ids, ide, jds, jde, kds, kde,                  &
                                ims, ime, jms, jme, kms, kme,                  &
                                ips, ipe, jps, jpe, kps, kpe,                  &
@@ -1884,8 +1887,8 @@ BENCH_END(small_step_finish_tim)
          CALL wrf_debug ( 200 , ' call rk_update_scalar_pd' )
          DO im = PARAM_FIRST_SCALAR, num_3d_m
            CALL rk_update_scalar_pd( im, im,                                   &
-                                     moist_old(ims,kms,jms,im),                &
-                                     moist_tend(ims,kms,jms,im),               &
+                                     moist_old(:,:,:,im),                      &
+                                     moist_tend(:,:,:,im),                     &
                                      grid%c1h, grid%c2h,                       &
                                      grid%mu_1, grid%mu_1, grid%mub,  &
                                      rk_step, dt_rk, grid%spec_zone,           &
@@ -1922,7 +1925,7 @@ BENCH_END(small_step_finish_tim)
        DO ij = 1 , grid%num_tiles
          IF (num_3d_m >= PARAM_FIRST_SCALAR) THEN
            DO im = PARAM_FIRST_SCALAR , num_3d_m
-             CALL set_physical_bc3d( moist_old(ims,kms,jms,im), 'p', config_flags,   &
+             CALL set_physical_bc3d( moist_old(:,:,:,im),       'p', config_flags,   &
                                      ids, ide, jds, jde, kds, kde,                  &
                                      ims, ime, jms, jme, kms, kme,                  &
                                      ips, ipe, jps, jpe, kps, kpe,                  &
@@ -1947,8 +1950,8 @@ BENCH_END(small_step_finish_tim)
          CALL wrf_debug ( 200 , ' call rk_update_scalar_pd' )
          DO im = PARAM_FIRST_SCALAR, num_3d_s
            CALL rk_update_scalar_pd( im, im,                                  &
-                                     scalar_old(ims,kms,jms,im),              &
-                                     scalar_tend(ims,kms,jms,im),             &
+                                     scalar_old(:,:,:,im),                    &
+                                     scalar_tend(:,:,:,im),                   &
                                      grid%c1h, grid%c2h,                      &
                                      grid%mu_1, grid%mu_1, grid%mub, &
                                      rk_step, dt_rk, grid%spec_zone,          &
@@ -1990,7 +1993,7 @@ BENCH_END(small_step_finish_tim)
          DO ij = 1 , grid%num_tiles
            IF (num_3d_s >= PARAM_FIRST_SCALAR) THEN
              DO im = PARAM_FIRST_SCALAR , num_3d_s
-               CALL set_physical_bc3d(  scalar_old(ims,kms,jms,im), 'p', config_flags, &
+               CALL set_physical_bc3d(  scalar_old(:,:,:,im),       'p', config_flags, &
                                         ids, ide, jds, jde, kds, kde,                    &
                                         ims, ime, jms, jme, kms, kme,                    &
                                         ips, ipe, jps, jpe, kps, kpe,                    &
@@ -2014,8 +2017,8 @@ BENCH_END(small_step_finish_tim)
            CALL wrf_debug ( 200 , ' call rk_update_scalar_pd' )
            DO im = PARAM_FIRST_SCALAR, num_3d_c
              CALL rk_update_scalar_pd( im, im,                                  &
-                                       chem_old(ims,kms,jms,im),                &
-                                       chem_tend(ims,kms,jms,im),               &
+                                       chem_old(:,:,:,im),                      &
+                                       chem_tend(:,:,:,im),                     &
                                        grid%c1h, grid%c2h,                      &
                                        grid%mu_1, grid%mu_1, grid%mub, &
                                        rk_step, dt_rk, grid%spec_zone,          &
@@ -2052,7 +2055,7 @@ BENCH_END(small_step_finish_tim)
          DO ij = 1 , grid%num_tiles
            IF (num_3d_c >= PARAM_FIRST_SCALAR) THEN
              DO im = PARAM_FIRST_SCALAR , num_3d_c
-               CALL set_physical_bc3d(  chem_old(ims,kms,jms,im), 'p', config_flags,     &
+               CALL set_physical_bc3d(  chem_old(:,:,:,im),       'p', config_flags,     &
                                         ids, ide, jds, jde, kds, kde,                    &
                                         ims, ime, jms, jme, kms, kme,                    &
                                         ips, ipe, jps, jpe, kps, kpe,                    &
@@ -2076,8 +2079,8 @@ BENCH_END(small_step_finish_tim)
            CALL wrf_debug ( 200 , ' call rk_update_scalar_pd' )
            DO im = PARAM_FIRST_SCALAR, num_tracer
              CALL rk_update_scalar_pd( im, im,                                  &
-                                       tracer_old(ims,kms,jms,im),                &
-                                       tracer_tend(ims,kms,jms,im),               &
+                                       tracer_old(:,:,:,im),                      &
+                                       tracer_tend(:,:,:,im),                     &
                                        grid%c1h, grid%c2h,                      &
                                        grid%mu_1, grid%mu_1, grid%mub, &
                                        rk_step, dt_rk, grid%spec_zone,          &
@@ -2114,7 +2117,7 @@ BENCH_END(small_step_finish_tim)
          DO ij = 1 , grid%num_tiles
            IF (num_tracer >= PARAM_FIRST_SCALAR) THEN
              DO im = PARAM_FIRST_SCALAR , num_tracer
-               CALL set_physical_bc3d(  tracer_old(ims,kms,jms,im), 'p', config_flags,   &
+               CALL set_physical_bc3d(  tracer_old(:,:,:,im),       'p', config_flags,   &
                                         ids, ide, jds, jde, kds, kde,                    &
                                         ims, ime, jms, jme, kms, kme,                    &
                                         ips, ipe, jps, jpe, kps, kpe,                    &
@@ -2139,7 +2142,7 @@ BENCH_END(small_step_finish_tim)
            CALL wrf_debug ( 200 , ' call rk_update_scalar_pd' )
            CALL rk_update_scalar_pd( 1, 1,                                    &
                                      grid%tke_1,                              &
-                                     tke_tend(ims,kms,jms),                   &
+                                     tke_tend,                                &
                                      grid%c1h, grid%c2h,                      &
                                      grid%mu_1, grid%mu_1, grid%mub,          &
                                      rk_step, dt_rk, grid%spec_zone,          &
@@ -2247,9 +2250,9 @@ BENCH_START(rk_scalar_tend_tim)
                            grid%muts, grid%mub, grid%mu_1,                   &
                            grid%c1h, grid%c2h,  grid%c1f, grid%c2f,          &
                            grid%alt,                                         &
-                           moist_old(ims,kms,jms,im),                        &
+                           moist_old(:,:,:,im),                              &
                            moist(ims,kms,jms,im),                            &
-                           moist_tend(ims,kms,jms,im),                       &
+                           moist_tend(:,:,:,im),                             &
                            advect_tend,h_tendency,z_tendency,grid%rqvften,   & 
                            grid%qv_base, .true., grid%fnm, grid%fnp,         &
                            grid%msfux,grid%msfuy, grid%msfvx, grid%msfvx_inv,&
@@ -2274,7 +2277,7 @@ BENCH_START(rk_scalar_tend_tim)
                            grid%c1h, grid%c2h,               &
                            grid%qv_diabatic,                 &
                            grid%qc_diabatic,                 &
-                           moist_tend(ims,kms,jms,im),       &
+                           moist_tend(:,:,:,im),             &
                            ids, ide, jds, jde, kds, kde,     &
                            ims, ime, jms, jme, kms, kme,     &
                            grid%i_start(ij), grid%i_end(ij), &
@@ -2289,7 +2292,7 @@ BENCH_START(rlx_bdy_scalar_tim)
                IF( ( config_flags%specified .or. config_flags%nested ) .and. rk_step == 1 ) THEN 
                  IF ( im .EQ. P_QV .OR. config_flags%nested .OR. &
                     ( config_flags%specified .AND. config_flags%have_bcs_moist ) ) THEN
-                   CALL relax_bdy_scalar ( moist_tend(ims,kms,jms,im),            & 
+                   CALL relax_bdy_scalar ( moist_tend(:,:,:,im),                  & 
                                      moist(ims,kms,jms,im),  grid%mut,         &
                                      grid%c1h, grid%c2h,                       &
                                      moist_bxs(jms,kms,1,im),moist_bxe(jms,kms,1,im), &
@@ -2306,7 +2309,7 @@ BENCH_START(rlx_bdy_scalar_tim)
                                      grid%j_start(ij), grid%j_end(ij),      &
                                      k_start, k_end                        )
 
-                   CALL spec_bdy_scalar  ( moist_tend(ims,kms,jms,im),                &
+                   CALL spec_bdy_scalar  ( moist_tend(:,:,:,im),                      &
                                      moist_bxs(jms,kms,1,im),moist_bxe(jms,kms,1,im), &
                                      moist_bys(ims,kms,1,im),moist_bye(ims,kms,1,im), &
                                      moist_btxs(jms,kms,1,im),moist_btxe(jms,kms,1,im), &
@@ -2335,9 +2338,9 @@ BENCH_END(rlx_bdy_scalar_tim)
 
 BENCH_START(update_scal_tim)
                CALL rk_update_scalar( scs=im, sce=im,                                  &
-                               scalar_1=moist_old(ims,kms,jms,im),                     &
+                               scalar_1=moist_old(:,:,:,im),                           &
                                scalar_2=moist(ims,kms,jms,im),                         &
-                               sc_tend=moist_tend(ims,kms,jms,im),                     &
+                               sc_tend=moist_tend(:,:,:,im),                           &
                                advect_tend=advect_tend,                                &
                                h_tendency=h_tendency, z_tendency=z_tendency,           & 
                                msftx=grid%msftx,msfty=grid%msfty,                      &
@@ -2418,7 +2421,7 @@ BENCH_START(tke_adv_tim)
                             grid%alt,                                              &
                             grid%tke_1,                                            &
                             grid%tke_2,                                            &
-                            tke_tend(ims,kms,jms),                                 &
+                            tke_tend,                                              &
                             advect_tend,h_tendency,z_tendency,grid%rqvften,        & 
                             grid%qv_base, .false., grid%fnm, grid%fnp,             &
                             grid%msfux,grid%msfuy, grid%msfvx, grid%msfvx_inv,     &
@@ -2448,7 +2451,7 @@ BENCH_START(tke_adv_tim)
            CALL rk_update_scalar( scs=1,  sce=1,                                          &
                                   scalar_1=grid%tke_1,                                    &
                                   scalar_2=grid%tke_2,                                    &
-                                  sc_tend=tke_tend(ims,kms,jms),                          &
+                                  sc_tend=tke_tend,                                       &
                                   advect_tend=advect_tend,                                &
                                   h_tendency=h_tendency, z_tendency=z_tendency,           & 
                                   msftx=grid%msftx,msfty=grid%msfty,                      &
@@ -2510,9 +2513,9 @@ BENCH_START(chem_adv_tim)
                               grid%muts, grid%mub, grid%mu_1,                    &
                               grid%c1h, grid%c2h,  grid%c1f, grid%c2f,           &
                               grid%alt,                                          &
-                              chem_old(ims,kms,jms,ic),                          &
+                              chem_old(:,:,:,ic),                                &
                               chem(ims,kms,jms,ic),                              &
-                              chem_tend(ims,kms,jms,ic),                         &
+                              chem_tend(:,:,:,ic),                               &
                               advect_tend,h_tendency,z_tendency,grid%rqvften,    & 
                               grid%qv_base, .false., grid%fnm, grid%fnp,         &
                               grid%msfux,grid%msfuy, grid%msfvx, grid%msfvx_inv, &
@@ -2537,7 +2540,7 @@ BENCH_START(chem_adv_tim)
 !
            IF( ( config_flags%nested ) .and. rk_step == 1 ) THEN
              IF(ic.eq.1)CALL wrf_debug ( 10 , ' have_bcs_chem' )
-             CALL relax_bdy_scalar ( chem_tend(ims,kms,jms,ic),                                    &
+             CALL relax_bdy_scalar ( chem_tend(:,:,:,ic),                                          &
                                      chem(ims,kms,jms,ic),  grid%mut,                              &
                                      grid%c1h, grid%c2h,                       &
                                      chem_bxs(jms,kms,1,ic),chem_bxe(jms,kms,1,ic),                &
@@ -2553,7 +2556,7 @@ BENCH_START(chem_adv_tim)
                                      grid%i_start(ij), grid%i_end(ij),                             &
                                      grid%j_start(ij), grid%j_end(ij),                             &
                                      k_start, k_end                                                )
-             CALL spec_bdy_scalar  ( chem_tend(ims,kms,jms,ic),                 &
+             CALL spec_bdy_scalar  ( chem_tend(:,:,:,ic),                       &
                                      chem_bxs(jms,kms,1,ic),chem_bxe(jms,kms,1,ic),                &
                                      chem_bys(ims,kms,1,ic),chem_bye(ims,kms,1,ic),                &
                                      chem_btxs(jms,kms,1,ic),chem_btxe(jms,kms,1,ic),              &
@@ -2586,9 +2589,9 @@ end if
            tenddec = (( config_flags%chemdiag == USECHEMDIAG ) .and. &
                       ( adv_ct_indices(ic) >= PARAM_FIRST_SCALAR ))
            CALL rk_update_scalar( scs=ic, sce=ic,                                         &
-                                  scalar_1=chem_old(ims,kms,jms,ic),                      &
+                                  scalar_1=chem_old(:,:,:,ic),                            &
                                   scalar_2=chem(ims,kms,jms,ic),                          &
-                                  sc_tend=chem_tend(ims,kms,jms,ic),                      &
+                                  sc_tend=chem_tend(:,:,:,ic),                            &
                                   advh_t=advh_ct(ims,kms,jms,adv_ct_indices(ic)),         &
                                   advz_t=advz_ct(ims,kms,jms,adv_ct_indices(ic)),         &
                                   advect_tend=advect_tend,                                &
@@ -2672,9 +2675,9 @@ BENCH_START(tracer_adv_tim)
                               grid%muts, grid%mub, grid%mu_1,                    &
                               grid%c1h, grid%c2h,  grid%c1f, grid%c2f,           &
                               grid%alt,                                          &
-                              tracer_old(ims,kms,jms,ic),                        &
+                              tracer_old(:,:,:,ic),                              &
                               tracer(ims,kms,jms,ic),                            &
-                              tracer_tend(ims,kms,jms,ic),                       &
+                              tracer_tend(:,:,:,ic),                             &
                               advect_tend,h_tendency,z_tendency,grid%rqvften,    & 
                               grid%qv_base, .false., grid%fnm, grid%fnp,         &
                               grid%msfux,grid%msfuy, grid%msfvx, grid%msfvx_inv, &
@@ -2699,7 +2702,7 @@ BENCH_START(tracer_adv_tim)
 !
            IF( ( config_flags%nested ) .and. rk_step == 1 ) THEN
              IF(ic.eq.1)CALL wrf_debug ( 10 , ' have_bcs_tracer' )
-             CALL relax_bdy_scalar ( tracer_tend(ims,kms,jms,ic),                                    &
+             CALL relax_bdy_scalar ( tracer_tend(:,:,:,ic),                                          &
                                      tracer(ims,kms,jms,ic),  grid%mut,                              &
                                      grid%c1h, grid%c2h,                       &
                                      tracer_bxs(jms,kms,1,ic),tracer_bxe(jms,kms,1,ic),                &
@@ -2715,7 +2718,7 @@ BENCH_START(tracer_adv_tim)
                                      grid%i_start(ij), grid%i_end(ij),                             &
                                      grid%j_start(ij), grid%j_end(ij),                             &
                                      k_start, k_end                                                )
-             CALL spec_bdy_scalar  ( tracer_tend(ims,kms,jms,ic),                 &
+             CALL spec_bdy_scalar  ( tracer_tend(:,:,:,ic),                       &
                                      tracer_bxs(jms,kms,1,ic),tracer_bxe(jms,kms,1,ic),                &
                                      tracer_bys(ims,kms,1,ic),tracer_bye(ims,kms,1,ic),                &
                                      tracer_btxs(jms,kms,1,ic),tracer_btxe(jms,kms,1,ic),              &
@@ -2741,9 +2744,9 @@ BENCH_START(tracer_adv_tim)
            CALL wrf_debug ( 200 , ' call rk_update_scalar' )
            tenddec = .false.
            CALL rk_update_scalar( scs=ic, sce=ic,                                         &
-                                  scalar_1=tracer_old(ims,kms,jms,ic),                    &
+                                  scalar_1=tracer_old(:,:,:,ic),                          &
                                   scalar_2=tracer(ims,kms,jms,ic),                        &
-                                  sc_tend=tracer_tend(ims,kms,jms,ic),                    &
+                                  sc_tend=tracer_tend(:,:,:,ic),                          &
 !                                 advh_t=advh_t(ims,kms,jms,1),                           & 
 !                                 advz_t=advz_t(ims,kms,jms,1),                           & 
                                   advect_tend=advect_tend,                                &
@@ -2814,9 +2817,9 @@ BENCH_END(tracer_adv_tim)
                                  grid%muts, grid%mub, grid%mu_1,                  &
                                  grid%c1h, grid%c2h,  grid%c1f, grid%c2f,         &
                                  grid%alt,                                        &
-                                 scalar_old(ims,kms,jms,is),                      &
+                                 scalar_old(:,:,:,is),                            &
                                  scalar(ims,kms,jms,is),                          &
-                                 scalar_tend(ims,kms,jms,is),                     &
+                                 scalar_tend(:,:,:,is),                           &
                                  advect_tend,h_tendency,z_tendency,grid%rqvften,  & 
                                  grid%qv_base, .false., grid%fnm, grid%fnp,       &
                                  grid%msfux,grid%msfuy, grid%msfvx, grid%msfvx_inv, &
@@ -2839,7 +2842,7 @@ BENCH_END(tracer_adv_tim)
                 ( config_flags%specified .AND. config_flags%have_bcs_scalar ) .OR. &
                 ( ( is .EQ. P_QNWFA .OR. is .EQ. P_QNIFA .OR. is .EQ. P_QNBCA) .AND. config_flags%aer_init_opt .GT. 0) ) THEN
 
-               CALL relax_bdy_scalar ( scalar_tend(ims,kms,jms,is),                            &
+               CALL relax_bdy_scalar ( scalar_tend(:,:,:,is),                                  &
                                        scalar(ims,kms,jms,is),  grid%mut,                      &
                                        grid%c1h, grid%c2h,                       &
                                        scalar_bxs(jms,kms,1,is),scalar_bxe(jms,kms,1,is),      &
@@ -2856,7 +2859,7 @@ BENCH_END(tracer_adv_tim)
                                        grid%j_start(ij), grid%j_end(ij),                       &
                                        k_start, k_end                                          )
 
-               CALL spec_bdy_scalar  ( scalar_tend(ims,kms,jms,is),                            &
+               CALL spec_bdy_scalar  ( scalar_tend(:,:,:,is),                                  &
                                        scalar_bxs(jms,kms,1,is),scalar_bxe(jms,kms,1,is),      &
                                        scalar_bys(ims,kms,1,is),scalar_bye(ims,kms,1,is),      &
                                        scalar_btxs(jms,kms,1,is),scalar_btxe(jms,kms,1,is),    &
@@ -2883,9 +2886,9 @@ BENCH_END(tracer_adv_tim)
            CALL wrf_debug ( 200 , ' call rk_update_scalar' )
            tenddec = .false.
            CALL rk_update_scalar( scs=is, sce=is,                                         &
-                                  scalar_1=scalar_old(ims,kms,jms,is),                    &
+                                  scalar_1=scalar_old(:,:,:,is),                          &
                                   scalar_2=scalar(ims,kms,jms,is),                        &
-                                  sc_tend=scalar_tend(ims,kms,jms,is),                    &
+                                  sc_tend=scalar_tend(:,:,:,is),                          &
 !                                 advh_t=advh_t(ims,kms,jms,1),                           & 
 !                                 advz_t=advz_t(ims,kms,jms,1),                           & 
                                   advect_tend=advect_tend,                                &
