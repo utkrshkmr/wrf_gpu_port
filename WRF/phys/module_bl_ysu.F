@@ -348,11 +348,15 @@
          end do
       end do
 
+      ! GPU port (plan.md 8.4, P0.9a item 4): the BEP arrays are passed even
+      ! when urban physics is off, allocated as (1,1,1); copy them only when
+      ! flag_bep is set (bl_ysu_run uses them only then).
       if(present(a_u_bep) .and. present(a_v_bep) .and. present(a_t_bep) .and.  &
          present(a_q_bep) .and. present(a_e_bep) .and. present(b_u_bep) .and.  &
          present(b_v_bep) .and. present(b_t_bep) .and. present(b_q_bep) .and.  &
          present(b_e_bep) .and. present(dlg_bep) .and. present(dl_u_bep) .and. &
-         present(sf_bep)  .and. present(vl_bep)  .and. present(frc_urb2d)) then
+         present(sf_bep)  .and. present(vl_bep)  .and. present(frc_urb2d) .and. &
+         flag_bep) then
          do k = kts, kte
             do i = its,ite
                a_u_hv(i,k)  = a_u_bep(i,k,j)

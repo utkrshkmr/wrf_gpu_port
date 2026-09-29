@@ -1,7 +1,8 @@
 !=================================================================================================================
  module module_sf_sfclayrev
  use ccpp_kind_types,only: kind_phys
- use sf_sfclayrev,only: sf_sfclayrev_run
+ use sf_sfclayrev,only: sf_sfclayrev_run,sfclayrev_zolri_undef
+
 
 
  implicit none
@@ -116,6 +117,8 @@
  logical:: l_scm_force_flux
 
  integer:: i,j,k
+ integer,save:: zolri_reported = 0
+ character(len=256):: zolri_msg
  real(kind=kind_phys),dimension(its:ite):: dz1d,u1d,v1d,qv1d,p1d,t1d
 
  real(kind=kind_phys),dimension(its:ite):: &
@@ -274,6 +277,15 @@
     endif
 
  enddo
+
+!GPU port (plan.md 8.3, T-ZOLRI): report zolri calls whose result was
+!undefined in the original code (the reference run must show none).
+ if(sfclayrev_zolri_undef > zolri_reported) then
+    write(zolri_msg,'(a,i0,a)') 'sfclayrev: zolri undefined-result case(s), total ', &
+       sfclayrev_zolri_undef,' (T-ZOLRI, plan.md 8.3)'
+    call wrf_message(trim(zolri_msg))
+    zolri_reported = sfclayrev_zolri_undef
+ endif
 
  end subroutine sfclayrev
 

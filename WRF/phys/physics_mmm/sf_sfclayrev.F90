@@ -7,7 +7,12 @@
  private
  public:: sf_sfclayrev_run,     &
           sf_sfclayrev_init,    &
-          sf_sfclayrev_finalize
+          sf_sfclayrev_finalize, &
+          sfclayrev_zolri_undef
+
+!GPU port (plan.md P0.9a item 3, T-ZOLRI): number of zolri calls that would
+!have returned an undefined result in the original code.
+ integer,save:: sfclayrev_zolri_undef = 0
 
 
  real(kind=kind_phys),parameter:: vconvc= 1.
@@ -937,11 +942,17 @@
 
  fx1=zolri2(x1,ri,z,z0)
  fx2=zolri2(x2,ri,z,z0)
+!GPU port (plan.md P0.9a item 3): zolri was left undefined when fx1.eq.fx2
+!on the first pass; define it and count such calls (T-ZOLRI).
+ zolri=x1
  iter = 0
  do while (abs(x1 - x2) > 0.01)
  if (iter .eq. 10) return
 !check added for potential divide by zero (2019/11)
-    if(fx1.eq.fx2)return
+    if(fx1.eq.fx2)then
+       if(iter.eq.0) sfclayrev_zolri_undef = sfclayrev_zolri_undef + 1
+       return
+    endif
     if(abs(fx2).lt.abs(fx1))then
        x1=x1-fx1/(fx2-fx1)*(x2-x1)
        fx1=zolri2(x1,ri,z,z0)

@@ -2843,7 +2843,7 @@ CONTAINS
       REAL, INTENT(OUT)    :: FBUR     ! UA: fraction of canopy buried
       REAL, INTENT(OUT)    :: FGSN     ! UA: ground snow cover fraction
 
-      REAL ::  SNUPGRD = 0.02          ! UA: SWE limit for ground cover
+      REAL, PARAMETER ::  SNUPGRD = 0.02  ! UA: SWE limit for ground cover (GPU port: was an implicitly SAVEd local, never modified)
 
 ! ----------------------------------------------------------------------
 ! SNUP IS VEG-CLASS DEPENDENT SNOWDEPTH THRESHHOLD (SET IN ROUTINE
