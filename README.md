@@ -4,6 +4,9 @@ Unmodified copy of the WRF v4.6.0 modeling pipeline, including WRF-Fire. It is t
 CPU baseline that the GPU port is verified against, so nothing newer than v4.6.0 is
 included.
 
+For the GPU porting guide (architecture, time-step kernels, data movement, porting plan and
+verification), see [explain-wrf.md](explain-wrf.md).
+
 | Directory          | Upstream                                              | Version                       | Commit                                     |
 |--------------------|-------------------------------------------------------|-------------------------------|--------------------------------------------|
 | `WRF/`             | [wrf-model/WRF](https://github.com/wrf-model/WRF)     | v4.6.0                        | `0a11865f97680fdd6865b278ea29d910e5db3ed7` |
