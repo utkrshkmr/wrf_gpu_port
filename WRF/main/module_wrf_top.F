@@ -18,6 +18,7 @@ MODULE module_wrf_top
 
    USE module_timing
    USE module_wrf_error
+   USE module_gpu_route, ONLY : gpu_route_init
 #if ( WRFPLUS == 1 )
    USE module_adtl_grid_utilities, ONLY : allocate_grid, deallocate_grid, copy_grid_to_s, copy_grid_to_b, &
                                           restore_grid, inner_dot_g, add_grid, inner_dot, init_domain_size, &
@@ -187,6 +188,9 @@ CONTAINS
    ENDIF
    ! Phase 2 resumes after MPI_INIT() (if it is called)
    CALL init_modules(2)
+
+   ! GPU port (plan.md P0.8): per-routine routing switch from WRF_GPU_OFF / WRF_GPU_ONLY
+   CALL gpu_route_init()
 
 !<DESCRIPTION>
 ! The wrf namelist.input file is read and stored in the USE associated

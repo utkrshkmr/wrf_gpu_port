@@ -209,6 +209,20 @@ module_io_quilt.o: \
 module_machine.o: \
 	module_driver_constants.o 
 
+libmassv.o: \
+	module_repro_math.o 
+
+module_bittrace.o: \
+	module_domain.o \
+	module_driver_constants.o \
+	module_wrf_error.o 
+
+module_gpu_route.o: \
+	module_wrf_error.o 
+
+module_gpu_scratch.o: \
+	module_wrf_error.o 
+
 
 module_nesting.o: \
 	module_machine.o \

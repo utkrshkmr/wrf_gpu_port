@@ -96,6 +96,7 @@ target_sources(
                   ${WRF_INCLUDE_FILES}
 
                   module_configure.F
+                  module_repro_math.F
                   module_driver_constants.F
                   module_domain_type.F
                   module_domain.F
@@ -145,6 +146,9 @@ target_sources(
                   module_io_quilt.F
                   
                   module_nesting.F
+                  module_bittrace.F
+                  module_gpu_route.F
+                  module_gpu_scratch.F
                   module_quilt_outbuf_ops.F
                   module_sm.F
                   module_tiles.F

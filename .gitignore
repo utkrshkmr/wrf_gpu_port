@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+
+# site-specific settings of the CCR/GPU scripts (copied from port/ccr/env.sh)
+port/ccr/env.local.sh
+
+# outputs of the standalone tests
+port/tests/repro_math/*.o
+port/tests/repro_math/*.mod
+port/tests/repro_math/*.so
+port/tests/repro_math/*.bin
+port/tests/repro_math/t_fma
+port/tests/repro_math/t_ieee
+port/tests/repro_math/t_ipow
+port/tests/repro_math/t_rm_exh
+port/tests/repro_math/t_rm_pow
+port/tests/repro_math/t_rm_d
+port/tests/omp_features/*.o
+port/tests/omp_features/*.mod
+port/tests/omp_features/f_auto
+port/tests/omp_features/f_calls
+port/tests/omp_features/f_declmod
+port/tests/omp_features/f_defmap
+port/tests/omp_features/f_defmap_neg
+port/tests/omp_features/f_iftarget
+port/tests/omp_features/f_langfeat
+port/tests/omp_features/f_present
+port/tests/omp_features/f_privarr
+port/tests/omp_features/f_red
+port/tests/omp_features/f_stack
+port/tests/repro_math/module_repro_math.f90

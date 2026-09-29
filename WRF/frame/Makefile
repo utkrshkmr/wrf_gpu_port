@@ -6,7 +6,8 @@ RM      =       rm -f
 
 
 
-MODULES =       module_driver_constants.o  \
+MODULES =       module_repro_math.o        \
+                module_driver_constants.o  \
                 module_domain_type.o       \
                 module_streams.o           \
                 module_domain.o            \
@@ -17,6 +18,9 @@ MODULES =       module_driver_constants.o  \
                 module_tiles.o             \
                 module_machine.o           \
                 module_nesting.o           \
+                module_bittrace.o          \
+                module_gpu_scratch.o       \
+                module_gpu_route.o         \
                 module_wrf_error.o         \
                 module_state_description.o \
                 module_sm.o                \
