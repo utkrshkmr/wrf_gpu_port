@@ -2652,7 +2652,7 @@ CONTAINS
          IF ( PRESENT(RA) ) THEN
          DO j=j_start(ij),j_end(ij)
          DO i=i_start(ij),i_end(ij)
-            RA(I,J) = WSPD(I,J)/rp_pow(UST(I,J), 2.0)
+            RA(I,J) = WSPD(I,J)/UST(I,J)**2
          ENDDO
          ENDDO
          END IF
@@ -3426,7 +3426,7 @@ CONTAINS
          IF ( PRESENT(RA) ) THEN
          DO j=j_start(ij),j_end(ij)
          DO i=i_start(ij),i_end(ij)
-            RA(I,J) = WSPD(I,J)/rp_pow(UST(I,J), 2.0)
+            RA(I,J) = WSPD(I,J)/UST(I,J)**2
          ENDDO
          ENDDO
          END IF

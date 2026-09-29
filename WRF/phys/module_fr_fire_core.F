@@ -1574,7 +1574,7 @@ threshold_HLu=fire_lsm_band_ngp*dx
 
     do j=jfts,jfte 
         do i=ifts,ifte 
-            lfn_s0(i,j) = lfn_2(i,j)/sqrt(rp_pow(lfn_2(i,j), 2.0)+rp_pow(dx, 2.0)) 
+            lfn_s0(i,j) = lfn_2(i,j)/sqrt(lfn_2(i,j)**2+dx**2) 
             lfn_s3(i,j) = lfn_2(i,j)
         enddo
     enddo
@@ -2038,7 +2038,7 @@ threshold_AV=fire_viscosity_ngp*dx
               end select
             endif
 ! DME use the same discretization scheme from fire_upwinding option to calculate the normals
-            scale=sqrt(rp_pow(grad, 2.0)+eps) 
+            scale=sqrt(grad**2+eps) 
             nvx=diff2x/scale 
             nvy=diff2y/scale 
 

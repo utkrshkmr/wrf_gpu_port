@@ -2791,7 +2791,7 @@ END SUBROUTINE smag2d_km
                     bbb=(theta(i,izz+1,j)-theta(i,izz,j))/dzt
                     IF(bbb.NE.0) THEN
                        tl = (-beta * (theta(i,izz,j) - theta(i,k,j))               &
-                          + sqrt(max(0.,rp_pow((beta*(theta(i,izz,j)-theta(i,k,j))), 2.)   &
+                          + sqrt(max(0.,(beta*(theta(i,izz,j)-theta(i,k,j)))**2   &
                           + 2.*bbb*beta*(tke(i,k,j) - zup_inf))))/bbb/beta
                     ELSE
                        IF (theta(i,izz,j) .NE. theta(i,k,j)) THEN
@@ -2828,7 +2828,7 @@ END SUBROUTINE smag2d_km
                         bbb = (theta(i,izz,j) - theta(i,izz-1,j))/dzt
                            IF(bbb.NE.0.) THEN
                               tl = (beta*(theta(i,izz,j) - theta(i,k,j))    &
-                                 + sqrt(max(0.,rp_pow((beta*(theta(i,izz,j) - theta(i,k,j))), 2.) &
+                                 + sqrt(max(0.,(beta*(theta(i,izz,j) - theta(i,k,j)))**2 &
                                  + 2.*bbb*beta*(tke(i,k,j) - zdo_sup))))/bbb/beta
                            ELSE
                               IF(theta(i,izz,j).NE.theta(i,k,j)) THEN
@@ -5180,7 +5180,7 @@ END SUBROUTINE vertical_diffusion_s
        deltaoh(i,j)  = min(deltaoh(i,j), hpbl(i,j))
  
        if ((du .ne. 0) .or. (dv .ne. 0)) then
-           rigs(i,j) = govrth(i,j)*dthv(i,j)*deltaoh(i,j)/(rp_pow(du, 2.)+rp_pow(dv, 2.))
+           rigs(i,j) = govrth(i,j)*dthv(i,j)*deltaoh(i,j)/(du**2+dv**2)
            rigs(i,j) = max(min(rigs(i,j), rigsmax),rimin)
        else
            rigs(i,j) = rigsmax
@@ -5195,7 +5195,7 @@ END SUBROUTINE vertical_diffusion_s
   DO k = kts, ktf
   DO i = i_start, i_end
        IF(pblflg(i,j))THEN
-          entfacmf(i,k,j) = sqrt(rp_pow(((zq(i,k+1,j) - hpbl(i,j))/deltaoh(i,j)), 2.))
+          entfacmf(i,k,j) = sqrt(((zq(i,k+1,j) - hpbl(i,j))/deltaoh(i,j))**2)
        ENDIF
   ENDDO
   ENDDO

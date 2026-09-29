@@ -928,7 +928,7 @@
    do k = kts,klpbl
      do i = its,ite
        if(pblflg(i).and.k.ge.kpbl(i))then
-         entfac(i,k) = rp_pow(((zq(i,k+1)-hpbl(i))/delta(i)), 2.)
+         entfac(i,k) = ((zq(i,k+1)-hpbl(i))/delta(i))**2
        else
          entfac(i,k) = 1.e30
        endif
@@ -947,7 +947,7 @@
          if(sfcflg(i)) then
            prfac = conpr
            prfac2 = 15.9*(wstar3(i)+wstar3_2(i))/ust3(i)/(1.+4.*karman*(wstar3(i)+wstar3_2(i))/ust3(i))
-           prnumfac = -3.*rp_pow((max(zq(i,k+1)-sfcfrac*hpbl(i),0.)), 2.)/rp_pow(hpbl(i), 2.)
+           prnumfac = -3.*(max(zq(i,k+1)-sfcfrac*hpbl(i),0.))**2/hpbl(i)**2
          else
            prfac = 0.
            prfac2 = 0.

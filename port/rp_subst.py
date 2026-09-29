@@ -14,8 +14,12 @@ Operands of ** are parsed on Fortran tokens (primaries: literals, names with
 component and argument lists, parenthesized expressions), so precedence is
 kept: -a**b becomes -rp_pow(a,b), a**b**c becomes rp_pow(a, rp_pow(b,c)).
 Integer-literal exponents (x**2, x**3) are left alone; they are checked by
-T-IPOW.  A non-literal exponent is always wrapped: the generic rp_pow resolves
-INTEGER exponents to x**n unchanged.
+T-IPOW.  A real-literal exponent with the value -1, 0, 1 or 2 (x**2., x**2.0,
+x**(-1.0), ...) becomes the integer literal (x**2): compilers fold x**2.0 into
+x*x (GCC always does for these four values), which is what the integer power
+computes, while a call to pow() could round an exact tie differently.  A
+non-literal exponent is always wrapped: the generic rp_pow resolves INTEGER
+exponents to x**n unchanged.
 
 Not rewritten, and reported:
   - type declaration, PARAMETER, DATA, FORMAT, INTRINSIC and EXTERNAL
@@ -116,7 +120,23 @@ def split_comment(line):
 
 
 def is_int_literal(text):
-    return re.fullmatch(r"[+-]?\d+(_\w+)?", text) is not None
+    return re.fullmatch(r"[+-]?\d+(_\w+)?|\([+-]?\d+(_\w+)?\)", text) is not None
+
+
+FOLDED_REAL = re.compile(r"(\()?([+-]?)([012])\.0*(?:[eEdD][+-]?0+)?(?:_\w+)?(\))?")
+
+
+def folded_int_exponent(text):
+    """Integer spelling of a real-literal exponent whose value is -1, 0, 1 or
+    2 ('2.', '2.0', '(-1.0)', '2.0d0', ...), else None."""
+    m = FOLDED_REAL.fullmatch(text)
+    if not m or bool(m.group(1)) != bool(m.group(4)):
+        return None
+    sign, digit = m.group(2), m.group(3)
+    if sign == "-" and digit != "1":
+        return None
+    val = ("-" if sign == "-" else "") + digit
+    return f"({val})" if val.startswith("-") else val
 
 
 class NeedManual(Exception):
@@ -241,6 +261,13 @@ def rewrite_powers(code, report):
             if is_int_literal(exp_text.replace(" ", "")):
                 done.add(key)
                 continue
+            folded = folded_int_exponent(exp_text.replace(" ", ""))
+            if folded is not None:
+                code = code[:toks[si + 1].start] + folded + code[toks[r_end].end:]
+                report("ipow", f"**{exp_text} -> **{folded}")
+                done.add(key)
+                changed = True
+                break
             try:
                 l_start = primary_left(toks, si - 1)
             except NeedManual as e:
@@ -332,7 +359,7 @@ def process_file(path, check_only, log):
     with open(path, errors="replace") as f:
         lines = f.read().split("\n")
     original = list(lines)
-    stats = {"call": 0, "pow": 0, "manual": 0, "refused": 0}
+    stats = {"call": 0, "pow": 0, "ipow": 0, "manual": 0, "refused": 0}
     if is_fixed_form(lines) and not path.endswith((".f90", ".F90")):
         log(f"{path}: refused: fixed-form source, edit by hand")
         stats["refused"] += 1
@@ -447,14 +474,15 @@ def main():
         if "manual" in msg or "refused" in msg:
             print(msg)
 
-    total = {"call": 0, "pow": 0, "manual": 0, "refused": 0}
+    total = {"call": 0, "pow": 0, "ipow": 0, "manual": 0, "refused": 0}
     for p in args.files:
         st, ch = process_file(p, args.check, log)
         for k in total:
             total[k] += st[k]
-        print(f"{p}: {st['call']} calls, {st['pow']} powers, {st['manual']} manual, {st['refused']} refused"
+        print(f"{p}: {st['call']} calls, {st['pow']} powers, {st['ipow']} integer powers, {st['manual']} manual, "
+              f"{st['refused']} refused"
               f"{'' if ch else ' (unchanged)'}")
-    print(f"total: {total['call']} calls, {total['pow']} powers, {total['manual']} manual, "
+    print(f"total: {total['call']} calls, {total['pow']} powers, {total['ipow']} integer powers, {total['manual']} manual, "
           f"{total['refused']} refused")
     if logf:
         logf.close()

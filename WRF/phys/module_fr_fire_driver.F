@@ -1581,7 +1581,7 @@ if (fire_lsm_zcoupling) then
     do i = ifts,ifte
       uf_temp=uf(i,j)
       vf_temp=vf(i,j)
-      wsf=max(sqrt(rp_pow(uf_temp, 2.)+rp_pow(vf_temp, 2.)),0.1)
+      wsf=max(sqrt(uf_temp**2+vf_temp**2),0.1)
       z0fc=z0f(i,j)
       ust_d=wsf*vk_kappa/rp_log(fire_lsm_zcoupling_ref/z0fc)
       wsf1=(ust_d/vk_kappa)*rp_log((fire_wind_height+z0fc)/z0fc)

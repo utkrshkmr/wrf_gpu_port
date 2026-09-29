@@ -1019,9 +1019,9 @@
  psimk=2*rp_log(0.5*(1+X))+rp_log(0.5*(1+X*X))-2.*rp_atan(X)+2.*rp_atan(1.)
 
  ym=rp_pow((1.-10.*zolf), 0.33)
- psimc=(3./2.)*rp_log((rp_pow(ym, 2.)+ym+1.)/3.)-sqrt(3.)*rp_atan((2.*ym+1)/sqrt(3.))+4.*rp_atan(1.)/sqrt(3.)
+ psimc=(3./2.)*rp_log((ym**2+ym+1.)/3.)-sqrt(3.)*rp_atan((2.*ym+1)/sqrt(3.))+4.*rp_atan(1.)/sqrt(3.)
 
- psim_unstable_full=(psimk+zolf**2*(psimc))/(1+rp_pow(zolf, 2.))
+ psim_unstable_full=(psimk+zolf**2*(psimc))/(1+zolf**2)
 
  return
  end function psim_unstable_full
@@ -1034,9 +1034,9 @@
  psihk=2.*rp_log((1+y)/2.)
 
  yh=rp_pow((1.-34.*zolf), 0.33)
- psihc=(3./2.)*rp_log((rp_pow(yh, 2.)+yh+1.)/3.)-sqrt(3.)*rp_atan((2.*yh+1)/sqrt(3.))+4.*rp_atan(1.)/sqrt(3.)
+ psihc=(3./2.)*rp_log((yh**2+yh+1.)/3.)-sqrt(3.)*rp_atan((2.*yh+1)/sqrt(3.))+4.*rp_atan(1.)/sqrt(3.)
 
- psih_unstable_full=(psihk+zolf**2*(psihc))/(1+rp_pow(zolf, 2.))
+ psih_unstable_full=(psihk+zolf**2*(psihc))/(1+zolf**2)
 
  return
  end function psih_unstable_full

@@ -1334,7 +1334,7 @@ CONTAINS
 
             TA_URB    = SFCTMP           ! [K]
             QA_URB    = Q2K              ! [kg/kg]
-            UA_URB    = SQRT(rp_pow(U_PHY(I,1,J), 2.)+rp_pow(V_PHY(I,1,J), 2.))
+            UA_URB    = SQRT(U_PHY(I,1,J)**2+V_PHY(I,1,J)**2)
             U1_URB    = U_PHY(I,1,J)
             V1_URB    = V_PHY(I,1,J)
             IF(UA_URB < 1.) UA_URB=1.    ! [m/s]
@@ -1707,16 +1707,16 @@ CONTAINS
             sf_bep(i,k,j)=(1.-frc_urb2d(i,j))+sf_bep(i,k,j)*frc_urb2d(i,j)
          end do
             a_u_bep(i,1,j)=(1.-frc_urb2d(i,j))*(-ust(I,J)*ust(I,J))/dz8w(i,1,j)/   &
-                           (rp_pow((u_phy(i,1,j)**2+rp_pow(v_phy(i,1,j), 2.)), .5))+a_u_bep(i,1,j)
+                           (rp_pow((u_phy(i,1,j)**2+v_phy(i,1,j)**2), .5))+a_u_bep(i,1,j)
             a_v_bep(i,1,j)=(1.-frc_urb2d(i,j))*(-ust(I,J)*ust(I,J))/dz8w(i,1,j)/   &
-                           (rp_pow((u_phy(i,1,j)**2+rp_pow(v_phy(i,1,j), 2.)), .5))+a_v_bep(i,1,j)
+                           (rp_pow((u_phy(i,1,j)**2+v_phy(i,1,j)**2), .5))+a_v_bep(i,1,j)
             b_t_bep(i,1,j)=(1.-frc_urb2d(i,j))*hfx_rural(i,j)/dz8w(i,1,j)/rho(i,1,j)/CP+ &
                             b_t_bep(i,1,j)
             b_q_bep(i,1,j)=(1.-frc_urb2d(i,j))*qfx_rural(i,j)/dz8w(i,1,j)/rho(i,1,j)+b_q_bep(i,1,j)
             umom=(1.-frc_urb2d(i,j))*ust(i,j)*ust(i,j)*u_phy(i,1,j)/               &
-                         (rp_pow((u_phy(i,1,j)**2+rp_pow(v_phy(i,1,j), 2.)), .5))+umom_urb(i,j)
+                         (rp_pow((u_phy(i,1,j)**2+v_phy(i,1,j)**2), .5))+umom_urb(i,j)
             vmom=(1.-frc_urb2d(i,j))*ust(i,j)*ust(i,j)*v_phy(i,1,j)/               &
-                         (rp_pow((u_phy(i,1,j)**2+rp_pow(v_phy(i,1,j), 2.)), .5))+vmom_urb(i,j)
+                         (rp_pow((u_phy(i,1,j)**2+v_phy(i,1,j)**2), .5))+vmom_urb(i,j)
             sf_bep(i,1,j)=1.
            
 ! compute upward longwave radiation from the rural part and total
@@ -1746,7 +1746,7 @@ CONTAINS
             LH_URB2D(I,J)    = qfx_urb(i,j)*xlv
             G_URB2D(I,J)     = grdflx_urb(i,j)
             RN_URB2D(I,J)    = rs_abs_urb(i,j)+emiss_urb(i,j)*glw(i,j)-rl_up_urb(i,j)
-            ust(i,j)=rp_pow((rp_pow(umom, 2.)+rp_pow(vmom, 2.)), .25)
+            ust(i,j)=rp_pow((umom**2+vmom**2), .25)
 !          if(tsk(i,j).gt.350)write(*,*)'tsk too big!',i,j,tsk(i,j)
 !          if(tsk(i,j).lt.260)write(*,*)'tsk too small!',i,j,tsk(i,j),rl_up_tot,rl_up_urb(i,j),rl_up_rural
 !                    print*,'ivgtyp,i,j,sigma_sb',ivgtyp(i,j),i,j,sigma_sb
@@ -3769,7 +3769,7 @@ SUBROUTINE lsm_mosaic(DZ8W,QV3D,P8W3D,T3D,TSK,                      &
 
                   TA_URB    = SFCTMP           ! [K]
                   QA_URB    = Q2K              ! [kg/kg]
-                  UA_URB    = SQRT(rp_pow(U_PHY(I,1,J), 2.)+rp_pow(V_PHY(I,1,J), 2.))
+                  UA_URB    = SQRT(U_PHY(I,1,J)**2+V_PHY(I,1,J)**2)
                   U1_URB    = U_PHY(I,1,J)
                   V1_URB    = V_PHY(I,1,J)
                   IF(UA_URB < 1.) UA_URB=1.    ! [m/s]
@@ -4670,7 +4670,7 @@ SUBROUTINE lsm_mosaic(DZ8W,QV3D,P8W3D,T3D,TSK,                      &
       
                   TA_URB    = SFCTMP           ! [K]
                   QA_URB    = Q2K              ! [kg/kg]
-                  UA_URB    = SQRT(rp_pow(U_PHY(I,1,J), 2.)+rp_pow(V_PHY(I,1,J), 2.))
+                  UA_URB    = SQRT(U_PHY(I,1,J)**2+V_PHY(I,1,J)**2)
                   U1_URB    = U_PHY(I,1,J)
                   V1_URB    = V_PHY(I,1,J)
                   IF(UA_URB < 1.) UA_URB=1.    ! [m/s]

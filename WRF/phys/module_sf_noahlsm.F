@@ -1081,7 +1081,7 @@ CONTAINS
 ! RCT EXPRESSION FROM NOILHAN AND PLANTON (1989, MWR).
 ! ----------------------------------------------------------------------
       RCS = MAX (RCS,0.0001)
-      RCT = 1.0- 0.0016* ( rp_pow((TOPT - SFCTMP), 2.0))
+      RCT = 1.0- 0.0016* ( (TOPT - SFCTMP)**2)
 
 ! ----------------------------------------------------------------------
 ! CONTRIBUTION DUE TO VAPOR PRESSURE DEFICIT AT FIRST MODEL LEVEL.
@@ -1528,7 +1528,7 @@ CONTAINS
  1001       Continue
               IF (.NOT.( (NLOG < 10) .AND. (KCOUNT == 0)))   goto 1002
               NLOG = NLOG +1
-              DF = rp_log ( ( PSIS * GS / HLICE ) * ( rp_pow(( 1. + CK * SWL ), 2.)) * &
+              DF = rp_log ( ( PSIS * GS / HLICE ) * ( ( 1. + CK * SWL )**2) * &
                    rp_pow(( SMCMAX / (SMC - SWL) ), BX)) - rp_log ( - (               &
                    TKELV - T0)/ TKELV)
               DENOM = 2. * CK / ( 1. + CK * SWL ) + BX / ( SMC - SWL )
