@@ -19,9 +19,20 @@ How to update, after every task (and at the end of every work session, even if t
 - Last commit: (none yet by the agent; handoff package on branch claude/wrf-gpu-port-cpu-7doq8n)
 - Last gate passed: G0, local part only (CPU, gfortran; see port/RESULTS.md)
 - Builds: none yet on the H100 machine
-- Dev references: not made yet ($WORK/reference/eaton_small)
+- Dev references: not made yet (no Eaton inputs; smoke case S-3M until they arrive)
 - Blockers: none
-- Next step: H0.1 install and check the toolchain (port/agent/ENV_H100.md)
+- Next step: H0.1 — write port/h100/env.local.sh (WORK on a disk with >=300 GB free, CONTAINER=docker if the daemon runs, else the runtime that works without root, IMAGE as ENV_H100.md, CPU_RANKS=64, GPU_ID=0, CASE_INPUTS left at the default), then setup_toolchain.sh image, deps, python, check
+- Pending the case data: H0.6; H0.7; H0.8 on W-20; t_trace.sh W-T0; t_trace.sh W-20; t_upd.sh; t_selftest.sh; t_nsys.sh W-20; t_mem.sh 55; g1.sh
+
+### Owner decisions (override the cards)
+- No Eaton inputs on this machine. Use smoke window S-3M (port/h100/smoke_case.sh: em_fire ideal, Eaton physics and fire options, one domain, no inputs). H0.6 and H0.7 wait. H0.8 is two CPU-REF S-3M runs compared with compare.sh, plus t_cpu_view.sh S-3M and static.sh. Builds once with --fire-ideal: cpu-ref --commit <cpu_view_base>, cpu-ref --worktree, gpu-repro --worktree. Later builds keep main/ideal_fire.exe.
+- Substitutes: T-TRACE is t_trace.sh S-3M (if it fails, rerun CPU-REF with --ranks 1). Self tests: window.sh gpu-repro worktree S-3M WRF_GPU_SELFTEST=1, then grep gpu_selftest: in rsl.error.0000. T-UPD: GPU-REPRO S-3M with WRF_GPU_UPD_EVERY_STEP=1 vs the CPU-REF S-3M run. NVTX: t_nsys.sh S-3M. Timing and memory: grep the S-3M rsl.error.0000. T-GATE: t_gate.sh, which needs no inputs. After P1.8, export WRF_GPU_CHECK=warn for smoke runs only and unset it before t_gate.sh.
+- Smoke has no nest, no boundary file and no restart start, so S2, S2', S5, S6 and the S1 path after a restart read are written but not verified.
+- Do not tick a task whose Done when names a W-* window, the dev case, or the full case. Write "(smoke: what passed)" next to it.
+- P1.2 maps every field as a component (!$omp target enter data map(to:grid%<field>)). If it does not compile, fails at run time, or T-MAP reports fields not present: no workaround (no whole-grid map, no renaming). After at most three attempts, BLOCKERS.md, mark P1.2 blocked, and continue with P1.4, P1.6, P1.7, P1.8, P1.10-P1.12. P1.3's steps and P1.5+P1.9 need P1.2.
+- P1.7: postpone the work arrays to the phase that ports each routine. In Phase 1 write only WRF/frame/module_gpu_work.F with an empty list. T-WORK prints "gpu_selftest: T-WORK PASS 0 work arrays (postponed to Phases 2-4)".
+- Time limits: start window.sh and harness.sh with timeout 1h; a gate or build.sh with timeout 4h. If a timeout stops a run, find leftover wrf.exe or harness (nvidia-smi, ps -u $USER) and kill that PID, never pkill -f. Write every timeout in the log.
+- port/RESULTS.md rows marked CCR, and everything under port/ccr/, are not tasks here.
 
 ## Task checklist
 
@@ -93,6 +104,15 @@ How to update, after every task (and at the end of every work session, even if t
 - [ ] P7.2 Onboarding guide for a new case
 
 ## Log
+
+### 2026-09-30 SETUP Reading
+- The 11 rules: never change arithmetic; GPU code only under WRF_GPU; never edit locked tests, checkers or gates; one routine per commit (WIP allowed); static.sh before every commit and T-AB plus T-TRACE before done; keep the workbook current; push only to agent/phase-N and never force-push; port the lines ref.py shows; no root, so the toolchain runs in the container through x; after three honest attempts write BLOCKERS.md and move on; stay inside the context budget and checkpoint.
+- CPU view and arith_guard: with WRF_GPU undefined a file must match the cpu_view_base commit, except allowed additions (USE of port modules, CALL gpu_*, island includes, route tests, directive lines). arith_guard rejects a new arithmetic skeleton and any other CPU-view drift. Shared refactors that must change both views follow WORKFLOW.md and need bitwise evidence before the base moves.
+- Islands and gpu_world_host: the flag is true while the current values live in host memory. An island copies a routine's array arguments to where that routine runs, flips the flag for nested routes, and copies non-INTENT(IN) arrays back. Through Phase 4 the flag stays true because the solve_em bracket keeps the host copy current.
+- P1.5 and P1.9 are one step because each half is what makes the other safe. The bracket downloads the state at the start of solve_em and uploads it at the end. The sync points upload host changes between steps and download before host code reads. Doing only one overwrites fresh data with a stale copy.
+- Task loop: workbook.py next, the phase-card section, ref.py, write under WRF_GPU with a generated island, static.sh, compile_one.sh and harness.sh, then the worktree build, t_ab and t_trace, commit, workbook update, push.
+- When a test fails: compare.sh names the first differing domain, step, tag and field; WRF_GPU_OFF checks whether that route is the cause; then compare the kernel to its CPU lines and check the island. Never change the CPU side, loosen a comparison, or leave a route off. Three attempts, then BLOCKERS.md.
+- Context: never open a whole WRF source, plan.md, KERNEL_REFS.md, kernels.csv or a log. Use ref.py, index.py, sed ranges of at most about 300 lines, and grep | head. At about 60% of context, and after every task: static.sh, commit, an exact Next step, push, then stop.
 
 ### 2026-09-30 HANDOFF Package for the coding agent
 - Commit(s): see `git log` on branch claude/wrf-gpu-port-cpu-7doq8n (Phase 0 and the agent package)
