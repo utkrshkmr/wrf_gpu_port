@@ -75,7 +75,8 @@ case ${1:-check} in
       x bash -c "cd netcdf-c-$NETCDF_C_VERSION && $E CPPFLAGS=-I$NETCDF/include LDFLAGS=-L$NETCDF/lib ./configure --prefix=$NETCDF --disable-dap --disable-byterange --disable-libxml2 && make -j $BUILD_JOBS && make install" > netcdf-c.log 2>&1 || die "netCDF-C build failed ($src/netcdf-c.log)"
       x bash -c "cd netcdf-fortran-$NETCDF_F_VERSION && $E CPPFLAGS=-I$NETCDF/include LDFLAGS=-L$NETCDF/lib LD_LIBRARY_PATH=$NETCDF/lib ./configure --prefix=$NETCDF && make -j $BUILD_JOBS && make install" > netcdf-f.log 2>&1 || die "netCDF-Fortran build failed ($src/netcdf-f.log)"
     fi
-    note "deps ready in $DEPS"; bash "$0" check ;;
+    # deps does `cd $DEPS/src`, so a relative $0 no longer points at this script.
+    note "deps ready in $DEPS"; (cd "$PORT_REPO" && bash "$PORT_REPO/port/h100/setup_toolchain.sh" check) ;;
   python)
     if python3 -c "import numpy, netCDF4, mpmath" 2>/dev/null; then note "system python3 has numpy, netCDF4, mpmath"; exit 0; fi
     if [ ! -x "$PYENV/bin/python3" ]; then

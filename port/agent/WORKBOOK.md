@@ -21,7 +21,7 @@ How to update, after every task (and at the end of every work session, even if t
 - Builds: none yet on the H100 machine
 - Dev references: not made yet (no Eaton inputs; smoke case S-3M until they arrive)
 - Blockers: none
-- Next step: H0.1 — `setup_toolchain.sh deps` is rebuilding HDF5 and netCDF after the URL fix; when it ends with toolchain: PASS, record versions in port/ENVIRONMENT.md and tick H0.1, then H0.2 (T-FMA first)
+- Next step: H0.2 — in port/tests/repro_math, `make fma_cases.bin` on the host, then `x make` and `CUDA_VISIBLE_DEVICES=$GPU_ID x ./run_tests.sh` (T-FMA first). If T-FMA fails, stop and write BLOCKERS.md.
 - Pending the case data: H0.6; H0.7; H0.8 on W-20; t_trace.sh W-T0; t_trace.sh W-20; t_upd.sh; t_selftest.sh; t_nsys.sh W-20; t_mem.sh 55; g1.sh
 
 ### Owner decisions (override the cards)
@@ -104,6 +104,11 @@ How to update, after every task (and at the end of every work session, even if t
 - [ ] P7.2 Onboarding guide for a new case
 
 ## Log
+
+### 2026-09-30 H0.1 toolchain check PASS
+- `setup_toolchain.sh check` printed `toolchain: PASS`. nvfortran 25.1-0, netCDF-Fortran 4.6.1 built with nvfortran, tcsh 6.24.13, four H100 80 GB, driver 570.211.01. Versions are in port/ENVIRONMENT.md.
+- The libraries were ready before that check: `deps` then called `bash "$0" check` after `cd $DEPS/src` and exited 127. Tool fix uses `$PORT_REPO/port/h100/setup_toolchain.sh`.
+- No timeout. Eaton inputs still absent (0/3).
 
 ### 2026-09-30 H0.1 Toolchain image and HDF5 URL
 - Image `nvcr.io/nvidia/nvhpc:25.1-devel-cuda12.6-ubuntu22.04` pulled to `$WORK/images/nvhpc.sif` (6.4 GB). `x nvidia-smi -L` shows four H100 80 GB; `x nvfortran --version` is 25.1-0. Host Python env has numpy 2.5.3, netCDF4 1.7.4, mpmath.
