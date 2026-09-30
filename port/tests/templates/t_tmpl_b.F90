@@ -19,6 +19,20 @@
 ! The test compares tendency bit for bit on random fields for several tile
 ! positions (single tile, south edge, north edge, interior), on the host and
 ! in target regions.  Usage: t_tmpl_b [nrep]; ALLOW_HOST=1 for host-only.
+!
+! Statement functions (flux3..flux6) are used inside the kernel, as in WRF.  If
+! the compiler rejects them in device code, compile with -DTMPL_NO_STMTFN (the
+! Makefile variable TMPL_B_FLAGS; port/tests/run_ref_tests.sh does this
+! automatically): each statement function is then a module function with the
+! identical expression and !$omp declare target, and the variable it took from
+! its host scope (time_step) becomes an argument.  That is the conversion
+! CODING_STANDARD.md prescribes for WRF when probe F-STMTFN fails.
+
+#ifdef TMPL_NO_STMTFN
+#  define STMTFN_TS , time_step
+#else
+#  define STMTFN_TS
+#endif
 
 MODULE tb_mod
    IMPLICIT NONE
@@ -240,8 +254,11 @@ SUBROUTINE advect_u_yflux_gpu(u, rv, msfux, tendency, fqy3, rdy, time_step, conf
    INTEGER :: i_start, i_end, j_start, j_end, j_start_f, j_end_f
    REAL :: mrdy
    LOGICAL :: degrade_xs, degrade_ys, degrade_xe, degrade_ye, specified
+#ifndef TMPL_NO_STMTFN
    REAL    :: flux3, flux4, flux5, flux6
+#endif
    REAL    :: q_im3, q_im2, q_im1, q_i, q_ip1, q_ip2, ua, vel
+#ifndef TMPL_NO_STMTFN
    flux4(q_im2, q_im1, q_i, q_ip1, ua) =                         &
           ( 7.*(q_i + q_im1) - (q_ip1 + q_im2) )/12.0
 
@@ -257,6 +274,7 @@ SUBROUTINE advect_u_yflux_gpu(u, rv, msfux, tendency, fqy3, rdy, time_step, conf
            flux6(q_im3, q_im2, q_im1, q_i, q_ip1, q_ip2, ua)     &
             -sign(1,time_step)*sign(1.,ua)*(                     &
               (q_ip2-q_im3)-5.*(q_ip1-q_im2)+10.*(q_i-q_im1) )/60.0
+#endif
 
    specified = .false.
    if(config_flags%specified .or. config_flags%nested) specified = .true.
@@ -301,14 +319,14 @@ SUBROUTINE advect_u_yflux_gpu(u, rv, msfux, tendency, fqy3, rdy, time_step, conf
           vel = 0.5*(rv(i,k,j)+rv(i-1,k,j))
           fqy3( i, k, j ) = vel*flux5(               &
                   u(i,k,j-3), u(i,k,j-2), u(i,k,j-1),       &
-                  u(i,k,j  ), u(i,k,j+1), u(i,k,j+2),  vel )
+                  u(i,k,j  ), u(i,k,j+1), u(i,k,j+2),  vel STMTFN_TS )
       ELSE IF ( j == jds+1 ) THEN   ! 2nd order flux next to south boundary
               fqy3(i, k, j) = 0.25*(rv(i,k,j)+rv(i-1,k,j))  &
                                      *(u(i,k,j)+u(i,k,j-1))
       ELSE IF  ( j == jds+2 ) THEN  ! third of 4th order flux 2 in from south boundary
               vel = 0.5*(rv(i,k,j)+rv(i-1,k,j))
               fqy3( i, k, j ) = vel*flux3(      &
-                   u(i,k,j-2),u(i,k,j-1), u(i,k,j),u(i,k,j+1),vel )
+                   u(i,k,j-2),u(i,k,j-1), u(i,k,j),u(i,k,j+1),vel STMTFN_TS )
       ELSE IF ( j == jde-1 ) THEN  ! 2nd order flux next to north boundary
               fqy3(i, k, j) = 0.25*(rv(i,k,j)+rv(i-1,k,j))    &
                      *(u(i,k,j)+u(i,k,j-1))
@@ -316,7 +334,7 @@ SUBROUTINE advect_u_yflux_gpu(u, rv, msfux, tendency, fqy3, rdy, time_step, conf
               vel = 0.5*(rv(i,k,j)+rv(i-1,k,j))
               fqy3( i, k, j ) = vel*flux3(     &
                    u(i,k,j-2),u(i,k,j-1),    &
-                   u(i,k,j),u(i,k,j+1),vel )
+                   u(i,k,j),u(i,k,j+1),vel STMTFN_TS )
       END IF
    ENDDO
    ENDDO
@@ -334,6 +352,40 @@ SUBROUTINE advect_u_yflux_gpu(u, rv, msfux, tendency, fqy3, rdy, time_step, conf
    ENDDO
    ENDDO
 END SUBROUTINE advect_u_yflux_gpu
+
+#ifdef TMPL_NO_STMTFN
+! The statement functions of advect_u as module functions (fallback when probe
+! F-STMTFN fails): identical expressions; time_step is an argument.
+PURE REAL FUNCTION flux4(q_im2, q_im1, q_i, q_ip1, ua)
+!$omp declare target
+   REAL, INTENT(IN) :: q_im2, q_im1, q_i, q_ip1, ua
+   flux4 = ( 7.*(q_i + q_im1) - (q_ip1 + q_im2) )/12.0
+END FUNCTION flux4
+
+PURE REAL FUNCTION flux3(q_im2, q_im1, q_i, q_ip1, ua, time_step)
+!$omp declare target
+   REAL, INTENT(IN) :: q_im2, q_im1, q_i, q_ip1, ua
+   INTEGER, INTENT(IN) :: time_step
+   flux3 = flux4(q_im2, q_im1, q_i, q_ip1, ua) +                &
+            sign(1,time_step)*sign(1.,ua)*((q_ip1 - q_im2)-3.*(q_i-q_im1))/12.0
+END FUNCTION flux3
+
+PURE REAL FUNCTION flux6(q_im3, q_im2, q_im1, q_i, q_ip1, q_ip2, ua)
+!$omp declare target
+   REAL, INTENT(IN) :: q_im3, q_im2, q_im1, q_i, q_ip1, q_ip2, ua
+   flux6 = ( 37.*(q_i+q_im1) - 8.*(q_ip1+q_im2)       &
+                     +(q_ip2+q_im3) )/60.0
+END FUNCTION flux6
+
+PURE REAL FUNCTION flux5(q_im3, q_im2, q_im1, q_i, q_ip1, q_ip2, ua, time_step)
+!$omp declare target
+   REAL, INTENT(IN) :: q_im3, q_im2, q_im1, q_i, q_ip1, q_ip2, ua
+   INTEGER, INTENT(IN) :: time_step
+   flux5 = flux6(q_im3, q_im2, q_im1, q_i, q_ip1, q_ip2, ua)     &
+            -sign(1,time_step)*sign(1.,ua)*(                     &
+              (q_ip2-q_im3)-5.*(q_ip1-q_im2)+10.*(q_i-q_im1) )/60.0
+END FUNCTION flux5
+#endif
 
 END MODULE tb_mod
 

@@ -5,7 +5,12 @@
 #   static.sh <files>    checks these files
 # Items:
 #   tools        self-tests of the guard tools (port/tests/tools/test_agent_tools.py)
-#   protected    tests, tools, gates and reference copies are unchanged (port/agent/protected.md5)
+#   protected    LOCKED files (tests, checkers, gates, windows, comparison tools, guides) unchanged
+#                (port/agent/protected.md5)
+#   infra        every changed infrastructure script is logged in port/agent/TOOL_FIXES.md
+#                (port/agent/infra.md5, check_tool_fixes.py)
+#   flags        the GPU-port configure stanzas keep the arithmetic flags (check_build_flags.py)
+#   koff         no temporary kernel_off.py edit (KOFF-TEMP) is left in WRF/
 #   verbatim     the 'original' code in port/tests is the WRF source (check_verbatim.py)
 #   arith_guard  CPU view unchanged, no new arithmetic in GPU code
 #   kernel_lint  directive rules of every kernel
@@ -28,6 +33,15 @@ result tools "$([ $rc = 0 ] && echo PASS || echo FAIL)" "$(echo "$out" | tail -1
 [ $rc = 0 ] || echo "$out" | grep -v '^ok' | head -20
 out=$(cd port/agent && md5sum -c --quiet protected.md5 2>&1); rc=$?
 result protected "$([ $rc = 0 ] && echo PASS || echo FAIL)" "$([ $rc = 0 ] && echo 'tests/tools/gates unchanged' || echo "$out" | head -5 | tr '\n' ' ')"
+out=$(python3 port/tools/check_tool_fixes.py 2>&1); rc=$?
+result infra "$([ $rc = 0 ] && echo PASS || echo FAIL)" "$(echo "$out" | tail -1)"
+[ $rc = 0 ] || echo "$out" | head -20
+out=$(python3 port/tools/check_build_flags.py 2>&1); rc=$?
+result flags "$([ $rc = 0 ] && echo PASS || echo FAIL)" "$(echo "$out" | tail -1)"
+[ $rc = 0 ] || echo "$out" | head -20
+koff=$(grep -rl "KOFF-TEMP" WRF --include='*.F' --include='*.F90' --include='*.inc' --include='*.h' 2>/dev/null | head -5 | tr '\n' ' ')
+result koff "$([ -z "$koff" ] && echo PASS || echo FAIL)" \
+  "$([ -z "$koff" ] && echo 'no kernel_off edits' || echo "kernel_off edits left, run port/tools/kernel_off.py --revert: $koff")"
 out=$(python3 port/tools/check_verbatim.py 2>&1); rc=$?
 result verbatim "$([ $rc = 0 ] && echo PASS || echo FAIL)" "$(echo "$out" | tail -1)"
 [ $rc = 0 ] || echo "$out" | grep FAIL

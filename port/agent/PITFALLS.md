@@ -77,7 +77,7 @@ offload. Read it once completely; come back when a test fails.
 31. **`collapse(n)` with statements between the loops** is invalid (kernel_lint E4).
 32. **`if(target: ...)` must be evaluated on the host** — use `gpu_on(R_X)` only.
 33. **Statement functions and internal procedures in device code** may be rejected (F-STMTFN, F-INTPROC probes);
-    the fallback is a `PURE` module function with the identical expression.
+    the fallback is a `PURE` module function with the identical expression (template B, `TMPL_NO_STMTFN`).
 34. **`STOP`, `PRINT`, `WRITE`, `wrf_error_fatal` in device code**: not allowed; error flags + host reporting.
 35. **`OPTIONAL` / `PRESENT()` in device code**: hoist the test to the host (plan.md CP-4).
 36. **CHARACTER arguments** in device code (Noah's `LUTYPE`): replace by integer codes (a shared refactor, both

@@ -2,7 +2,7 @@
 kernel_lint.py).
 
 - cpp_view(lines, gpu):   resolve only the GPU-port conditionals (#ifdef
-  WRF_GPU, #if defined(WRF_GPU_TRACE_FINE) && ..., #ifndef WRF_GPU, ...) for
+  WRF_GPU, #ifdef WRF_TRACE_FINE, #ifndef WRF_GPU, ...) for
   the CPU view (gpu=False) or the GPU view (gpu=True).  Every other
   preprocessor line is kept unchanged with both of its branches, so two
   versions of a file can be compared line by line.
@@ -14,7 +14,7 @@ kernel_lint.py).
 
 import re
 
-GPU_MACROS = {"WRF_GPU", "WRF_GPU_TRACE_FINE", "WRF_GPU_CAPTURE"}
+GPU_MACROS = {"WRF_GPU", "WRF_TRACE_FINE", "WRF_GPU_TRACE_FINE", "WRF_GPU_CAPTURE"}
 DIRECTIVE = re.compile(r"^\s*!(\$omp|\$acc|dir\$)", re.I)
 CPP = re.compile(r"^\s*#\s*(\w+)\s*(.*)$")
 

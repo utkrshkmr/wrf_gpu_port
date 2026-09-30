@@ -14,8 +14,12 @@ else
 FC     = gfortran
 FFLAGS = -O2 -ffp-contract=off -fno-fast-math -ffree-line-length-none -fopenmp
 endif
+# TMPL_B_FLAGS=-DTMPL_NO_STMTFN: statement functions as module functions (see t_tmpl_b.F90)
+TMPL_B_FLAGS ?=
 PROGS = t_tmpl_b t_tmpl_c t_tmpl_g
 all: $(PROGS)
+t_tmpl_b: t_tmpl_b.F90
+	$(FC) $(FFLAGS) $(TMPL_B_FLAGS) -o $@ $<
 t_%: t_%.F90
 	$(FC) $(FFLAGS) -o $@ $<
 run: $(PROGS)

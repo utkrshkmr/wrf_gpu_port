@@ -215,6 +215,7 @@ libmassv.o: \
 
 module_bittrace.o: \
 	module_domain.o \
+	module_gpu_route.o \
 	module_driver_constants.o \
 	module_wrf_error.o 
 

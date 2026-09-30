@@ -7,6 +7,7 @@ pass on any machine with Python 3 (numpy/netCDF4 only for check_case's fuel
 check, which is skipped here).
 """
 
+import hashlib
 import os
 import re
 import subprocess
@@ -257,6 +258,67 @@ rc, out = run(os.path.join(PORT, "check_case.py"), os.path.join(REPO, "cases", "
 check(rc == 0, "check_case: the reference case is inside the envelope", out)
 rc, out = run(os.path.join(PORT, "tests", "gate", "run_check_case.py"))
 check(rc == 0, "T-GATE namelists: check_case.py agrees with expected.txt", out)
+
+# ---- check_tool_fixes: a changed infrastructure script must be logged in TOOL_FIXES.md
+tf = tempfile.mkdtemp()
+os.makedirs(os.path.join(tf, "port", "agent"))
+os.makedirs(os.path.join(tf, "port", "h100"))
+open(os.path.join(tf, "port", "h100", "window.sh"), "w").write("echo v1\n")
+open(os.path.join(tf, "port", "agent", "infra.md5"), "w").write(
+    hashlib.md5(b"echo v1\n").hexdigest() + "  ../h100/window.sh\n")
+fixes_head = ("| date | files | problem (command and error) | fix | unchanged |\n|---|---|---|---|---|\n")
+open(os.path.join(tf, "port", "agent", "TOOL_FIXES.md"), "w").write(fixes_head)
+rc, out = run(os.path.join(TOOLS, "check_tool_fixes.py"), "--repo", tf)
+check(rc == 0, "check_tool_fixes: unchanged infrastructure passes", out)
+open(os.path.join(tf, "port", "h100", "window.sh"), "w").write("echo v2\n")
+rc, out = run(os.path.join(TOOLS, "check_tool_fixes.py"), "--repo", tf)
+check(rc == 1 and "window.sh" in out, "check_tool_fixes: an unlogged change fails", out)
+open(os.path.join(tf, "port", "agent", "TOOL_FIXES.md"), "w").write(
+    fixes_head + "| 2026-10-01 | `port/h100/window.sh` | mpirun not found: ... | use $MPIRUN | windows, trace level |\n")
+rc, out = run(os.path.join(TOOLS, "check_tool_fixes.py"), "--repo", tf)
+check(rc == 0, "check_tool_fixes: a logged change passes", out)
+open(os.path.join(tf, "port", "agent", "TOOL_FIXES.md"), "w").write(
+    fixes_head + "| 2026-10-01 | `port/h100/window.sh` |  | use $MPIRUN | windows |\n")
+rc, out = run(os.path.join(TOOLS, "check_tool_fixes.py"), "--repo", tf)
+check(rc == 1, "check_tool_fixes: a row with an empty column fails", out)
+
+# ---- check_build_flags: the stanzas pass; a build that lost -Mnofma or gained -gpu=fastmath fails
+rc, out = run(os.path.join(TOOLS, "check_build_flags.py"))
+check(rc == 0, "check_build_flags: the GPU-port stanzas keep the arithmetic flags", out)
+bf = tempfile.mkdtemp()
+cfg = ("FCOPTIM = -O2 -Kieee -Mnofma -Mnoflushz -Mnodaz -Mvect=noassoc -tp=haswell -Mrecursive\n"
+       "FCNOOPT = -O0 -Kieee -Mnofma -Mnoflushz -Mnodaz -tp=haswell -Mrecursive\n"
+       "OMP = -mp=gpu -gpu=cc80,cc90,nofma,noflushz -Minfo=mp\n"
+       "ARCH_LOCAL = -DNONSTANDARD_SYSTEM_SUBR -DREPRO_MATH -DWRF_POOL -DWRF_GPU -DWRF_TRACE_FINE\n")
+open(os.path.join(bf, "BUILD_INFO"), "w").write("mode: gpu-repro-fine\n")
+open(os.path.join(bf, "configure.wrf"), "w").write(cfg)
+rc, out = run(os.path.join(TOOLS, "check_build_flags.py"), "--build", bf)
+check(rc == 0, "check_build_flags: a correct GPU build passes", out)
+open(os.path.join(bf, "configure.wrf"), "w").write(cfg.replace(" -Mnofma", "", 1))
+rc, out = run(os.path.join(TOOLS, "check_build_flags.py"), "--build", bf)
+check(rc == 1 and "-Mnofma" in out, "check_build_flags: FCOPTIM without -Mnofma fails", out)
+open(os.path.join(bf, "configure.wrf"), "w").write(cfg.replace("nofma,noflushz", "nofma,noflushz,fastmath"))
+rc, out = run(os.path.join(TOOLS, "check_build_flags.py"), "--build", bf)
+check(rc == 1 and "fastmath" in out, "check_build_flags: -gpu=fastmath fails", out)
+
+# ---- kernel_off: switch the Template A example kernel to the host and back
+ko = os.path.join(tempfile.mkdtemp(), "calc_alt.F")
+src_ko = open(os.path.join(HERE, "example_calc_alt.F")).read()
+open(ko, "w").write(src_ko)
+rc, out = run(os.path.join(TOOLS, "kernel_off.py"), "--list", ko)
+check(rc == 0 and "calc_alt:1" in out and "K-PREP-7" in out and "R_CALC_ALT" in out,
+      "kernel_off --list: number, kernel ID and route", out)
+rc, out = run(os.path.join(TOOLS, "kernel_off.py"), ko, "K-PREP-7")
+txt = open(ko).read()
+dirs = [l for l in txt.split("\n") if l.startswith("!$omp target teams")]
+b1 = txt.find("KOFF-TEMP-BEGIN")
+p_from, p_dir = txt.find("target update from(alt, al, alb)", b1), txt.find("if(target: .FALSE.)")
+p_to = txt.find("target update to(alt, al, alb)", txt.find("KOFF-TEMP-BEGIN", p_dir))
+check(rc == 0 and len(dirs) == 1 and "if(target: .FALSE.)" in dirs[0] and -1 < b1 < p_from < p_dir < p_to
+      and txt.rfind("ENDDO", 0, p_to) > p_dir,
+      "kernel_off: host run with copies before and after the kernel", txt[-2500:])
+rc, out = run(os.path.join(TOOLS, "kernel_off.py"), "--revert", ko)
+check(rc == 0 and open(ko).read() == src_ko, "kernel_off --revert restores the file exactly", out)
 
 print("RESULT:", "PASS" if bad == 0 else f"FAIL ({bad})")
 sys.exit(1 if bad else 0)

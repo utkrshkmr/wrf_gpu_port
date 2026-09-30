@@ -112,3 +112,20 @@ How to update, after every task (and at the end of every work session, even if t
   WRF_GPU (in the build) and with -DWRF_GPU -fopenmp (gfortran); static.sh PASS; test_agent_tools.py PASS.
 - Notes: to do on the H100 (PHASE1.md P1.3 "Your steps"): gpu-repro --clean build, C4/C5/C7, nvfortran accepts
   `target update` of `grid%` components (fallback described there), T-TRACE W-20. Then tick P1.3.
+
+### 2026-09-30 HANDOFF Tool fixes allowed for infrastructure; fine tracing and kernel_off (owner changes)
+- Commit(s): the handoff commit that adds port/agent/TOOL_FIXES.md (`git log -- port/agent/TOOL_FIXES.md`)
+- Changed (protection, AGENTS.md rule 3, WORKFLOW.md §8): two tiers. Locked (protected.md5): tests, checkers,
+  gates, compare.sh, the new window table port/h100/windows.txt, comparison tools. Infrastructure (infra.md5):
+  port/h100 build/run/setup scripts, port/container, make_dev_case.py, nml.py: fixable as a logged "tool fix"
+  (row in TOOL_FIXES.md, checked by check_tool_fixes.py in static.sh). New locked checks: check_build_flags.py
+  (arithmetic flags of the stanzas in static.sh and of every build in the gates), window.info must show
+  OMP_TARGET_OFFLOAD=MANDATORY for GPU runs and the trace level of windows.txt (lib.sh). Template B reference test
+  falls back to module functions if nvfortran rejects statement functions in device code (run_ref_tests.sh NOTE).
+- Changed (debugging, DEBUGGING.md §1b/§2): build.sh --fine (-DWRF_TRACE_FINE, both builds), WRF_BITTRACE=3 with
+  a checkpoint after every routine called by solve_em, first_rk_step_part1/2 and rk_tendency (#ifdef
+  WRF_TRACE_FINE only; CPU view unchanged), bt_fine2/3/f for checkpoints inside routines, filters
+  WRF_BITTRACE_DOMAIN/FIELDS, port/gates/t_fine.sh, port/tools/kernel_off.py (one kernel on the host,
+  temporary; static.sh refuses KOFF-TEMP edits). GPU-DEBUG stanza macro renamed WRF_GPU_TRACE_FINE -> WRF_TRACE_FINE.
+- Tests run: see the commit message (gfortran builds normal and --fine; smoke case bitwise; tool tests).
+- Notes: nothing of this has run on NVHPC or a GPU yet.

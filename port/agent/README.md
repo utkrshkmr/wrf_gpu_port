@@ -26,7 +26,9 @@ with [AGENTS.md](../../AGENTS.md) (the rules).
 | [BLOCKERS.md](BLOCKERS.md) | **Kept by the agent**: problems that need the project owner |
 | [REFACTORS.md](REFACTORS.md) | **Kept by the agent**: shared refactors and moves of the CPU-view base, with evidence |
 | `cpu_view_base` | The commit whose CPU view every build must reproduce (see WORKFLOW.md) |
-| `protected.md5` | Checksums of the tests, tools, scripts and guides the agent must not change (written by `port/tools/protect.py`) |
+| `protected.md5` | Checksums of the **locked** files: tests, checkers, gates, windows, comparison tools, guides (written by `port/tools/protect.py`) |
+| `infra.md5` | Checksums of the **infrastructure** scripts the agent may fix as a logged tool fix (WORKFLOW.md §8) |
+| [TOOL_FIXES.md](TOOL_FIXES.md) | **Kept by the agent**: one row per fix of an infrastructure script |
 | `arith_exceptions.txt` | Reviewed exceptions for arith_guard (WORKFLOW.md §8) |
 
 ## Scripts and tools
@@ -41,7 +43,7 @@ with [AGENTS.md](../../AGENTS.md) (the rules).
 | `port/h100/window.sh` | Run a test window (W-T0, W-20, W-100, W-RAD, W-FORCE, W-TKE, W-IGN, W-FIRE, W-1H) with a build |
 | `port/h100/compare.sh` | Compare two runs bit for bit (traces and output files) |
 | `port/h100/smoke_case.sh` | The em_fire smoke case (CPU-view checks only; not a GPU case) |
-| `port/gates/static.sh` | Guards before every commit (no GPU): tools, protected files, arith_guard, kernel_lint, rp_subst, workbook |
+| `port/gates/static.sh` | Guards before every commit (no GPU): tools, locked files, logged tool fixes, build flags, arith_guard, kernel_lint, rp_subst, workbook |
 | `port/gates/t_ab.sh <route> [window]` | T-AB: a routine on the device vs on the host, same run otherwise |
 | `port/gates/t_trace.sh [window]` | T-TRACE: GPU-REPRO vs CPU-REF |
 | `port/gates/t_cpu_view.sh`, `t_drift.sh` | The CPU view is unchanged (fast / 1 h) |
@@ -58,6 +60,10 @@ with [AGENTS.md](../../AGENTS.md) (the rules).
 | `port/tools/locate.py` | plan.md's v4.6.0 line → the line in your working tree |
 | `port/tools/nsys_copies.py` | Counts host↔device copies in an nsys report |
 | `port/tools/check_verbatim.py` | The "original" code in the reference tests is the WRF source |
+| `port/tools/kernel_off.py` | Runs one kernel on the host, temporarily, to confirm a suspect (DEBUGGING.md §2) |
+| `port/gates/t_fine.sh` | Fine tracing: CPU-REF vs GPU (or route off vs on) with a checkpoint after every routine (DEBUGGING.md §1b) |
+| `port/tools/check_build_flags.py` | The arithmetic flags of the GPU-port stanzas (and of any build, `--build <dir>`) are intact |
+| `port/tools/check_tool_fixes.py` | Every changed infrastructure script is logged in TOOL_FIXES.md |
 | `port/tools/gen_kernels_csv.py` | Regenerates KERNEL_REFS.md / kernels.csv (keeps the status columns) |
 | `port/bittrace_diff.py`, `compare_fields.py`, `compare_fire.py` | Comparisons (traces, netCDF fields, burned cells) |
 

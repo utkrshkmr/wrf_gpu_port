@@ -1,0 +1,19 @@
+# Test windows of the port (plan.md P0.16, 13).  LOCKED: part of the pass criteria
+# (port/agent/protected.md5).  port/h100/window.sh reads this table; changing a
+# window changes what every gate compares, so only the project owner changes it.
+#
+# name     case   start     seconds  history_s  restart  trace  restart_interval_s
+# case: dev = eaton_small (restart windows start from the CPU-REF dev reference
+#       restarts, so both builds start from the same file); smoke = port/h100/smoke_case.sh
+# restart: hhmm of the reference restart file, "-" = start from wrfinput
+# restart_interval_s: only for windows from wrfinput (0 = no restart written)
+W-T0       dev    00:00:00  9        3          -        2      9
+W-20       dev    02:20:00  9        9          0220     2      0
+W-100      dev    02:20:00  36       12         0220     2      0
+W-RAD      dev    02:20:00  240      60         0220     2      0
+W-FORCE    dev    02:20:00  60       60         0220     2      0
+W-TKE      dev    02:20:00  336      48         0220     1      0
+W-IGN      dev    02:00:00  2100     300        0200     1      0
+W-FIRE     dev    02:20:00  2400     300        0220     1      0
+W-1H       dev    02:00:00  3600     900        0200     1      0
+S-3M       smoke  -         180      30         -        2      0

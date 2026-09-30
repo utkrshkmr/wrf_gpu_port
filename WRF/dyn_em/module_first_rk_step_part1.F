@@ -40,6 +40,9 @@ CONTAINS
     USE module_state_description
     USE module_model_constants
     USE module_domain, ONLY : domain, domain_clock_get, get_ijk_from_subgrid
+#ifdef WRF_TRACE_FINE
+    USE module_bittrace, ONLY : bt_on, bt_checkpoint, bt_field2, bt_field3, bt_context
+#endif
     USE module_configure, ONLY : grid_config_rec_type, model_config_rec
     USE module_radiation_driver, ONLY : pre_radiation_driver, radiation_driver
     USE module_surface_driver, ONLY : surface_driver
@@ -194,6 +197,9 @@ BENCH_START(init_zero_tend_tim)
 
        END DO
        !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('init_zero_tendency', rk_step)
+#endif
 BENCH_END(init_zero_tend_tim)
 
 #ifdef DM_PARALLEL
@@ -222,6 +228,9 @@ BENCH_END(init_zero_tend_tim)
                         k_start, k_end                                   )
       ENDDO
       !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('phy_prep', rk_step)
+#endif
 
 BENCH_END(phy_prep_tim)
 
@@ -250,6 +259,9 @@ BENCH_END(phy_prep_tim)
      &        ,nested=config_flags%nested, min_ptchsz=grid%min_ptchsz          &
      &        ,spec_bdy_width=config_flags%spec_bdy_width                      &
             ! indexes
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('pre_radiation_driver', rk_step)
+#endif
      &        ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde               &
      &        ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme               &
      &        ,IPS=ips,IPE=ipe, JPS=jps,JPE=jpe, KPS=kps,KPE=kpe               &
@@ -290,6 +302,9 @@ BENCH_START(rad_driver_tim)
      &        ,WARM_RAIN=grid%warm_rain ,XICE=grid%xice         ,XLAND=grid%xland    &
      &        ,XLAT=grid%xlat          ,XLONG=grid%xlong        ,YR=yr               &
            ! SSiB LSM radiation components (fds 06/2010)
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('radiation_driver', rk_step)
+#endif
      &        ,ALSWVISDIR=grid%alswvisdir ,ALSWVISDIF=grid%alswvisdif      &  !ssib 
      &        ,ALSWNIRDIR=grid%alswnirdir ,ALSWNIRDIF=grid%alswnirdif      &  !ssib
      &        ,SWVISDIR=grid%swvisdir ,SWVISDIF=grid%swvisdif              &  !ssib
@@ -618,6 +633,9 @@ BENCH_START(surf_driver_tim)
      &        ,TICE2TSK_IF2COLD=config_flags%tice2tsk_if2cold             &
      &        ,IFNDALBSI=grid%ifndalbsi, IFNDICEDEPTH=grid%ifndicedepth   &
 #if ( WRF_CHEM == 1 )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('surface_driver', rk_step)
+#endif
               ,NE_AREA=grid%ne_area,E_BIO=grid%e_bio &
 #endif
               ,IFNDSNOWSI=grid%ifndsnowsi, DO_BIOE=do_bioe, DO_MEGANFILE=do_meganfile          &
@@ -1147,6 +1165,9 @@ BENCH_START(pbl_driver_tim)
      &        ,ysu_topdown_pblmix=config_flags%ysu_topdown_pblmix              &
      &        ,shinhong_tke_diag=config_flags%shinhong_tke_diag               &
 ! paj: topo_wind
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('pbl_driver', rk_step)
+#endif
      &        ,CTOPO=grid%ctopo,CTOPO2=grid%ctopo2                                   &
 ! variables added for BEP
      &          ,FRC_URB2D=grid%frc_urb2d                                                  &
@@ -1357,6 +1378,9 @@ BENCH_START(fire_driver_tim)
             ,ims,ime, kms,kme, jms,jme                              &
             ,ips,ipe, kps,kpe, jps,jpe                              &
             ,grid%rho,grid%z_at_w,dz8w)
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('fire_driver_em_step', rk_step)
+#endif
         endif
 
 BENCH_END(fire_driver_tim)
@@ -1376,6 +1400,9 @@ BENCH_END(fire_driver_tim)
 BENCH_START(cu_driver_tim)
       CALL cumulus_driver(grid                                             &
                  ! Prognostic variables
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('cumulus_driver', rk_step)
+#endif
      &             ,U=grid%u_phy   ,V=grid%v_phy   ,TH=th_phy  ,T=grid%t_phy                  &
      &             ,W=grid%w_2     ,P=grid%p_hyd   ,PI=pi_phy  ,RHO=grid%rho             &
                  ! Other arguments
@@ -1561,6 +1588,9 @@ BENCH_END(cu_driver_tim)
      &          ,KTS=k_start, KTE=min(k_end,kde-1))
       ENDDO
       !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('convtrans_prep', rk_step)
+#endif
      endif
 
 ! shallow cumulus parameterization
@@ -1601,6 +1631,9 @@ BENCH_START(shcu_driver_tim)
      &             ,QNC_CURR=scalar(ims,kms,jms,P_QNC)                    & !BSINGH - Neede for UWSHCU scheme
      &             ,QNI_CURR=scalar(ims,kms,jms,P_QNI)                    & !BSINGH - Neede for UWSHCU schem 
 #if (WRF_CHEM == 1)
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('shallowcu_driver', rk_step)
+#endif
      &             ,CHEM=chem,chem_opt=config_flags%chem_opt              &
 #endif
      &             ,DLF=grid%dlf, RLIQ=grid%rliq, RLIQ2=grid%rliq2        &
@@ -1776,6 +1809,9 @@ BENCH_START(fdda_driver_tim)
                   RTHNDGDTEN=grid%rthndgdten,RPHNDGDTEN=grid%rphndgdten,            &
                   RQVNDGDTEN=grid%rqvndgdten,RMUNDGDTEN=grid%rmundgdten,            &
 !
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('fddagd_driver', rk_step)
+#endif
 ! FASDAS
 !
                   SDA_HFX=grid%SDA_HFX, SDA_QFX=grid%SDA_QFX,      &
@@ -1836,6 +1872,39 @@ BENCH_START(fdda_driver_tim)
                    ,IPSY=ipsy,IPEY=ipey,JPSY=jpsy,JPEY=jpey,KPSY=kpsy,KPEY=kpey     )
 
 BENCH_END(fdda_driver_tim)
+#ifdef WRF_TRACE_FINE
+CONTAINS
+
+   ! Fine checkpoint (build.sh --fine, WRF_BITTRACE=3; port/agent/DEBUGGING.md):
+   ! the level-3 fields of the grid and the tendencies of first_rk_step_part1.
+   SUBROUTINE bt_fine_p1(tag, rk)
+      CHARACTER(LEN=*), INTENT(IN) :: tag
+      INTEGER, INTENT(IN) :: rk
+      INTEGER :: m
+      CHARACTER(LEN=16) :: nm
+      CALL bt_context(grid, rk)
+      IF (.NOT. bt_on(grid, 3)) RETURN
+      CALL bt_checkpoint(grid, 'p1:'//tag, 3, rk)
+      CALL bt_field3(grid, 'p1:'//tag, 'RU_TENDF', ru_tendf, 'X', rk)
+      CALL bt_field3(grid, 'p1:'//tag, 'RV_TENDF', rv_tendf, 'Y', rk)
+      CALL bt_field3(grid, 'p1:'//tag, 'RW_TENDF', rw_tendf, 'Z', rk)
+      CALL bt_field3(grid, 'p1:'//tag, 'PH_TENDF', ph_tendf, 'Z', rk)
+      CALL bt_field3(grid, 'p1:'//tag, 'T_TENDF',  t_tendf,  '-', rk)
+      CALL bt_field2(grid, 'p1:'//tag, 'MU_TENDF', mu_tendf, '-', rk)
+      CALL bt_field3(grid, 'p1:'//tag, 'TKE_TEND', tke_tend, '-', rk)
+      CALL bt_field3(grid, 'p1:'//tag, 'TH_PHY',   th_phy,   '-', rk)
+      CALL bt_field3(grid, 'p1:'//tag, 'PI_PHY',   pi_phy,   '-', rk)
+      CALL bt_field3(grid, 'p1:'//tag, 'P_PHY',    p_phy,    '-', rk)
+      CALL bt_field3(grid, 'p1:'//tag, 'T_PHY',    t_phy,    '-', rk)
+      CALL bt_field3(grid, 'p1:'//tag, 'DZ8W',     dz8w,     '-', rk)
+      CALL bt_field3(grid, 'p1:'//tag, 'P8W',      p8w,      'Z', rk)
+      CALL bt_field3(grid, 'p1:'//tag, 'T8W',      t8w,      'Z', rk)
+      DO m = 2, SIZE(moist_tend, 4)
+         WRITE (nm, '(a,i2.2)') 'MOIST_TEND', m
+         CALL bt_field3(grid, 'p1:'//tag, TRIM(nm), moist_tend(:, :, :, m), '-', rk)
+      END DO
+   END SUBROUTINE bt_fine_p1
+#endif
 
   END SUBROUTINE first_rk_step_part1
 

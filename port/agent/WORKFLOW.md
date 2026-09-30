@@ -22,7 +22,8 @@ How to work on the port, from picking a task to pushing it. The rules behind it 
 5. bash port/gates/static.sh                    -> must PASS (fix, repeat)
 6. build:  bash port/h100/build.sh gpu-repro --worktree   (and cpu-ref --worktree when the CPU view could change)
 7. test:   bash port/gates/t_ab.sh <route> W-20;  bash port/gates/t_trace.sh W-20
-8. on FAIL: DEBUGGING.md; at most three honest attempts per failure mode, then BLOCKERS.md
+8. on FAIL: DEBUGGING.md (coarse trace -> t_fine.sh -> bt_fine3 inside the routine -> kernel_off.py);
+   at most three honest attempts per failure mode, then BLOCKERS.md
 9. commit, workbook.py set <kernel> done ..., update WORKBOOK.md, commit, push
 ```
 
@@ -48,7 +49,8 @@ A phase is done when its gate script (`port/gates/g<N>.sh`) prints `== G<N>: PAS
 bash port/h100/build.sh gpu-repro --worktree     # incremental, working tree -> $WORK/builds/gpu-repro/worktree
 bash port/h100/build.sh cpu-ref --worktree       # the CPU-REF build of the working tree
 bash port/h100/build.sh cpu-ref --commit <sha>   # clean build of a commit (references, base)
-bash port/h100/build.sh gpu-debug --worktree     # -g -traceback -gpu=lineinfo, WRF_GPU_TRACE_FINE
+bash port/h100/build.sh gpu-debug --worktree     # -g -traceback -gpu=lineinfo, WRF_TRACE_FINE
+bash port/h100/build.sh gpu-repro --worktree --fine   # fine tracing (and cpu-ref --fine): DEBUGGING.md §1b
 ```
 
 - Builds and runs happen in the container (`x`, ENV_H100.md); the scripts do that for you. For a command by hand:
@@ -138,14 +140,47 @@ route switched off.
 
 ## 8. Tool problems
 
-If a guard tool rejects code that you are sure is correct (for example arith_guard reports "new arithmetic" for a
-statement that is the source statement with renamed indices), first check the rule in the tool's `--help`. If the
-tool is wrong:
+The port's own files come in two tiers (`python3 port/tools/protect.py --list` shows which file is in which):
+
+- **Locked** (`port/agent/protected.md5`): tests, checkers, gate scripts, `port/h100/compare.sh`,
+  `port/h100/windows.txt`, the comparison tools (`port/*.py` apart from the two below), the reproducible-math
+  module, the case contract, the agent guides. They decide pass or fail; you never change them.
+- **Infrastructure** (`port/agent/infra.md5`): `port/h100/build.sh`, `common.sh`, `dev_case.sh`, `in_container.sh`,
+  `setup_toolchain.sh`, `smoke_case.sh`, `sync_tree.py`, `window.sh`, `x.sh`, `port/container/*`,
+  `port/make_dev_case.py`, `port/nml.py`. They build, run and set up. They were written without the H100 machine,
+  NVHPC or the Eaton inputs, so expect bugs on first contact (a container flag, an MPI launcher option, a configure
+  prompt, a netCDF attribute in the real inputs). You may fix them.
+
+**A locked tool is wrong** (for example arith_guard reports "new arithmetic" for a statement that is the source
+statement with renamed indices): first check the rule in the tool's `--help`. If the tool is wrong:
 
 - arith_guard only: add one line `file|normalized statement|reason` to `port/agent/arith_exceptions.txt` (it is not
   protected) and explain it in the workbook log. Each exception is reviewed later.
-- any other tool, test or script: do not edit it. Write a BLOCKERS.md entry with the command, the output and why you
-  think it is wrong, mark the task blocked, and continue with another task.
+- any other locked file: do not edit it. Write a BLOCKERS.md entry with the command, the output and why you think it
+  is wrong, mark the task blocked, and continue with another task.
+
+**An infrastructure script is wrong**: fix it as a **tool fix**.
+
+1. Reproduce the failure and keep the command and its error output.
+2. Make the smallest change that fixes it, in the infrastructure file(s) only, with no WRF or GPU code in the same
+   commit. Title: `Tool fix: <file>: <what>`.
+3. The fix must not change what is compared or how:
+   - windows: `windows.txt` is locked;
+   - trace levels, and `OMP_TARGET_OFFLOAD=MANDATORY` for GPU runs: the gates check `window.info` and reject a run
+     without them;
+   - the arithmetic flags: `port/tools/check_build_flags.py` runs in static.sh on the stanzas and in the gates on
+     every build;
+   - the rank counts of CPU-REF runs;
+   - the dev-case cut: d02 181×181 around the ignition, columns copied unchanged. If you fix `make_dev_case.py`
+     after the dev references exist, remake the case and the references (`dev_case.sh make`, `dev_case.sh
+     reference`) and say so in the log.
+
+   Spelling fixes in the NVHPC stanzas of `WRF/arch/configure.defaults` (a flag the pinned compiler writes
+   differently) are tool fixes too; `check_build_flags.py` must still pass.
+4. Add a row to `port/agent/TOOL_FIXES.md`: date, files, problem (command and error), fix, and why the comparison is
+   unaffected. `static.sh` fails while an infrastructure file differs from `infra.md5` without a row naming it
+   (`check_tool_fixes.py`).
+5. Rerun the command that failed, then `static.sh`; commit; push; one line in the workbook log.
 
 ## 9. BLOCKERS.md
 

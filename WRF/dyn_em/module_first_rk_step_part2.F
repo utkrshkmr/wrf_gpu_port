@@ -37,6 +37,9 @@ CONTAINS
     USE module_state_description
     USE module_model_constants
     USE module_domain, ONLY : domain
+#ifdef WRF_TRACE_FINE
+    USE module_bittrace, ONLY : bt_on, bt_checkpoint, bt_field2, bt_field3, bt_context
+#endif
     USE module_configure, ONLY : grid_config_rec_type, model_config_rec
     USE module_big_step_utilities_em, ONLY : conv_t_tendf_to_moist
 #ifdef DM_PARALLEL
@@ -413,6 +416,9 @@ BENCH_START(cal_phy_tend)
 
       ENDDO
       !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('calculate_phy_tend', rk_step)
+#endif
 BENCH_END(cal_phy_tend)
 
 ! tke diffusion
@@ -433,6 +439,9 @@ BENCH_START(comp_diff_metrics_tim)
                                        k_start    , k_end                    )
          ENDDO
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('compute_diff_metrics', rk_step)
+#endif
 BENCH_END(comp_diff_metrics_tim)
 
 #ifdef DM_PARALLEL
@@ -497,6 +506,9 @@ BENCH_START(tke_diff_bc_tim)
  
          ENDDO
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('set_physical_bc3d+set_physical_bc2d', rk_step)
+#endif
 BENCH_END(tke_diff_bc_tim)
 
 BENCH_START(deform_div_tim)
@@ -523,6 +535,9 @@ BENCH_START(deform_div_tim)
                                      k_start    , k_end                  )
          ENDDO
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('cal_deform_and_div', rk_step)
+#endif
 BENCH_END(deform_div_tim)
 
 ! Updraft helicity between output times
@@ -557,6 +572,9 @@ BENCH_START(helicity_tim)
                               k_start    , k_end                  )
        ENDDO
        !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('cal_helicity', rk_step)
+#endif
 BENCH_END(helicity_tim)
        ENDIF
 
@@ -631,6 +649,9 @@ BENCH_START(calc_tke_tim)
                                  k_start    , k_end                          )
          ENDDO
        !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('nonlocal_flux+free_atmos_length+meso_length_scale+calculate_', rk_step)
+#endif
 BENCH_END(calc_tke_tim)
 
 #ifdef DM_PARALLEL
@@ -670,6 +691,9 @@ BENCH_START(phy_bc_tim)
                       k_start    , k_end                           )
        ENDDO
        !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('phy_bc', rk_step)
+#endif
 BENCH_END(phy_bc_tim)
 
 !JDM
@@ -678,6 +702,9 @@ IF ( ( config_flags%sfs_opt .GT. 0 ) .AND. ( config_flags%diff_opt .eq. 2 ) ) TH
  CALL sfs_driver( grid, config_flags,     &
                   nba_mij, n_nba_mij,     & 
                   nba_rij, n_nba_rij      ) 
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('sfs_driver', rk_step)
+#endif
 
 ENDIF
 
@@ -818,6 +845,9 @@ BENCH_START(update_phy_ten_tim)
 
        END DO
        !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('update_phy_ten', rk_step)
+#endif
 BENCH_END(update_phy_ten_tim)
 
       IF (grid%skebs_on==1) then
@@ -839,6 +869,9 @@ BENCH_END(update_phy_ten_tim)
 
            ENDDO
            !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('update_stoch_ten', rk_step)
+#endif
       ENDIF !skebs_on
 
       IF (grid%sppt_on==1) then
@@ -857,6 +890,9 @@ BENCH_END(update_phy_ten_tim)
                         grid%num_stoch_levels,grid%num_stoch_levels          )
            ENDDO
           !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('perturb_physics_tend', rk_step)
+#endif
   ENDIF
 
 #ifdef PLANET
@@ -887,6 +923,9 @@ to see if perturbation of moist potential temperature is OK.
                          k_start, k_end                         )
          END DO
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('damptop', rk_step)
+#endif
        END IF
 #endif
 
@@ -923,6 +962,9 @@ BENCH_START(tke_rhs_tim)
 
          ENDDO
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('tke_rhs', rk_step)
+#endif
 BENCH_END(tke_rhs_tim)
 
        ENDIF
@@ -989,6 +1031,9 @@ BENCH_END(tke_rhs_tim)
  
          ENDDO
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('fddaobs_driver', rk_step)
+#endif
        ENDIF  ! obs_nudge_opt .eq. 1
 
        IF ( config_flags%use_theta_m .EQ. 1 ) THEN
@@ -1004,6 +1049,9 @@ BENCH_END(tke_rhs_tim)
                                         k_start    , k_end                        )
          END DO 
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('conv_t_tendf_to_moist', rk_step)
+#endif
        END IF ! use moist theta
 
 ! calculate vertical diffusion first and then horizontal
@@ -1041,6 +1089,9 @@ BENCH_END(tke_rhs_tim)
                                                k_start, k_end      )
               ENDDO
               !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('vertical_diffusion_implicit', rk_step)
+#endif
 
          ELSE  ! original explicit 
 
@@ -1073,6 +1124,9 @@ BENCH_START(vert_diff_tim)
 
            ENDDO
            !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('vertical_diffusion_2', rk_step)
+#endif
 BENCH_END(vert_diff_tim)
 
          ENDIF
@@ -1109,11 +1163,47 @@ BENCH_START(hor_diff_tim)
                                       k_start    , k_end                    )
          ENDDO
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p2('horizontal_diffusion_2', rk_step)
+#endif
 BENCH_END(hor_diff_tim)
        ENDIF
 
 ! 
 !***********************************************************************
+#ifdef WRF_TRACE_FINE
+CONTAINS
+
+   ! Fine checkpoint (build.sh --fine, WRF_BITTRACE=3; port/agent/DEBUGGING.md):
+   ! the level-3 fields of the grid and the tendencies of first_rk_step_part2.
+   SUBROUTINE bt_fine_p2(tag, rk)
+      CHARACTER(LEN=*), INTENT(IN) :: tag
+      INTEGER, INTENT(IN) :: rk
+      INTEGER :: m
+      CHARACTER(LEN=16) :: nm
+      CALL bt_context(grid, rk)
+      IF (.NOT. bt_on(grid, 3)) RETURN
+      CALL bt_checkpoint(grid, 'p2:'//tag, 3, rk)
+      CALL bt_field3(grid, 'p2:'//tag, 'RU_TENDF', ru_tendf, 'X', rk)
+      CALL bt_field3(grid, 'p2:'//tag, 'RV_TENDF', rv_tendf, 'Y', rk)
+      CALL bt_field3(grid, 'p2:'//tag, 'RW_TENDF', rw_tendf, 'Z', rk)
+      CALL bt_field3(grid, 'p2:'//tag, 'PH_TENDF', ph_tendf, 'Z', rk)
+      CALL bt_field3(grid, 'p2:'//tag, 'T_TENDF',  t_tendf,  '-', rk)
+      CALL bt_field2(grid, 'p2:'//tag, 'MU_TENDF', mu_tendf, '-', rk)
+      CALL bt_field3(grid, 'p2:'//tag, 'TKE_TEND', tke_tend, '-', rk)
+      CALL bt_field3(grid, 'p2:'//tag, 'TH_PHY',   th_phy,   '-', rk)
+      CALL bt_field3(grid, 'p2:'//tag, 'PI_PHY',   pi_phy,   '-', rk)
+      CALL bt_field3(grid, 'p2:'//tag, 'P_PHY',    p_phy,    '-', rk)
+      CALL bt_field3(grid, 'p2:'//tag, 'T_PHY',    t_phy,    '-', rk)
+      CALL bt_field3(grid, 'p2:'//tag, 'DZ8W',     dz8w,     '-', rk)
+      CALL bt_field3(grid, 'p2:'//tag, 'P8W',      p8w,      'Z', rk)
+      CALL bt_field3(grid, 'p2:'//tag, 'T8W',      t8w,      'Z', rk)
+      DO m = 2, SIZE(moist_tend, 4)
+         WRITE (nm, '(a,i2.2)') 'MOIST_TEND', m
+         CALL bt_field3(grid, 'p2:'//tag, TRIM(nm), moist_tend(:, :, :, m), '-', rk)
+      END DO
+   END SUBROUTINE bt_fine_p2
+#endif
 
   END SUBROUTINE first_rk_step_part2
 

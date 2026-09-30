@@ -27,10 +27,15 @@ Read, in this order, before touching code:
    allowed additions listed in `arith_guard.py --help` (USE of port modules, `CALL gpu_*`, island includes, route
    tests, directive lines). Shared refactors that must change both views follow the protocol in WORKFLOW.md and
    need bitwise evidence.
-3. **Never edit, weaken, skip or delete a test, a tool, a gate script or a reference copy** (`port/tests`,
-   `port/tools`, `port/gates`, `port/h100`, `port/*.py`; their checksums are in `port/agent/protected.md5` and
-   `static.sh` checks them). If a tool is wrong, stop and write it up in `port/agent/BLOCKERS.md` (WORKFLOW.md,
-   "Tool problems"). Never change `plan.md`'s decisions; record deviations in the workbook log and in BLOCKERS.md.
+3. **Never edit, weaken, skip or delete a test, a checker, a gate script or a reference copy.** These are
+   **locked**: `port/tests`, `port/tools`, `port/gates`, `port/h100/compare.sh`, `port/h100/windows.txt`, the
+   comparison tools in `port/*.py`. Their checksums are in `port/agent/protected.md5`, which `static.sh` checks.
+   If a locked file is wrong, stop and write it up in `port/agent/BLOCKERS.md` (WORKFLOW.md, "Tool problems").
+   The **infrastructure** scripts are not locked: build, run and setup (`port/h100/*.sh` apart from `compare.sh`,
+   `sync_tree.py`, `port/container/*`, `port/make_dev_case.py`, `port/nml.py`; checksums in `port/agent/infra.md5`).
+   They have never run on the real machine, so you may fix them, but only as a "tool fix": one commit per fix,
+   logged in `port/agent/TOOL_FIXES.md`, never changing what is compared or how (WORKFLOW.md §8). Never change
+   `plan.md`'s decisions; record deviations in the workbook log and in BLOCKERS.md.
 4. **One routine per commit** (Phases 2–4). The commit message names the kernel IDs and the tests that passed:
    `Port calc_ww_cp to the GPU (K-PREP-5a, K-PREP-5b)` + a body with `T-AB-calc_ww_cp W-20 PASS`, `T-TRACE W-20 PASS`.
 5. **Before every commit:** `bash port/gates/static.sh` must print `== static: PASS`. Before a routine is marked

@@ -3,9 +3,10 @@
 #
 #   window.sh <build dir> <window> [--dir RUN_DIR] [--ranks N] [--tag T] [--force] [VAR=value ...]
 #
-# Windows (case eaton_small, dates 2025-01-08; restart windows start from the
-# CPU-REF dev reference restarts in $DEV_REF/run0220, so a CPU-REF and a GPU
-# run of the same window start from the same file: restart-vs-restart):
+# Windows (defined in port/h100/windows.txt, which is locked; case eaton_small,
+# dates 2025-01-08; restart windows start from the CPU-REF dev reference restarts
+# in $DEV_REF/run0220, so a CPU-REF and a GPU run of the same window start from
+# the same file: restart-vs-restart):
 #   W-T0     00:00:00 + 9 s from wrfinput (3 d01 / 27 d02 steps, nest start),
 #            history every 3 s, restart written at 9 s          trace 2
 #   W-20     02:20:00 + 9 s    (3 d01 / 27 d02 steps)            trace 2
@@ -45,22 +46,13 @@ while [ $# -gt 0 ]; do
   shift
 done
 mode=$(build_mode "$B")
-case $mode in gpu-*) gpu=1; ranks=1 ;; gnu) gpu=0; ranks=0 ;; *) gpu=0 ;; esac
+case $mode in gpu-*) gpu=1; ranks=1 ;; gnu|gnu-fine) gpu=0; ranks=0 ;; *) gpu=0 ;; esac
 
-case_=dev; rst=; trace=2; rstint_s=0
-case $W in
-  W-T0)    start=00:00:00; dur=9;    hist=3;   rstint_s=9 ;;
-  W-20)    start=02:20:00; dur=9;    hist=9;   rst=0220 ;;
-  W-100)   start=02:20:00; dur=36;   hist=12;  rst=0220 ;;
-  W-RAD)   start=02:20:00; dur=240;  hist=60;  rst=0220 ;;
-  W-FORCE) start=02:20:00; dur=60;   hist=60;  rst=0220 ;;
-  W-TKE)   start=02:20:00; dur=336;  hist=48;  rst=0220; trace=1 ;;
-  W-IGN)   start=02:00:00; dur=2100; hist=300; rst=0200; trace=1 ;;
-  W-FIRE)  start=02:20:00; dur=2400; hist=300; rst=0220; trace=1 ;;
-  W-1H)    start=02:00:00; dur=3600; hist=900; rst=0200; trace=1 ;;
-  S-3M)    case_=smoke; dur=180; hist=30 ;;
-  *) die "unknown window $W" ;;
-esac
+# the window definitions are in windows.txt (locked, part of the pass criteria)
+wline=$(awk -v w="$W" '$1 == w {print; exit}' "$HERE_H100/windows.txt")
+[ -n "$wline" ] || die "unknown window $W (see $HERE_H100/windows.txt)"
+read -r _ case_ start dur hist rst trace rstint_s <<< "$wline"
+[ "$rst" = - ] && rst=
 
 if [ -z "$rd" ]; then
   suffix=$tag

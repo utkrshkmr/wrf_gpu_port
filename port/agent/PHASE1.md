@@ -21,6 +21,11 @@ after `END MODULE`). `CALL gpu_*` lines are allowed in the CPU view. Every new f
 
 ## §0. Entry tasks H0 (the H100 machine)
 
+The setup, build and run scripts have not run on this machine before. When one of them fails for a reason in the
+script itself (a container option, an MPI launcher flag, a configure prompt, an attribute of the real inputs), fix it
+as a **tool fix** (WORKFLOW.md §8: one commit, a row in TOOL_FIXES.md). When a **test or checker** seems wrong, do not
+touch it: BLOCKERS.md.
+
 ### H0.1 Toolchain
 Follow [ENV_H100.md](ENV_H100.md) §1–2. **Done when** `bash port/h100/setup_toolchain.sh check` ends with
 `toolchain: PASS`; the image tag/digest, driver, `nvfortran --version`, netCDF versions are in `port/ENVIRONMENT.md`.
@@ -49,6 +54,10 @@ statement functions/internal procedures work in device code (F-STMTFN, F-INTPROC
 ### H0.4 Reference tests on the GPU
 `bash port/gates/ref_tests.sh` → `== ref_tests: PASS` (T-PDLIM, T-KISS, T-OZN, templates B/C/G and their mutants).
 If T-KISS fails, the KISS rewrite of plan.md P0.9a item 9 becomes a Phase 3 shared refactor; note it.
+If it prints `NOTE templates: statement functions rejected in device code`, template B was built in its
+module-function form; record that in port/ENVIRONMENT.md (it decides the form of `flux5` & co. in Phase 2,
+CODING_STANDARD.md §5.4).
+A failure in a build or run script (not in a test) is an infrastructure bug: fix it as a tool fix (WORKFLOW.md §8).
 
 ### H0.5 CPU-REF builds and T-SYM
 ```sh

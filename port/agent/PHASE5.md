@@ -13,7 +13,9 @@ modulo 2^31−1 computed exactly as `hash3` does — reduce per-term values alre
 modulus of the sum; INTEGER(8) cannot overflow for the array sizes here). The result must be bit-identical to the host
 hash: test by running W-20 with the world still on the host and calling both versions (a temporary debug switch),
 then remove the switch. `module_bittrace.F` is port infrastructure (not compared by arith_guard) but is protected by
-T-SHARED results: its host path must not change.
+T-SHARED results: its host path must not change. (The fine checkpoints `bt_fine2/3/f` already copy their array from
+the device when `gpu_world_host` is `.FALSE.`; that is enough for debugging builds. The level-1/2 checkpoints of
+every run need the device hash, because a copy per checkpoint would appear in T-NSYS-CLEAN.)
 
 ## P5.1 `couple_or_uncouple_em` on the device (plan.md P5.1)
 

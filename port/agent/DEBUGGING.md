@@ -20,11 +20,60 @@ FIRST DIFFERENCE: itimestep 10 rk_stage 2 tag calc_p_rho_phi field LFN
 - If only history/restart files differ but traces do not: the difference is in output-only diagnostics or in the
   sync points (P1.5, S3/S4).
 
-Level-2 traces cover every checkpoint of every step; if you need more (inside a routine), use the GPU-DEBUG build:
-`WRF_GPU_TRACE_FINE` adds checkpoints you place with `CALL bt_checkpoint(grid, '<tag>', 2, rk_step)` in
-`#ifdef WRF_GPU_TRACE_FINE` blocks (they compile only in GPU-DEBUG and do not change results).
+Level-2 traces have about ten checkpoints per step. To get closer, use fine tracing (next section).
 
-## 2. Narrow it to one route
+## 1b. Fine tracing: which routine, which kernel
+
+Build both sides with `--fine` and compare level-3 traces. `-DWRF_TRACE_FINE` is only a preprocessor macro; the
+arithmetic flags do not change (`check_build_flags.py` checks the builds), and the CPU-REF and GPU builds get the same
+checkpoints:
+
+```sh
+bash port/gates/t_fine.sh W-20 WRF_BITTRACE_FROM=<step> WRF_BITTRACE_TO=<step> WRF_BITTRACE_DOMAIN=<d>
+bash port/gates/t_fine.sh --ab <route> W-20 WRF_BITTRACE_FROM=<step> ...     # a T-AB failure: route off vs on
+```
+
+Take `<step>` and `<d>` from the coarse comparison (FIRST DIFFERENCE line, trace file `bittrace.d0<d>.txt`). A
+one-step, one-domain fine run is fast; a full fine W-20 is slow. At level 3 you get:
+
+- a checkpoint after **every routine** that `solve_em` calls (tag = routine names, e.g. `rk_tendency`,
+  `advance_uv`, `small_step_prep+calc_p_rho+calc_coef_w`). Each one hashes the level-2 fields, the intermediate
+  dynamics fields (`WW`, `ALT`, `PHP`, `MUTS`, `RU_M`, …), the turbulence fields (`DEFOR*`, `XK*`) and the scratch
+  arrays of solve_em (`RW_TEND`, `T_TENDF`, `CQW`, `ALPHA`, `GAMMA`, `MOIST_TEND*`, …);
+- a checkpoint after every routine that `first_rk_step_part1/2` call (tags `p1:radiation_driver`,
+  `p2:cal_deform_and_div`, …), with their tendencies and `*_PHY` arrays;
+- a checkpoint after every routine that `rk_tendency` calls (tags `rkt:advect_u`, `rkt:horizontal_pressure_gradient`,
+  …), with the tendencies.
+
+The first differing record names the routine after which the runs first differ, and the field. Then, **inside that
+routine**, add checkpoints after each kernel (or group of kernels) and run again:
+
+```fortran
+#ifdef WRF_TRACE_FINE
+      CALL bt_fine3('advect_u:Y2', 'TENDENCY', tendency, 'X', ids, ide, jds, jde, kds, kde, &
+                    ims, ime, jms, jme, kms, kme, its, ite, jts, jte, kts, kte)
+#endif
+```
+
+- `bt_fine3` for `(ims:ime,kms:kme,jms:jme)` arrays; stag `'X'`, `'Y'`, `'Z'`, `'XZ'`, … or `'-'`. `bt_fine2` for
+  `(ims:ime,jms:jme)`. `bt_finef` for fire-grid arrays `(ifms:ifme,jfms:jfme)` with the fire dims.
+- `USE module_bittrace, ONLY : bt_fine2, bt_fine3, bt_finef` inside the same `#ifdef WRF_TRACE_FINE`.
+- Put the call where the same state exists in both views: **after** the kernel(s) that replace one source loop nest,
+  never between Y1 and Y2 of a split. If that point is inside an `#ifdef WRF_GPU … #else … #endif`, put the call in
+  both branches with the same tag and name.
+- The routine may run on the device when the checkpoint is reached. `bt_fine*` then copies the array from the device
+  first (`gpu_world_host` is `.FALSE.` inside a device-run routine). Trace dummies, pool and work arrays, and
+  whole-array or last-index slices (`moist(:,:,:,n)`). Do not trace a kernel's private column arrays.
+- These lines are allowed in the CPU view (`CALL bt_*`, under a GPU-port macro). You may keep them in the commit;
+  they cost nothing in normal builds.
+
+The same set of checkpoints in both runs is required. If one run has records the other lacks, the comparison
+reports "records only in A/B": rebuild both with the same tree.
+
+Filters (environment, both runs identical): `WRF_BITTRACE_FROM`, `WRF_BITTRACE_TO`, `WRF_BITTRACE_DOMAIN`,
+`WRF_BITTRACE_FIELDS=U_2,RU_TEND` (names as in the trace).
+
+## 2. Narrow it to one route, then one kernel
 
 ```sh
 bash port/gates/t_ab.sh <suspect route> W-20      # device vs host of the same code
@@ -40,6 +89,17 @@ bash port/h100/window.sh <gpu build> W-20 WRF_GPU_ONLY=<route>       # only this
   `IF` branch you did not port).
 - Bisect routes: `WRF_GPU_OFF=all` must equal CPU-REF (if not, the problem is in the islands/sync points/Phase 1);
   then switch routes back on in halves with `WRF_GPU_OFF=a,b,c`.
+- **One kernel on the host** (to confirm the suspect found with fine tracing):
+  ```sh
+  python3 port/tools/kernel_off.py --list WRF/dyn_em/module_advect_em.F advect_u   # numbers, IDs, lines
+  python3 port/tools/kernel_off.py WRF/dyn_em/module_advect_em.F K-ADVU-X           # or advect_u:3
+  bash port/h100/build.sh gpu-repro --worktree --tag koff
+  bash port/h100/window.sh $WORK/builds/gpu-repro/worktree-koff W-20                  # compare with the CPU-REF run
+  python3 port/tools/kernel_off.py --revert WRF/dyn_em/module_advect_em.F
+  ```
+  The kernel then runs on the host over host data, with its `shared(...)` arrays copied from the device before and
+  back after. If the mismatch disappears (or moves later), that kernel is wrong. The edit is marked `KOFF-TEMP`;
+  `static.sh` fails until you revert it, so it cannot be committed.
 
 ## 3. Inspect the kernel
 
@@ -63,7 +123,9 @@ Compare the kernel with its CPU lines (`KERNEL_REFS.md`) side by side, statement
 | `RUN_WRAPPER="compute-sanitizer --tool memcheck"` | out-of-bounds and misaligned device accesses (GPU-DEBUG build) |
 | `RUN_WRAPPER="compute-sanitizer --tool racecheck"` / `initcheck` | shared-memory races, reads of uninitialized device memory |
 | `port/gates/t_nsys.sh W-20` | every host↔device copy with size: finds implicit copies of unmapped arrays |
-| GPU-DEBUG build (`build.sh gpu-debug --worktree`) | `-g -traceback -gpu=lineinfo`; line numbers in sanitizer reports |
+| GPU-DEBUG build (`build.sh gpu-debug --worktree`) | `-g -traceback -gpu=lineinfo`, `WRF_TRACE_FINE`; line numbers in sanitizer reports |
+| `build.sh <mode> --worktree --fine`, `port/gates/t_fine.sh` | level-3 checkpoints after every routine, and your `bt_fine*` calls inside routines (§1b) |
+| `port/tools/kernel_off.py` | one kernel on the host, temporarily (§2) |
 | `python3 port/compare_fields.py A/wrfout... B/wrfout... --all` | which history fields differ and by how much (the size of the difference hints at the cause: 1 ulp → rounding/FMA/order; large → wrong index/stale data) |
 
 Pass `RUN_WRAPPER` and other variables through `window.sh`: `RUN_WRAPPER="compute-sanitizer --tool memcheck"

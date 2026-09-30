@@ -17,7 +17,7 @@ Fill in as the Phase 0 steps are done; every comparison in `RESULTS.md` refers t
 |---|---|---|---|---|
 | CPU-REF | NVHPC ... GPU port CPU-REF (dmpar) | `-O2 -Kieee -Mnofma -Mnoflushz -Mnodaz -Mvect=noassoc -tp=haswell -Mrecursive` | – | `-DREPRO_MATH -DWRF_POOL` |
 | GPU-REPRO | NVHPC ... GPU port GPU-REPRO | same | `-mp=gpu -gpu=cc80,cc90,nofma,noflushz -Minfo=mp` | + `-DWRF_GPU` |
-| GPU-DEBUG | NVHPC ... GPU port GPU-DEBUG | same + `-g -traceback` | + `-gpu=lineinfo` | + `-DWRF_GPU_TRACE_FINE` |
+| GPU-DEBUG | NVHPC ... GPU port GPU-DEBUG | same + `-g -traceback` | + `-gpu=lineinfo` | + `-DWRF_TRACE_FINE` |
 
 `-Mrecursive` (locals on the stack) is used in all three so that host code has the same storage semantics in the
 CPU reference and in the GPU build.

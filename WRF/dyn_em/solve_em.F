@@ -85,6 +85,9 @@ SUBROUTINE solve_em ( grid , config_flags  &
 #endif
    USE module_firebrand_spotting, ONLY : firebrand_spotting_em_driver
    USE module_bittrace, ONLY : bt_on, bt_checkpoint, bt_field2, bt_field3, bt_flush
+#ifdef WRF_TRACE_FINE
+   USE module_bittrace, ONLY : bt_context
+#endif
 #ifdef WRF_POOL
    USE module_gpu_scratch, ONLY : gpu_pool, gpu_scratch_reserve, wrf_pool_round
 #endif
@@ -532,6 +535,9 @@ SUBROUTINE solve_em ( grid , config_flags  &
                           k_start, k_end                               )
      ENDDO
      !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('zero_bdytend+initialize_moist_old', 0)
+#endif
 
      !  Now that we have initialized the moist_old values with P_Qv for
      !  computing a moist t_tendf after rk_step part2, fill in the halo 
@@ -554,6 +560,9 @@ SUBROUTINE solve_em ( grid , config_flags  &
                                k_start    , k_end                             )
      END DO
      !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('set_physical_bc3d', 0)
+#endif
 
 !**********************************************************************
 !
@@ -582,6 +591,9 @@ SUBROUTINE solve_em ( grid , config_flags  &
 !**********************************************************************
 
    Runge_Kutta_loop:  DO rk_step = 1, rk_order
+#ifdef WRF_TRACE_FINE
+     CALL bt_context(grid, rk_step)
+#endif
 
    !  Set the step size and number of small timesteps for
    !  each part of the timestep
@@ -678,6 +690,9 @@ BENCH_START(step_prep_tim)
 
      END DO
      !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_step_prep', rk_step)
+#endif
 BENCH_END(step_prep_tim)
 
 #ifdef DM_PARALLEL
@@ -786,6 +801,9 @@ BENCH_START(set_phys_bc_tim)
        ENDIF
      END DO
      !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_phys_bc_dry_1', rk_step)
+#endif
 BENCH_END(set_phys_bc_tim)
 
      rk_step_is_one : IF (rk_step == 1) THEN ! only need to initialize diffusion tendencies
@@ -841,6 +859,9 @@ BENCH_START(calc_p_rho_tim)
                              , restart_flag=restart_flag        &
                              , feedback_is_ready=feedback_is_ready    &
                             )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('first_rk_step_part1', rk_step)
+#endif
 
 #ifdef DM_PARALLEL
        IF ( config_flags%bl_pbl_physics == MYNNPBLSCHEME ) THEN
@@ -875,6 +896,9 @@ BENCH_START(calc_p_rho_tim)
                              , ipsy, ipey, jpsy, jpey, kpsy, kpey    &
                              , k_start , k_end                  &
                             )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('first_rk_step_part2', rk_step)
+#endif
 
      END IF rk_step_is_one
 
@@ -926,6 +950,9 @@ BENCH_START(rk_tend_tim)
                          ,max_vert_cfl_tmp(ij), max_horiz_cfl_tmp(ij)                                         )
      END DO
      !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_tendency', rk_step)
+#endif
 BENCH_END(rk_tend_tim)
 
      IF ( bt_on(grid, 2) ) THEN
@@ -1077,6 +1104,9 @@ BENCH_START(relax_bdy_dry_tim)
 
      END DO
      !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('relax_bdy_dry+rk_addtend_dry+spec_bdy_dry+spec_bdy_dry_pertu', rk_step)
+#endif
 BENCH_END(relax_bdy_dry_tim)
 
 !<DESCRIPTION>
@@ -1167,6 +1197,9 @@ BENCH_START(small_step_prep_tim)
 
      ENDDO
      !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('small_step_prep+calc_p_rho+calc_coef_w', rk_step)
+#endif
 BENCH_END(small_step_prep_tim)
 
 #ifdef DM_PARALLEL
@@ -1292,6 +1325,9 @@ BENCH_START(set_phys_bc2_tim)
 
      END DO
      !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('set_physical_bc3d+set_physical_bc2d', rk_step)
+#endif
 BENCH_END(set_phys_bc2_tim)
      small_steps : DO iteration = 1 , number_of_small_timesteps
 
@@ -1328,6 +1364,9 @@ BENCH_END(advance_uv_tim)
 
        END DO
        !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('advance_uv', rk_step)
+#endif
 
 !-----------------------------------------------------------
 !  acoustic integration polar filter for smallstep u, v
@@ -1397,6 +1436,9 @@ BENCH_END(spec_bdy_uv_tim)
 
        END DO
        !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('spec_bdyupdate', rk_step)
+#endif
 
 #ifdef DM_PARALLEL
 !
@@ -1440,6 +1482,9 @@ BENCH_START(advance_mu_t_tim)
 BENCH_END(advance_mu_t_tim)
        ENDDO
        !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('advance_mu_t', rk_step)
+#endif
 
 !-----------------------------------------------------------
 !  acoustic integration polar filter for smallstep mu, t
@@ -1550,6 +1595,9 @@ BENCH_END(advance_w_tim)
 
        ENDDO
        !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('spec_bdyupdate+advance_w', rk_step)
+#endif
 
 !-----------------------------------------------------------
 !  acoustic integration polar filter for smallstep w, geopotential
@@ -1667,6 +1715,9 @@ BENCH_END(cald_p_rho_tim)
 
        ENDDO
        !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('sumflux+spec_bdyupdate_ph+zero_grad_bdy+spec_bdyupdate+calc_', rk_step)
+#endif
 
 #ifdef DM_PARALLEL
 !
@@ -1744,6 +1795,9 @@ BENCH_START(phys_bc_tim)
 
        END DO
        !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('set_physical_bc3d+set_physical_bc2d', rk_step)
+#endif
 BENCH_END(phys_bc_tim)
 
      END DO small_steps
@@ -1834,6 +1888,9 @@ BENCH_END(small_step_finish_tim)
 
      END DO
      !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('calc_mu_uv_1+small_step_finish', rk_step)
+#endif
 
 !-----------------------------------------------------------
 !  polar filter for full dynamics variables and time-averaged mass fluxes 
@@ -1901,6 +1958,9 @@ BENCH_END(small_step_finish_tim)
          ENDDO
        END DO
        !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_update_scalar_pd', rk_step)
+#endif
 
 !---------------------- positive definite bc call
 #ifdef DM_PARALLEL
@@ -1936,6 +1996,9 @@ BENCH_END(small_step_finish_tim)
          ENDIF
        END DO
        !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('set_physical_bc3d', rk_step)
+#endif
 
      END IF  ! end if for moist_adv_opt
 
@@ -1964,6 +2027,9 @@ BENCH_END(small_step_finish_tim)
          ENDDO
        ENDDO
        !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_update_scalar_pd', rk_step)
+#endif
 
 !---------------------- positive definite bc call
 #ifdef DM_PARALLEL
@@ -2004,6 +2070,9 @@ BENCH_END(small_step_finish_tim)
            ENDIF
          END DO
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('set_physical_bc3d', rk_step)
+#endif
 
        END IF  ! end if for scalar_adv_opt
 
@@ -2031,6 +2100,9 @@ BENCH_END(small_step_finish_tim)
            ENDDO
          END DO
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_update_scalar_pd', rk_step)
+#endif
 
 !---------------------- positive definite bc call
 #ifdef DM_PARALLEL
@@ -2066,6 +2138,9 @@ BENCH_END(small_step_finish_tim)
            ENDIF
          END DO
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('set_physical_bc3d', rk_step)
+#endif
 
        ENDIF  ! end if for chem_adv_opt
 
@@ -2093,6 +2168,9 @@ BENCH_END(small_step_finish_tim)
            ENDDO
          END DO
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_update_scalar_pd', rk_step)
+#endif
 
 !---------------------- positive definite bc call
 #ifdef DM_PARALLEL
@@ -2128,6 +2206,9 @@ BENCH_END(small_step_finish_tim)
            ENDIF
          END DO
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('set_physical_bc3d', rk_step)
+#endif
 
        ENDIF  ! end if for tracer_adv_opt
 
@@ -2154,6 +2235,9 @@ BENCH_END(small_step_finish_tim)
                                      k_start    , k_end                       )
          ENDDO
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_update_scalar_pd', rk_step)
+#endif
 
 !---------------------- positive definite bc call
 #ifdef DM_PARALLEL
@@ -2185,6 +2269,9 @@ BENCH_END(small_step_finish_tim)
                                     k_start    , k_end                )
          END DO
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('set_physical_bc3d', rk_step)
+#endif
 
 !---  end of positive definite physics tendency update
 
@@ -2328,6 +2415,9 @@ BENCH_END(rlx_bdy_scalar_tim)
 
              ENDDO moist_tile_loop_1
              !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_scalar_tend+q_diabatic_add+relax_bdy_scalar+spec_bdy_scal', rk_step)
+#endif
 
              !$OMP PARALLEL DO   &
              !$OMP PRIVATE ( ij, tenddec )
@@ -2387,6 +2477,9 @@ BENCH_END(flow_depbdy_tim)
 
              ENDDO moist_tile_loop_2
              !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_update_scalar+q_diabatic_subtr+flow_dep_bdy', rk_step)
+#endif
 
            ENDIF  !-- if (grid%adv_moist_cond .or. im==p_qv ) then
 
@@ -2441,6 +2534,9 @@ BENCH_START(tke_adv_tim)
 
          ENDDO tke_tile_loop_1
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_scalar_tend', rk_step)
+#endif
 
          !$OMP PARALLEL DO   &
          !$OMP PRIVATE ( ij, tenddec )
@@ -2487,6 +2583,9 @@ BENCH_START(tke_adv_tim)
            ENDIF
          ENDDO tke_tile_loop_2
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_update_scalar+bound_tke+flow_dep_bdy', rk_step)
+#endif
 
        ENDIF TKE_advance
 BENCH_END(tke_adv_tim)
@@ -2573,6 +2672,9 @@ BENCH_START(chem_adv_tim)
 
          ENDDO chem_tile_loop_1
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_scalar_tend+relax_bdy_scalar+spec_bdy_scalar', rk_step)
+#endif
 
 if ( config_flags%do_pvozone ) then
 #ifdef DM_PARALLEL
@@ -2651,6 +2753,9 @@ end if
               ENDIF
          ENDDO chem_tile_loop_2
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_update_scalar+spec_bdy_chem_perturb+flow_dep_bdy_chem', rk_step)
+#endif
 
        ENDDO chem_variable_loop
      ENDIF chem_scalar_advance
@@ -2735,6 +2840,9 @@ BENCH_START(tracer_adv_tim)
 
          ENDDO tracer_tile_loop_1
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_scalar_tend+relax_bdy_scalar+spec_bdy_scalar', rk_step)
+#endif
 
          !$OMP PARALLEL DO   &
          !$OMP PRIVATE ( ij, tenddec )
@@ -2795,6 +2903,9 @@ BENCH_START(tracer_adv_tim)
            ENDIF
          ENDDO tracer_tile_loop_2
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_update_scalar+flow_dep_bdy_tracer+flow_dep_bdy', rk_step)
+#endif
 
        ENDDO tracer_variable_loop
      ENDIF tracer_advance
@@ -2878,6 +2989,9 @@ BENCH_END(tracer_adv_tim)
 
          ENDDO scalar_tile_loop_1
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_scalar_tend+relax_bdy_scalar+spec_bdy_scalar', rk_step)
+#endif
 
          !$OMP PARALLEL DO   &
          !$OMP PRIVATE ( ij, tenddec )
@@ -2981,6 +3095,9 @@ BENCH_END(tracer_adv_tim)
 
          ENDDO scalar_tile_loop_2
          !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_update_scalar+bound_qna+flow_dep_bdy_fixed_inflow+flow_de', rk_step)
+#endif
 
        ENDDO scalar_variable_loop
 
@@ -3011,6 +3128,9 @@ BENCH_END(calc_p_rho_tim)
 
      ENDDO
      !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('calc_p_rho_phi', rk_step)
+#endif
 
 !  Reset the boundary conditions if there is another corrector step.
 !  (rk_step < rk_order), else we'll handle it at the end of everything
@@ -3375,6 +3495,9 @@ BENCH_END(diag_w_tim)
 
        END DO tile_bc_loop_1
        !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('rk_phys_bc_dry_2+diagnose_w', rk_step)
+#endif
 BENCH_END(bc_end_tim)
 
 
@@ -3490,6 +3613,9 @@ BENCH_END(bc_end_tim)
 !**********************************************************
 
    END DO Runge_Kutta_loop
+#ifdef WRF_TRACE_FINE
+   CALL bt_context(grid, 0)
+#endif
 !  grid%dmudt=grid%mu_2 - grid%mu_1
 
 #if ( WRFPLUS != 1 )
@@ -3610,6 +3736,9 @@ BENCH_END(advance_ppt_tim)
 
    ENDDO
   !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('advance_ppt', 0)
+#endif
 
    !$OMP PARALLEL DO   &
    !$OMP PRIVATE ( ij )
@@ -3638,6 +3767,9 @@ BENCH_END(advance_ppt_tim)
                         k_start, k_end                                   )
    ENDDO
   !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('phy_prep_part2', 0)
+#endif
 
 !<DESCRIPTION>
 !<pre>
@@ -3723,6 +3855,9 @@ BENCH_START(moist_physics_prep_tim)
 BENCH_END(moist_physics_prep_tim)
      END DO scalar_tile_loop_1a
      !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('cloud_tracer_nudge+moist_physics_prep_em+bulk_dust_emis', 0)
+#endif
 
      CALL wrf_debug ( 200 , ' call microphysics_driver' )
 
@@ -3783,6 +3918,9 @@ BENCH_START(micro_driver_tim)
       &        ,CLDFRA=grid%cldfra, EXCH_H=grid%exch_h &
       &        ,NSOURCE=grid%qndropsource                                 &
 #if (WRF_CHEM == 1)
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('microphysics_driver', 0)
+#endif
       &        ,QLSINK=grid%qlsink,CLDFRA_OLD=grid%cldfra_old             &
       &        ,PRECR=grid%precr, PRECI=grid%preci, PRECS=grid%precs, PRECG=grid%precg &
       &        ,CHEM_OPT=config_flags%chem_opt, PROGN=config_flags%progn  &
@@ -4134,6 +4272,9 @@ BENCH_START(moist_phys_end_tim)
 
      END DO
      !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('microphysics_zero_outb+microphysics_zero_outa+moist_physics_', 0)
+#endif
 
 #if ( defined( DM_PARALLEL ) && ( ! defined( STUBMPI ) ) )
 #       include "HALO_EM_THETAM.inc"
@@ -4235,6 +4376,9 @@ BENCH_START(moist_phys_end_tim)
 
    END DO scalar_tile_loop_1ba
    !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('calc_p_rho_phi', 0)
+#endif
 BENCH_END(moist_phys_end_tim)
    CALL bt_checkpoint(grid, 'moist_physics_finish', 2, 0)
 
@@ -4258,6 +4402,9 @@ BENCH_END(moist_phys_end_tim)
 
      END DO
      !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('diagnose_w', 0)
+#endif
 
    END IF
 
@@ -4566,6 +4713,9 @@ BENCH_START(bc_2d_tim)
 
    END DO tile_bc_loop_2
    !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('set_phys_bc_dry_2+set_physical_bc3d', 0)
+#endif
 BENCH_END(bc_2d_tim)
 
 !  this code forces boundary values to specified values to avoid drift
@@ -4752,6 +4902,9 @@ BENCH_END(bc_2d_tim)
 
    END DO tile_bc_loop_3
    !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('spec_bdy_final', 0)
+#endif
 
    ENDIF
 
@@ -4781,6 +4934,9 @@ BENCH_END(bc_2d_tim)
 
    END DO
    !$OMP END PARALLEL DO
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('set_w_surface', 0)
+#endif
 
 !-----------------------------------------------------------
 !  After all of the RK steps, after the microphysics, after p-rho-phi,
@@ -5036,5 +5192,47 @@ BENCH_END(bc_2d_tim)
 #endif
 
    RETURN
+#ifdef WRF_TRACE_FINE
+CONTAINS
+
+   ! Fine checkpoint (build.sh --fine, WRF_BITTRACE=3; port/agent/DEBUGGING.md):
+   ! the level-3 fields of the grid and the scratch arrays of solve_em.
+   SUBROUTINE bt_fine_em(tag, rk)
+      CHARACTER(LEN=*), INTENT(IN) :: tag
+      INTEGER, INTENT(IN) :: rk
+      INTEGER :: m
+      CHARACTER(LEN=16) :: nm
+      CALL bt_context(grid, rk)
+      IF (.NOT. bt_on(grid, 3)) RETURN
+      CALL bt_checkpoint(grid, tag, 3, rk)
+      CALL bt_field3(grid, tag, 'RW_TEND',  rw_tend,  'Z', rk)
+      CALL bt_field3(grid, tag, 'PH_TEND',  ph_tend,  'Z', rk)
+      CALL bt_field3(grid, tag, 'T_TEND',   t_tend,   '-', rk)
+      CALL bt_field2(grid, tag, 'MU_TEND',  mu_tend,  '-', rk)
+      CALL bt_field3(grid, tag, 'RU_TENDF', ru_tendf, 'X', rk)
+      CALL bt_field3(grid, tag, 'RV_TENDF', rv_tendf, 'Y', rk)
+      CALL bt_field3(grid, tag, 'RW_TENDF', rw_tendf, 'Z', rk)
+      CALL bt_field3(grid, tag, 'PH_TENDF', ph_tendf, 'Z', rk)
+      CALL bt_field3(grid, tag, 'T_TENDF',  t_tendf,  '-', rk)
+      CALL bt_field2(grid, tag, 'MU_TENDF', mu_tendf, '-', rk)
+      CALL bt_field3(grid, tag, 'W_SAVE',   w_save,   'Z', rk)
+      CALL bt_field3(grid, tag, 'PH_SAVE',  ph_save,  'Z', rk)
+      CALL bt_field2(grid, tag, 'MU_SAVE',  mu_save,  '-', rk)
+      CALL bt_field3(grid, tag, 'T_2SAVE',  t_2save,  '-', rk)
+      CALL bt_field3(grid, tag, 'CQU',      cqu,      '-', rk)
+      CALL bt_field3(grid, tag, 'CQV',      cqv,      '-', rk)
+      CALL bt_field3(grid, tag, 'CQW',      cqw,      '-', rk)
+      CALL bt_field3(grid, tag, 'ALPHA',    alpha,    '-', rk)
+      CALL bt_field3(grid, tag, 'GAMMA',    gamma,    '-', rk)
+      CALL bt_field3(grid, tag, 'A',        a,        '-', rk)
+      CALL bt_field3(grid, tag, 'C2A',      c2a,      '-', rk)
+      CALL bt_field3(grid, tag, 'WWE',      wwE,      'Z', rk)
+      CALL bt_field3(grid, tag, 'WWI',      wwI,      'Z', rk)
+      DO m = 2, SIZE(moist_tend, 4)
+         WRITE (nm, '(a,i2.2)') 'MOIST_TEND', m
+         CALL bt_field3(grid, tag, TRIM(nm), moist_tend(:, :, :, m), '-', rk)
+      END DO
+   END SUBROUTINE bt_fine_em
+#endif
 
 END SUBROUTINE solve_em

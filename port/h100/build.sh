@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build WRF for the port (plan.md 4) on the H100 machine.
 #
-#   build.sh <mode> [--commit REV | --worktree] [--clean] [--fire-ideal] [--tag T]
+#   build.sh <mode> [--commit REV | --worktree] [--clean] [--fire-ideal] [--fine] [--tag T]
 #
 # mode        cpu-ref | gpu-repro | gpu-debug   (the NVHPC "GPU port" stanzas, dmpar)
 #             gnu                               (gfortran serial; only for testing these
@@ -13,6 +13,8 @@
 #               make recompiles what depends on them.  This is the edit-build-test loop.
 # --clean       remove the build directory first (--worktree) / rebuild (--commit)
 # --fire-ideal  also build ideal.exe of em_fire (main/ideal_fire.exe) for the smoke case
+# --fine        fine-tracing build: adds -DWRF_TRACE_FINE (level-3 checkpoints, port/agent/DEBUGGING.md);
+#               directory <...>-fine, mode <mode>-fine in BUILD_INFO.  Same arithmetic flags.
 #
 # The last line printed is the build directory.  BUILD_INFO in it records the
 # mode, the source (commit, or HEAD + md5 of the uncommitted diff), the
@@ -20,20 +22,23 @@
 # (GPU builds: -Minfo=mp lines show which loops were offloaded).
 set -euo pipefail
 source "$(dirname "$0")/common.sh"
-mode=${1:?usage: build.sh <cpu-ref|gpu-repro|gpu-debug|gnu> [--commit REV|--worktree] [--clean] [--fire-ideal] [--tag T]}
+mode=${1:?usage: build.sh <cpu-ref|gpu-repro|gpu-debug|gnu>[-fine] [--commit REV|--worktree] [--clean] [--fire-ideal] [--fine] [--tag T]}
 shift
-src=commit; rev=HEAD; clean=0; fire=0; tag=
+src=commit; rev=HEAD; clean=0; fire=0; tag=; fine=0
+case $mode in *-fine) mode=${mode%-fine}; fine=1 ;; esac
 while [ $# -gt 0 ]; do
   case $1 in
     --commit) src=commit; rev=${2:?}; shift ;;
     --worktree) src=worktree ;;
     --clean) clean=1 ;;
     --fire-ideal) fire=1 ;;
+    --fine) fine=1 ;;
     --tag) tag=${2:?}; shift ;;
     *) die "unknown option $1" ;;
   esac
   shift
 done
+[ $fine = 1 ] && tag=fine${tag:+-$tag}
 case $mode in
   cpu-ref)   stanza="GPU port CPU-REF";   kind=dmpar ;;
   gpu-repro) stanza="GPU port GPU-REPRO"; kind=dmpar ;;
@@ -75,6 +80,11 @@ if [ ! -f configure.wrf ]; then
   x bash -c "printf '%s\n1\n' $opt | NETCDF=$NETCDF ./configure > configure.log 2>&1" || die "configure failed ($out/configure.log)"
   [ -f configure.wrf ] || die "configure wrote no configure.wrf ($out/configure.log)"
   echo "$opt" > .configure_option
+  if [ $fine = 1 ]; then
+    # fine tracing: only a preprocessor macro; the arithmetic flags stay (check_build_flags.py)
+    sed -i -E '/^ARCH_LOCAL[[:space:]]*=/ { /-DWRF_TRACE_FINE/! s/$/ -DWRF_TRACE_FINE/ }' configure.wrf
+    grep -q -- '-DWRF_TRACE_FINE' configure.wrf || die "could not add -DWRF_TRACE_FINE to configure.wrf"
+  fi
 fi
 
 rm -f main/wrf.exe
@@ -93,7 +103,7 @@ if [ $fire = 1 ]; then
   mv main/wrf_real.exe main/wrf.exe
 fi
 {
-  echo "mode: $mode"
+  echo "mode: $mode$([ $fine = 1 ] && echo -fine)"
   echo "source: $source_desc"
   echo "configure: option $(cat .configure_option) ($stanza, $kind)"
   echo "built: $(date -u +%Y-%m-%dT%H:%M:%SZ) on $(hostname)"

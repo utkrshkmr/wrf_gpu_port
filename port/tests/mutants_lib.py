@@ -37,7 +37,9 @@ def run(test_file, mutants, after, args=("20",), extra_env=None):
         d = tempfile.mkdtemp()
         f = os.path.join(d, os.path.basename(test_file))
         open(f, "w").write(head + sep + tail.replace(old, new, 1))
-        c = subprocess.run(tc + FLAGS[comp] + ["-o", os.path.join(d, "m"), f], capture_output=True, text=True, cwd=d)
+        extra = os.environ.get("MUTANT_EXTRA_FLAGS", "").split()   # e.g. -DTMPL_NO_STMTFN (run_ref_tests.sh)
+        c = subprocess.run(tc + FLAGS[comp] + extra + ["-o", os.path.join(d, "m"), f], capture_output=True, text=True,
+                           cwd=d)
         if c.returncode != 0:
             print(f"FAIL  mutant '{name}' does not compile:\n{c.stderr[-2000:]}")
             bad += 1

@@ -235,7 +235,7 @@ cells) + 13 GB (RRTMG batch, local memory, context). `port/gpu_mem_estimate.py` 
 |---|---|---|---|---|
 | CPU-REF | CCR nodes; GPU-node hosts for `T-XM` | `-O2 -Kieee -Mnofma -Mnoflushz -Mnodaz -Mvect=noassoc -tp=haswell` | none | `-DREPRO_MATH -DWRF_POOL` |
 | GPU-REPRO | A100/H100 nodes | same | `-mp=gpu -gpu=cc80,cc90,nofma,noflushz -Minfo=mp,vect` | `-DREPRO_MATH -DWRF_POOL -DWRF_GPU` |
-| GPU-DEBUG | A100/H100 nodes | GPU-REPRO + `-g -traceback` | + `-gpu=lineinfo` | + `-DWRF_GPU_TRACE_FINE` |
+| GPU-DEBUG | A100/H100 nodes | GPU-REPRO + `-g -traceback` | + `-gpu=lineinfo` | + `-DWRF_TRACE_FINE` |
 
 `-Mvect=noassoc` stops the host vectorizer from reassociating floating-point reductions. The device evaluates
 sums in source order, so the host must too (e.g. `sum_2d_cells`, the Noah `DO K=1,NSOIL` sums, the WSM6 sums). If

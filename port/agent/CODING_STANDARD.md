@@ -109,6 +109,8 @@ The default kernel directive, for every kernel:
 !$omp& shared(<arrays>) firstprivate(<scalars read>) private(<scalars and fixed-size arrays written>)
 ```
 
+- A comment with the kernel ID directly above the directive (at most 3 lines above), e.g.
+  `! K-ADVU-Y1: face fluxes (Template B)`. `kernel_off.py` finds kernels by this ID (DEBUGGING.md §2).
 - `default(none)` always: every variable must be listed; the compiler then tells you what you forgot.
 - `collapse(N)`: N perfectly nested `DO` loops follow (no statement between them). `N=3` for (j,k,i) pointwise,
   `N=2` for (j,i) columns and 2D fields.
@@ -184,8 +186,11 @@ direction.
 - Scalars the callee reads from its module (constants, tables) must be `declare target` data uploaded by P1.4.
 - The callee must not do I/O, allocate, call `wrf_error_fatal` or use `grid%`/`config_flags%` (return an error code
   instead; §7).
-- Statement functions (`flux5`, WSM6's `cpmcal`, ...) may stay if probe F-STMTFN passed; otherwise convert each to a
-  `PURE` internal function with the identical expression and `!$omp declare target`.
+- Statement functions (`flux5`, WSM6's `cpmcal`, ...) may stay if probe F-STMTFN passed (and `ref_tests.sh` printed
+  no NOTE about them). Otherwise convert each to a `PURE` **module** function (not an internal one: F-INTPROC)
+  with the identical expression and `!$omp declare target`, and pass as arguments the host variables the statement
+  function used (e.g. `time_step` in `flux3`/`flux5`). The worked example is the `TMPL_NO_STMTFN` form of
+  `port/tests/templates/t_tmpl_b.F90`.
 
 ### 5.5 Template G — boundary strips
 
@@ -259,4 +264,5 @@ and their `END IF`; directive lines. Everything else goes under `#ifdef WRF_GPU`
 - [ ] error branches and messages converted (§7);
 - [ ] `static.sh` PASS; build shows the kernels offloaded (`-Minfo=mp`);
 - [ ] `t_ab.sh <route> W-20` and `t_trace.sh W-20` PASS;
+- [ ] every kernel has its `! K-...` ID comment; no `KOFF-TEMP` edit left (static.sh checks);
 - [ ] kernels.csv and the workbook updated; commit names kernel IDs and tests.

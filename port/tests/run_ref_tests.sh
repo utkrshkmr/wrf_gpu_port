@@ -26,7 +26,17 @@ export ALLOW_HOST=$([ "$comp" = gnu ] && echo 1 || echo 0)
 run_dir pdlim
 run_dir kiss
 run_dir ozn
-run_dir templates
+# templates: if the compiler rejects statement functions in device code (probe F-STMTFN),
+# template B is built in its module-function form (t_tmpl_b.F90, TMPL_NO_STMTFN)
+if ! ( cd "$here/templates" && make -s COMPILER=$comp clean >/dev/null 2>&1; ${TC:-} make -s COMPILER=$comp > build.log 2>&1 ); then
+  if ( cd "$here/templates" && make -s COMPILER=$comp clean >/dev/null 2>&1; \
+       ${TC:-} make -s COMPILER=$comp TMPL_B_FLAGS=-DTMPL_NO_STMTFN > build.log 2>&1 ); then
+    say NOTE "templates: statement functions rejected in device code; template B built with -DTMPL_NO_STMTFN (module functions): use that form in WRF (CODING_STANDARD.md)"
+    export MUTANT_EXTRA_FLAGS=-DTMPL_NO_STMTFN
+  else
+    say FAIL "templates: build (see port/tests/templates/build.log)"; fail=1
+  fi
+fi
 for t in "pdlim ./t_pdlim 200" "kiss ./t_kiss 1000000" "ozn ./t_ozn 20" \
          "templates ./t_tmpl_b 20" "templates ./t_tmpl_c 20" "templates ./t_tmpl_g 5"; do
   set -- $t; d=$1; shift

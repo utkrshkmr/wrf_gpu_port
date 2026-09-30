@@ -27,6 +27,9 @@ MODULE module_em
    USE module_llxy
 
    USE module_domain, ONLY : domain, get_ijk_from_grid
+#ifdef WRF_TRACE_FINE
+   USE module_bittrace, ONLY : bt_fine_on, bt_fine2, bt_fine3
+#endif
 
    USE module_configure, ONLY: grid_config_rec_type, model_config_rec, model_to_grid_config_rec
 
@@ -421,11 +424,17 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                     ids, ide, jds, jde, 1, 1, &
                     ims, ime, jms, jme, 1, 1, &
                     its, ite, jts, jte, 1, 1 )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('zero_tend2d', rk_step)
+#endif
 
    CALL zero_tend2d( mu_save,                  &
                     ids, ide, jds, jde, 1, 1, &
                     ims, ime, jms, jme, 1, 1, &
                     its, ite, jts, jte, 1, 1 )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('zero_tend2d', rk_step)
+#endif
 
    CALL nl_get_time_step ( 1, time_step )
 
@@ -445,6 +454,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                  ids, ide, jds, jde, kds, kde,     &
                  ims, ime, jms, jme, kms, kme,     &
                  its, ite, jts, jte, kts, kte )              
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('ww_split', rk_step)
+#endif
 
 ! IEVA ON/OFF
    
@@ -458,6 +470,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                         ids, ide, jds, jde, 1, 2,  &
                         ims, ime, jms, jme, 1, 1,  &
                         its, ite, jts, jte, 1, 1 )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('calculate_full', rk_step)
+#endif
 
 ! Estimate new temporary column mass
                         
@@ -469,6 +484,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                        ids, ide, jds, jde, kds, kde,        &
                        ims, ime, jms, jme, kms, kme,        &
                        its, ite, jts, jte, kts, kte    )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('calc_mut_new', rk_step)
+#endif
                          
 ! Create staggered mass values for u and v points
 
@@ -477,12 +495,18 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                        ids, ide, jds, jde, kds, kde, &
                        ims, ime, jms, jme, kms, kme, &
                        its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('calc_mu_uv_1', rk_step)
+#endif
                       
    CALL calc_mu_uv_1 ( config_flags,                 &
                        mut_new, muu_new, muv_new,    &
                        ids, ide, jds, jde, kds, kde, &
                        ims, ime, jms, jme, kms, kme, &
                        its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('calc_mu_uv_1', rk_step)
+#endif
 
    ENDIF
 
@@ -499,6 +523,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                           ids, ide, jds, jde, kds, kde, &
                           ims, ime, jms, jme, kms, kme, &
                           its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('advect_weno_u', rk_step)
+#endif
 
    ELSE
 
@@ -511,6 +538,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                      ids, ide, jds, jde, kds, kde, &
                      ims, ime, jms, jme, kms, kme, &
                      its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('advect_u', rk_step)
+#endif
    ENDIF
 
    IF( ieva ) THEN
@@ -527,6 +557,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                               ids, ide, jds, jde, kds, kde,    &
                               ims, ime, jms, jme, kms, kme,    &
                               its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('advect_u_implicit', rk_step)
+#endif
    ENDIF
 
    IF( (rk_step == rk_order) .and. ( adv_opt == WENO_MOM ) ) THEN
@@ -540,6 +573,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                            ids, ide, jds, jde, kds, kde, &
                            ims, ime, jms, jme, kms, kme, &
                            its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('advect_weno_v', rk_step)
+#endif
 
    ELSE
 
@@ -552,6 +588,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                      ids, ide, jds, jde, kds, kde, &
                      ims, ime, jms, jme, kms, kme, &
                      its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('advect_v', rk_step)
+#endif
    ENDIF
 
    IF( ieva ) THEN
@@ -568,6 +607,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                               ids, ide, jds, jde, kds, kde,    &
                               ims, ime, jms, jme, kms, kme,    &
                               its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('advect_v_implicit', rk_step)
+#endif
    ENDIF
 
    IF (non_hydrostatic) THEN
@@ -583,6 +625,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                             ids, ide, jds, jde, kds, kde, &
                             ims, ime, jms, jme, kms, kme, &
                             its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('advect_weno_w', rk_step)
+#endif
 
      ELSE
      
@@ -595,6 +640,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                        ids, ide, jds, jde, kds, kde, &
                        ims, ime, jms, jme, kms, kme, &
                        its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('advect_w', rk_step)
+#endif
      ENDIF
 
    ENDIF  ! non-hydrostatic
@@ -620,6 +668,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                ids, ide, jds, jde, kds, kde,  &
                                ims, ime, jms, jme, kms, kme,  &
                                its, ite, jts, jte, kts, kte  )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('advect_scalar_weno', rk_step)
+#endif
    ELSE
 
      CALL advect_scalar ( t, t, t_tend, ru, rv, wwE,    &
@@ -631,6 +682,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                           ids, ide, jds, jde, kds, kde, &
                           ims, ime, jms, jme, kms, kme, &
                           its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('advect_scalar', rk_step)
+#endif
 
    ENDIF
 
@@ -648,6 +702,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                               ids, ide, jds, jde, kds, kde,   &
                               ims, ime, jms, jme, kms, kme,   &
                               its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('advect_s_implicit', rk_step)
+#endif
 
    ENDIF
      
@@ -662,6 +719,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                     ids, ide, jds, jde, kds, kde,    &
                     ims, ime, jms, jme, kms, kme,    &
                     its, ite, jts, jte, kts, kte     )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('set_tend', rk_step)
+#endif
 
    END IF
 
@@ -678,6 +738,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                 ids, ide, jds, jde, kds, kde,      &
                 ims, ime, jms, jme, kms, kme,      &
                 its, ite, jts, jte, kts, kte      )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('rhs_ph', rk_step)
+#endif
 
     IF( ieva ) THEN
       
@@ -693,6 +756,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                   ids, ide, jds, jde, kds, kde,   &
                                   ims, ime, jms, jme, kms, kme,   &
                                   its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('advect_ph_implicit', rk_step)
+#endif
 
      IF (non_hydrostatic) THEN
       
@@ -710,6 +776,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                 ids, ide, jds, jde, kds, kde,   &
                                 ims, ime, jms, jme, kms, kme,   &
                                 its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('advect_w_implicit', rk_step)
+#endif
      ENDIF
      
    ENDIF  ! IEVA
@@ -725,6 +794,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                        ids, ide, jds, jde, kds, kde,   &
                                        ims, ime, jms, jme, kms, kme,   &
                                        its, ite, jts, jte, kts, kte   )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('horizontal_pressure_gradient', rk_step)
+#endif
 
    IF (non_hydrostatic) THEN
         CALL pg_buoy_w( rw_tend, p, cqw, mu, mub,       &
@@ -733,6 +805,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                         ids, ide, jds, jde, kds, kde,   &
                         ims, ime, jms, jme, kms, kme,   &
                         its, ite, jts, jte, kts, kte   )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('pg_buoy_w', rk_step)
+#endif
    ENDIF
 
    CALL w_damp   ( rw_tend, max_vert_cfl,             &
@@ -743,6 +818,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                     ids, ide, jds, jde, kds, kde,     &
                     ims, ime, jms, jme, kms, kme,     &
                     its, ite, jts, jte, kts, kte     )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('w_damp', rk_step)
+#endif
 
    IF(config_flags%pert_coriolis) THEN
 
@@ -757,6 +835,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                      ids, ide, jds, jde, kds, kde, &
                                      ims, ime, jms, jme, kms, kme, &
                                      its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('perturbation_coriolis', rk_step)
+#endif
    ELSE
         CALL coriolis ( ru, rv, rw,                   &
                         ru_tend,  rv_tend,  rw_tend,  &
@@ -767,6 +848,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                         ids, ide, jds, jde, kds, kde, &
                         ims, ime, jms, jme, kms, kme, &
                         its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('coriolis', rk_step)
+#endif
 
    END IF
 
@@ -779,6 +863,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                      ids, ide, jds, jde, kds, kde,   &
                      ims, ime, jms, jme, kms, kme,   &
                      its, ite, jts, jte, kts, kte   )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('curvature', rk_step)
+#endif
 
 ! Damping option added for Held-Suarez test (also uses lw option HELDSUAREZ)
 
@@ -788,6 +875,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                ids, ide, jds, jde, kds, kde,   &
                                ims, ime, jms, jme, kms, kme,   &
                                its, ite, jts, jte, kts, kte   )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('held_suarez_damp', rk_step)
+#endif
     END IF
 
 !**************************************************************
@@ -809,6 +899,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                         ids, ide, jds, jde, kds, kde,   &
                                         ims, ime, jms, jme, kms, kme,   &
                                         its, ite, jts, jte, kts, kte   )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('horizontal_diffusion', rk_step)
+#endif
 
         CALL horizontal_diffusion ('v', v, rv_tendf, mut,               &
                                         c1h, c2h, config_flags,         &
@@ -818,6 +911,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                         ids, ide, jds, jde, kds, kde,   &
                                         ims, ime, jms, jme, kms, kme,   &
                                         its, ite, jts, jte, kts, kte   )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('horizontal_diffusion', rk_step)
+#endif
 
         CALL horizontal_diffusion ('w', w, rw_tendf, mut,               &
                                         c1f, c2f, config_flags,         &
@@ -827,6 +923,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                         ids, ide, jds, jde, kds, kde,   &
                                         ims, ime, jms, jme, kms, kme,   &
                                         its, ite, jts, jte, kts, kte   )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('horizontal_diffusion', rk_step)
+#endif
 
         khdq = 3.*khdif
         CALL horizontal_diffusion_3dmp ( 'm', t, t_tendf, mut,            &
@@ -838,6 +937,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                          ids, ide, jds, jde, kds, kde,    &
                                          ims, ime, jms, jme, kms, kme,    &
                                          its, ite, jts, jte, kts, kte    )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('horizontal_diffusion_3dmp', rk_step)
+#endif
 
         pbl_test : IF (config_flags%bl_pbl_physics .eq. 0) THEN
 
@@ -847,6 +949,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                       ids, ide, jds, jde, kds, kde,   &
                                       ims, ime, jms, jme, kms, kme,   &
                                       its, ite, jts, jte, kts, kte   )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('vertical_diffusion_u', rk_step)
+#endif
 
           CALL vertical_diffusion_v ( v, rv_tendf, config_flags,      &
                                       v_base, c1h, c2h,               &
@@ -854,6 +959,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                       ids, ide, jds, jde, kds, kde,   &
                                       ims, ime, jms, jme, kms, kme,   &
                                       its, ite, jts, jte, kts, kte   )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('vertical_diffusion_v', rk_step)
+#endif
 
           IF (non_hydrostatic)                                           &
           CALL vertical_diffusion ( 'w', w, rw_tendf, config_flags,      &
@@ -862,6 +970,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                     ids, ide, jds, jde, kds, kde,        &
                                     ims, ime, jms, jme, kms, kme,        &
                                     its, ite, jts, jte, kts, kte        )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('vertical_diffusion', rk_step)
+#endif
 
           kvdq = 3.*kvdif
           CALL vertical_diffusion_3dmp ( t, t_tendf, config_flags, t_init,     &
@@ -870,6 +981,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                          ids, ide, jds, jde, kds, kde,         &
                                          ims, ime, jms, jme, kms, kme,         &
                                          its, ite, jts, jte, kts, kte         )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('vertical_diffusion_3dmp', rk_step)
+#endif
 
         ENDIF pbl_test
 
@@ -890,6 +1004,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                        ids, ide, jds, jde, kds, kde,  &
                                        ims, ime, jms, jme, kms, kme,  &
                                        its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('sixth_order_diffusion', rk_step)
+#endif
 
       CALL sixth_order_diffusion( 'v', v, rv_tendf, mut, dt,          &
                                        config_flags, c1h, c2h,        &
@@ -902,6 +1019,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                        ids, ide, jds, jde, kds, kde,  &
                                        ims, ime, jms, jme, kms, kme,  &
                                        its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('sixth_order_diffusion', rk_step)
+#endif
 
       IF (non_hydrostatic)                                            &
       CALL sixth_order_diffusion( 'w', w, rw_tendf, mut, dt,          &
@@ -915,6 +1035,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                        ids, ide, jds, jde, kds, kde,  &
                                        ims, ime, jms, jme, kms, kme,  &
                                        its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('sixth_order_diffusion', rk_step)
+#endif
 
       CALL sixth_order_diffusion( 'm', t,  t_tendf, mut, dt,          &
                                        config_flags, c1h, c2h,        &
@@ -927,6 +1050,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                                        ids, ide, jds, jde, kds, kde,  &
                                        ims, ime, jms, jme, kms, kme,  &
                                        its, ite, jts, jte, kts, kte )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('sixth_order_diffusion', rk_step)
+#endif
 
     ENDIF
 
@@ -941,6 +1067,9 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                               ids, ide, jds, jde, kds, kde,    &
                               ims, ime, jms, jme, kms, kme,    &
                               its, ite, jts, jte, kts, kte   )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('rk_rayleigh_damp', rk_step)
+#endif
 
     IF( rad_nudge .eq. 1 )                                     &
        CALL theta_relaxation( t_tendf, t, t_init,              &
@@ -949,8 +1078,45 @@ SUBROUTINE rk_tendency ( config_flags, rk_step,                           &
                               ids, ide, jds, jde, kds, kde,    &
                               ims, ime, jms, jme, kms, kme,    &
                               its, ite, jts, jte, kts, kte   )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_rkt('theta_relaxation', rk_step)
+#endif
 
   END IF forward_step
+#ifdef WRF_TRACE_FINE
+CONTAINS
+
+   ! Fine checkpoint inside rk_tendency (build.sh --fine, WRF_BITTRACE=3;
+   ! port/agent/DEBUGGING.md): the tendencies after each routine it calls.
+   SUBROUTINE bt_fine_rkt(tag, rk)
+      CHARACTER(LEN=*), INTENT(IN) :: tag
+      INTEGER, INTENT(IN) :: rk
+      IF (.NOT. bt_fine_on()) RETURN
+      CALL bt_fine3('rkt:'//tag, 'RU_TEND',  ru_tend,  'X', ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, &
+                    its, ite, jts, jte, kts, kte)
+      CALL bt_fine3('rkt:'//tag, 'RV_TEND',  rv_tend,  'Y', ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, &
+                    its, ite, jts, jte, kts, kte)
+      CALL bt_fine3('rkt:'//tag, 'RW_TEND',  rw_tend,  'Z', ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, &
+                    its, ite, jts, jte, kts, kte)
+      CALL bt_fine3('rkt:'//tag, 'PH_TEND',  ph_tend,  'Z', ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, &
+                    its, ite, jts, jte, kts, kte)
+      CALL bt_fine3('rkt:'//tag, 'T_TEND',   t_tend,   '-', ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, &
+                    its, ite, jts, jte, kts, kte)
+      CALL bt_fine2('rkt:'//tag, 'MU_TEND',  mu_tend,  '-', ids, ide, jds, jde, ims, ime, jms, jme, its, ite, jts, jte)
+      CALL bt_fine3('rkt:'//tag, 'RU_TENDF', ru_tendf, 'X', ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, &
+                    its, ite, jts, jte, kts, kte)
+      CALL bt_fine3('rkt:'//tag, 'RV_TENDF', rv_tendf, 'Y', ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, &
+                    its, ite, jts, jte, kts, kte)
+      CALL bt_fine3('rkt:'//tag, 'RW_TENDF', rw_tendf, 'Z', ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, &
+                    its, ite, jts, jte, kts, kte)
+      CALL bt_fine3('rkt:'//tag, 'PH_TENDF', ph_tendf, 'Z', ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, &
+                    its, ite, jts, jte, kts, kte)
+      CALL bt_fine3('rkt:'//tag, 'T_TENDF',  t_tendf,  '-', ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, &
+                    its, ite, jts, jte, kts, kte)
+      CALL bt_fine3('rkt:'//tag, 'WWE',      wwE,      'Z', ids, ide, jds, jde, kds, kde, ims, ime, jms, jme, kms, kme, &
+                    its, ite, jts, jte, kts, kte)
+   END SUBROUTINE bt_fine_rkt
+#endif
 
 END SUBROUTINE rk_tendency
 
