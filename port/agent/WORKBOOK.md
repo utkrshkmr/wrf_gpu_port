@@ -21,7 +21,7 @@ How to update, after every task (and at the end of every work session, even if t
 - Builds: none yet on the H100 machine
 - Dev references: not made yet (no Eaton inputs; smoke case S-3M until they arrive)
 - Blockers: none
-- Next step: H0.1 — write port/h100/env.local.sh (WORK on a disk with >=300 GB free, CONTAINER=docker if the daemon runs, else the runtime that works without root, IMAGE as ENV_H100.md, CPU_RANKS=64, GPU_ID=0, CASE_INPUTS left at the default), then setup_toolchain.sh image, deps, python, check
+- Next step: H0.1 — `setup_toolchain.sh deps` is rebuilding HDF5 and netCDF after the URL fix; when it ends with toolchain: PASS, record versions in port/ENVIRONMENT.md and tick H0.1, then H0.2 (T-FMA first)
 - Pending the case data: H0.6; H0.7; H0.8 on W-20; t_trace.sh W-T0; t_trace.sh W-20; t_upd.sh; t_selftest.sh; t_nsys.sh W-20; t_mem.sh 55; g1.sh
 
 ### Owner decisions (override the cards)
@@ -104,6 +104,12 @@ How to update, after every task (and at the end of every work session, even if t
 - [ ] P7.2 Onboarding guide for a new case
 
 ## Log
+
+### 2026-09-30 H0.1 Toolchain image and HDF5 URL
+- Image `nvcr.io/nvidia/nvhpc:25.1-devel-cuda12.6-ubuntu22.04` pulled to `$WORK/images/nvhpc.sif` (6.4 GB). `x nvidia-smi -L` shows four H100 80 GB; `x nvfortran --version` is 25.1-0. Host Python env has numpy 2.5.3, netCDF4 1.7.4, mpmath.
+- Apptainer is a user-space 1.5.4 binary. Ubuntu 24.04 AppArmor blocks user namespaces, so `~/.local/bin/apptainer` runs the real binary inside `/usr/bin/rootlesskit`. Not a repo change.
+- `setup_toolchain.sh deps` built ncurses 6.4 and tcsh 6.24.13, then died: HDF5 download 404. Tool fix: tag `hdf5_1.14.4.3`. Rerun of deps is in `$WORK/deps_build.log`.
+- No timeout. Eaton inputs still absent.
 
 ### 2026-09-30 SETUP Reading
 - The 11 rules: never change arithmetic; GPU code only under WRF_GPU; never edit locked tests, checkers or gates; one routine per commit (WIP allowed); static.sh before every commit and T-AB plus T-TRACE before done; keep the workbook current; push only to agent/phase-N and never force-push; port the lines ref.py shows; no root, so the toolchain runs in the container through x; after three honest attempts write BLOCKERS.md and move on; stay inside the context budget and checkpoint.

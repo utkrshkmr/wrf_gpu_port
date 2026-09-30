@@ -63,8 +63,10 @@ case ${1:-check} in
     if ! x bash -c "$NETCDF/bin/nf-config --fc 2>/dev/null | grep -q nvfortran"; then
       note "building HDF5, netCDF-C, netCDF-Fortran with nvc/nvfortran into $NETCDF (30-60 min)"
       H=hdf5-$HDF5_VERSION
-      fetch https://github.com/HDFGroup/hdf5/releases/download/hdf5_$HDF5_VERSION/$H.tar.gz $H.tar.gz \
-        || fetch https://support.hdfgroup.org/ftp/HDF5/releases/$H/src/$H.tar.gz $H.tar.gz || die "download HDF5"
+      # The 1.14.4-3 tarball is published under tag hdf5_1.14.4.3 (dots, not the
+      # hyphenated version). The old support.hdfgroup.org FTP path is gone.
+      fetch "https://github.com/HDFGroup/hdf5/releases/download/hdf5_${HDF5_VERSION//-/.}/$H.tar.gz" "$H.tar.gz" \
+        || die "download HDF5"
       fetch https://github.com/Unidata/netcdf-c/archive/refs/tags/v$NETCDF_C_VERSION.tar.gz nc.tar.gz || die "download netCDF-C"
       fetch https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v$NETCDF_F_VERSION.tar.gz nf.tar.gz || die "download netCDF-Fortran"
       rm -rf hdf5-*/ netcdf-c-*/ netcdf-fortran-*/; tar xzf $H.tar.gz; tar xzf nc.tar.gz; tar xzf nf.tar.gz

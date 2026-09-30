@@ -22,3 +22,4 @@ A tool fix must not change what is compared or how:
 
 | date | files | problem (command and error) | fix | unchanged (why the comparison is not affected) |
 |---|---|---|---|---|
+| 2026-09-30 | port/h100/setup_toolchain.sh | `setup_toolchain.sh deps` died with `ERROR: download HDF5`. Both URLs 404: GitHub tag `hdf5_1.14.4-3` does not exist, and `support.hdfgroup.org/ftp/HDF5/releases/` is gone. tcsh had already built. | Download `hdf5-1.14.4-3.tar.gz` from release tag `hdf5_1.14.4.3` (hyphens in the version become dots in the tag). | Only the HDF5 source URL. The library version, the nvfortran netCDF build, and every comparison stay the same. |
