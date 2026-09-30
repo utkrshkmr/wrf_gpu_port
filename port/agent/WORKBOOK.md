@@ -20,7 +20,7 @@ How to update, after every task (and at the end of every work session, even if t
 - Last gate passed: G0, local part only (CPU, gfortran; see port/RESULTS.md)
 - Builds: none yet on the H100 machine
 - Dev references: not made yet (no Eaton inputs; smoke case S-3M until they arrive)
-- Blockers: none
+- Blockers: B1 open — ticking H0.1 makes the locked workbook self-test a no-op (static.sh tools FAIL). H0.1 itself passed.
 - Next step: H0.2 — in port/tests/repro_math, `make fma_cases.bin` on the host, then `x make` and `CUDA_VISIBLE_DEVICES=$GPU_ID x ./run_tests.sh` (T-FMA first). If T-FMA fails, stop and write BLOCKERS.md.
 - Pending the case data: H0.6; H0.7; H0.8 on W-20; t_trace.sh W-T0; t_trace.sh W-20; t_upd.sh; t_selftest.sh; t_nsys.sh W-20; t_mem.sh 55; g1.sh
 
@@ -37,7 +37,7 @@ How to update, after every task (and at the end of every work session, even if t
 ## Task checklist
 
 ### H0 — entry tasks on the H100 machine (PHASE1.md §0)
-- [x] H0.1 Toolchain installed and checked (setup_toolchain.sh check), versions in port/ENVIRONMENT.md — commit 10c3f22 — tests toolchain: PASS
+- [ ] H0.1 Toolchain installed and checked (setup_toolchain.sh check), versions in port/ENVIRONMENT.md — done in fact (commit 10c3f22, toolchain: PASS) but left unticked: see BLOCKERS.md B1
 - [ ] H0.2 Reproducible-math checks on the H100 (T-FMA first, T-IEEE, T-IPOW, T-RM-EXH, T-RM-POW, T-RM-D)
 - [ ] H0.3 OpenMP feature probes F-* run, decisions recorded in port/ENVIRONMENT.md
 - [ ] H0.4 Reference tests on the GPU (port/gates/ref_tests.sh)
@@ -104,6 +104,9 @@ How to update, after every task (and at the end of every work session, even if t
 - [ ] P7.2 Onboarding guide for a new case
 
 ## Log
+
+### 2026-09-30 H0.1 checkbox left open (B1)
+- Commit 78611a4 ticked H0.1. static.sh then failed: test_agent_tools.py only detects a bad tick by rewriting the still-open `- [ ] H0.1` line. The box is open again so static.sh passes. The check itself passed; see BLOCKERS.md B1.
 
 ### 2026-09-30 H0.1 toolchain check PASS
 - `setup_toolchain.sh check` printed `toolchain: PASS`. nvfortran 25.1-0, netCDF-Fortran 4.6.1 built with nvfortran, tcsh 6.24.13, four H100 80 GB, driver 570.211.01. Versions are in port/ENVIRONMENT.md.
