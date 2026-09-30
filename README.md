@@ -7,6 +7,8 @@ included.
 For the GPU porting guide (architecture, time-step kernels, data movement, porting plan and
 verification), see [explain-wrf.md](explain-wrf.md). The step-by-step execution plan for A100 80 GB and
 H100 80 GB (tasks, kernels, wiring, tests, gates and performance analysis) is [plan.md](plan.md).
+Phase 0 (tools, tests, reproducible math, tracer) is in [port/](port/README.md); the instructions for implementing
+Phases 1–7 on an H100 machine are [AGENTS.md](AGENTS.md) and [port/agent/](port/agent/README.md).
 
 | Directory          | Upstream                                              | Version                       | Commit                                     |
 |--------------------|-------------------------------------------------------|-------------------------------|--------------------------------------------|

@@ -5,6 +5,12 @@ every task, the code to write and where to wire it in, every test, every verific
 analysis. The design rationale is in [explain-wrf.md](explain-wrf.md); this file is the executable to-do list.
 Line numbers refer to the unmodified WRF v4.6.0 sources in `WRF/`.
 
+**Implementation of Phases 1–7 on the H100 machine:** start with [AGENTS.md](AGENTS.md) and
+[port/agent/README.md](port/agent/README.md) (workflow, coding standard with tested templates, phase task cards, the
+generated per-kernel source references `port/agent/KERNEL_REFS.md` in current line numbers, the workbook). Where the
+agent documents refine this plan (islands, window lengths, K-PD-L3, K-OZP), they say so and they take precedence;
+the list is in "Refinements during Phase 0 and the agent handoff" at the end of this file.
+
 ---
 
 ## 0. How to use this plan
@@ -618,9 +624,9 @@ and 02:20 (the latter via a restart run with `restart_interval = 20`).
 
 | Window | Definition |
 |---|---|
-| `W-20` | 20 d02 steps from 02:20 |
-| `W-100` | 100 d02 steps from 02:20 |
-| `W-RAD` | 720 d02 steps (80 d01 steps) from 02:20, containing 4 radiation calls on each domain |
+| `W-20` | 9 s from 02:20 = 3 d01 steps = 27 d02 steps (a window must end on a d01 step) |
+| `W-100` | 36 s from 02:20 = 12 d01 steps = 108 d02 steps |
+| `W-RAD` | 240 s from 02:20 = 80 d01 steps = 720 d02 steps, containing 4 radiation calls on each domain |
 
 ### G0 — Phase 0 gate
 
@@ -1036,8 +1042,8 @@ acoustic launches. Fusion is optional and comes after G5 (§11.3, O2 and O7).
 | K-PD-Z | z-fluxes (7595–7645) | A per (i,k,j), with the k=1/kde zero writes as a separate small kernel first (K-PD-Z0). Keep the `c1(k)*mut+c2(k)` half-level quirk. |
 | K-PD-L1 | limiter (a) `ph_low` (7724–7741) | A |
 | K-PD-L2 | limiter (b) `flux_out` (7743–7758) | A |
-| K-PD-L3a | limiter (c1), over **exactly the source's cell range** `[i_start,i_end]×[kts,ktf]×[j_start,j_end]` (ADV:7762ff): `scl(i,k,j) = max(0.,ph_low/(flux_out+eps))` if `flux_out > ph_low`, else `scl = -1.0` (sentinel, "not limited") | A (new work array `scl`) |
-| K-PD-L3b | limiter (c2), per **face**, applying the source's rules exactly (ADV:7762–7779). **x-face f:** if `fqx(f) > 0` and the donor cell `f-1` is inside the cell range with `scl ≥ 0`, then `fqx(f) = scl(f-1)*fqx(f)`; else if `fqx(f) < 0` and cell `f` is inside the range with `scl ≥ 0`, then `fqx(f) = scl(f)*fqx(f)`; otherwise unchanged. This includes `fqx(f) == 0` (both tests strict, as in the source) and faces whose donor is outside the range (e.g. inflow at `i_start`, outflow at `i_end+1`). **y** is the same with j. **z** uses the reversed sign: `fqz(k) < 0` → donor `k-1`, `fqz(k) > 0` → donor `k`. Faces are only visited over the index ranges the source can reach. | A over faces (3 kernels: x, y, z). One multiply per face, by the same factor as the source, for exactly the faces the source scales. Identical results and no read/write race. **Unit test `T-PDLIM`:** host original vs split version on random and real states, including zero fluxes and range edges, bitwise. |
+| K-PD-L3a | limiter (c1), over **exactly the source's cell range** `[i_start,i_end]×[kts,ktf]×[j_start,j_end]` (ADV:7762ff): `scl(i,k,j) = max(0.,ph_low/(flux_out+eps))` if `flux_out > ph_low`, plus a logical work array `lim(i,k,j) = flux_out > ph_low` ("limited"; refined from a `-1.0` sentinel, see the end of this file) | A (new work arrays `scl`, `lim`) |
+| K-PD-L3b | limiter (c2), per **face**, applying the source's rules exactly (ADV:7762–7779). **x-face f:** if `fqx(f) > 0` and the donor cell `f-1` is inside the cell range with `lim(f-1)`, then `fqx(f) = scl(f-1)*fqx(f)`; else if `fqx(f) < 0` and cell `f` is inside the range with `lim(f)`, then `fqx(f) = scl(f)*fqx(f)`; otherwise unchanged. This includes `fqx(f) == 0` (both tests strict, as in the source) and faces whose donor is outside the range (e.g. inflow at `i_start`, outflow at `i_end+1`). **y** is the same with j. **z** uses the reversed sign: `fqz(k) < 0` → donor `k-1`, `fqz(k) > 0` → donor `k`. Faces are only visited over the index ranges the source can reach. | A over faces (3 kernels: x, y, z). One multiply per face, by the same factor as the source, for exactly the faces the source scales. Identical results and no read/write race. **Unit test `T-PDLIM`:** host original vs split version on random and real states, including zero fluxes and range edges, bitwise. |
 | K-PD-D | divergence z, x, y (7785–7883) | A ×3, in source order |
 | K-RLXS | `relax_bdy_scalar` (BCE:348) | K-MW + K-RLX-*; `rscalar` → work array |
 | K-SPS | `spec_bdy_scalar` (BCE:658) | K-SPT-* |
@@ -1235,7 +1241,7 @@ indices; each column performs the same operations in the same order.
 | K-RAD-CF0, K-RAD-CF1 | zero `CLDFRA` (RD:1310–1316); `cal_cldfra1` (RD:3761–3986) | A 3D (`rp_exp` ×2, `rp_pow` ×2) |
 | K-RAD-Z | RD:1719–1743 | A: zero GSW, GLW, SWDOWN, `swddir`, `swddni`, `swddif`; GLAT/GLON; zero `RTHRATEN*` and `CEMISS` for k=kts..kte+1 |
 | K-OZT | `ozn_time_int` (RD:4864–4969), **d01 only** | A over (i, 59 levels, j) |
-| K-OZP | `ozn_p_int` (RD:4971–5105), **d01 only** | **Rewrite per column:** the original shares a `kkstart`/`kount` search shortcut across `i` in a j-slab (`goto 35`). The per-column version searches the same bracket for each level, so it gives the same index and weights and therefore identical results. `wrf_error_fatal` (RD:5097) → error code. |
+| K-OZP | `ozn_p_int` (RD:4971–5105), **d01 only** | **One thread per j-row** (refined; see the end of this file): the original shares a `kkstart`/`kount` search shortcut across `i` in a j-slab (`goto 35`), so a column's result can depend on the other columns of its row. The row-parallel version keeps the row's i loops unchanged inside one thread; `pmid` and `kupper` become work arrays with a j index; `goto 35` becomes a flag and `EXIT`; `wrf_error_fatal` (RD:5097) → error code. Reference: `port/tests/ozn/t_ozn.F90`. |
 | host | `read_CAMgases` (LW:11969) | called once per radiation call on the host (outside kernels); returns the scalars `co2`, `n2o`, `ch4`, `cfc11`, `cfc12` (REAL(8)); passed as kernel firstprivates |
 | hoist | `RRTMG_LWINIT` (RD:2041) → `rrtmg_lw_ini` (LW:7976–8123) | Called every radiation call in the source; it rebuilds identical host tables. Call it **once** at init (after `phy_init`) and upload the tables (P1.4). `NLAYERS = kme + nint(p_top*0.01/4) − 1 = 109` for this case (module variable, constant). Bit-neutral; `T-TAB` verifies the table checksums. |
 | K-RRTMG-* | `RRTMG_LWRAD` (LW:11570–12838) | See the RRTMG design below. |
@@ -1280,8 +1286,8 @@ indices; each column performs the same operations in the same order.
 **Tests:**
 
 - `T-KISS`: `kissvec` streams for 10⁶ seeds, host vs device, bitwise (checks 32-bit wraparound).
-- `T-OZN`: the per-column `ozn_p_int` vs the original slab version on the host, for all d01 columns at 6 dates,
-  bitwise.
+- `T-OZN`: the row-parallel `ozn_p_int` vs the original (`port/tests/ozn/`), host and device, bitwise, including
+  non-monotone columns and levels exactly at ozone levels.
 - `T-RRTMG-COL`: 10⁵ columns from the CPU-REF state at 02:00 and 12:00, host vs device, bitwise
   (`rthratenlw`, `glw`, fluxes).
 - `T-AB-radiation_driver` on window `W-RAD`.
@@ -1544,7 +1550,7 @@ For each new case `cases/<case_id>/`:
 
 | Test | What |
 |---|---|
-| `T-REG-20` | dev case, `W-20` (20 d02 steps from the 02:20 restart), level-2 trace, GPU-REPRO vs CPU-REF restart-vs-restart, plus CPU-REF vs the archived dev reference; bitwise |
+| `T-REG-20` | dev case, `W-20` (27 d02 steps from the 02:20 restart), level-2 trace, GPU-REPRO vs CPU-REF restart-vs-restart, plus CPU-REF vs the archived dev reference; bitwise |
 | `T-TRACE-100`, `T-TRACE-RAD` | as defined above |
 | `T-FMA`, `T-SUBNORM` | rerun after any compiler or flag change |
 | `T-BUILD-REF`, `T-BUILD-GPU` | both builds compile with no new warnings |
@@ -1555,7 +1561,7 @@ For each new case `cases/<case_id>/`:
 
 All windowed tests are restart-vs-restart (P0.10) and run on the dev case `eaton_small` unless marked "full case".
 
-**Standard windows** (P0.16): `W-20` = 20 d02 steps from 02:20; `W-100` = 100 d02 steps from 02:20; `W-RAD` = 720
+**Standard windows** (P0.16): `W-20` = 27 d02 steps from 02:20; `W-100` = 108 d02 steps from 02:20; `W-RAD` = 720
 d02 steps from 02:20 (4 radiation calls per domain).
 
 | ID | Defined in | What | Pass |
@@ -1688,3 +1694,32 @@ d02 steps from 02:20 (4 radiation calls per domain).
 | **Total** | **≈ 20–34 weeks** |
 
 Each gate is a natural review point.
+
+---
+
+## Refinements during Phase 0 and the agent handoff
+
+These refine the plan above; `port/RESULTS.md` ("Deviations from plan.md in Phase 0") lists the Phase 0 ones.
+
+1. **Islands live inside the routine, not at the call site (P0.8, P1.9).** One flag in `module_gpu_route`,
+   `gpu_world_host`, says where the current data are. Through Phase 4 the model stays on the host (the P1.9 bracket)
+   and each ported routine copies its own array arguments to the device, runs there and copies them back when its
+   route is on; from P5.3 the model lives on the device and a routine copies its arguments to the host only when its
+   route is off. The island code is the same in both worlds and is generated from the routine's dummy arguments by
+   `port/tools/gen_island.py`; `kernel_lint` rule E9 requires it (`port/agent/CODING_STANDARD.md` §3). This replaces
+   the call-site `island_in_X.inc`/`island_out_X.inc` of P0.8: routines like `set_physical_bc3d` have ~100 call sites.
+2. **Window lengths** end on d01 steps: W-20 = 27, W-100 = 108 d02 steps (above).
+3. **K-PD-L3a/b** use a logical "limited" flag next to the scale instead of a `-1.0` sentinel (`MAX(0.,x)` with a NaN
+   argument is processor dependent; a flag has no such case). Verified by T-PDLIM and its mutants.
+4. **K-OZP** is row-parallel, not per column (above). Verified by T-OZN.
+5. **Tracer on the device** (P0.7's device version) is implemented in Phase 5 (P5.0), when the model moves to the
+   device; until then the host tracer sees current host data.
+6. **Unported branches** (options `gpu_check_config` rejects) stop with `wrf_error_fatal` in the GPU view instead of
+   running on the host.
+7. **Work arrays** that replace existing automatic arrays are shared refactors made routine by routine, each with the
+   protocol of `port/agent/WORKFLOW.md` §6 (bitwise evidence, then a move of the CPU-view base); GPU-only temporaries
+   (`fqy3`, `scl`, `lim`) exist only in the GPU build.
+8. **H100 development machine without root:** the toolchain runs in the NVHPC container image (Apptainer, rootless
+   Podman or Docker); dependencies are built inside it into a user directory (`port/agent/ENV_H100.md`). CCR remains
+   the place of the full-case reference and acceptance runs (G5).
+

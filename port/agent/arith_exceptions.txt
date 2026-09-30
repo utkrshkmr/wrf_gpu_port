@@ -1,0 +1,5 @@
+# Exceptions for port/tools/arith_guard.py (WORKFLOW.md §8).
+# One line per GPU-view statement that arith_guard reports as "new arithmetic"
+# but that is a verbatim copy of a CPU statement (e.g. indices renamed by a
+# template).  Format:   <repo path>|<normalized statement as printed by arith_guard>|<reason>
+# Every line is reviewed by the project owner.

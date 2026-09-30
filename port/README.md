@@ -32,6 +32,13 @@ WRF source files added in Phase 0: `WRF/frame/module_repro_math.F` (P0.5), `modu
 `WRF/tools/gen_defs.c` (`i1_decl.inc`, `i1_assoc.inc`). The configure stanzas "NVHPC ... GPU port CPU-REF /
 GPU-REPRO / GPU-DEBUG" are at the end of `WRF/arch/configure.defaults`.
 
+## Phases 1–7 (H100 machine)
+
+The coding agent's documents, scripts and gates: [../AGENTS.md](../AGENTS.md), [agent/README.md](agent/README.md),
+`h100/` (container toolchain without root, builds, dev case, windows), `gates/` (static checks, T-AB, T-TRACE,
+phase gates), `tests/pdlim`, `tests/kiss`, `tests/ozn`, `tests/templates` (reference tests with negative controls,
+`tests/run_ref_tests.sh`).
+
 ## Phase 0 runbook
 
 Everything below runs on CCR (CPU-REF) or on the A100/H100 nodes. Nothing here needs a GPU except step 4.
