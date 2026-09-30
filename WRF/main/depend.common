@@ -166,6 +166,7 @@ module_driver_constants.o: \
 
 module_integrate.o: \
 	module_domain.o \
+	module_gpu_updates.o \
 	module_timing.o \
 	module_driver_constants.o \
 	module_state_description.o \
@@ -222,6 +223,10 @@ module_gpu_route.o: \
 
 module_gpu_scratch.o: \
 	module_wrf_error.o 
+
+module_gpu_updates.o: \
+	module_domain.o \
+	module_configure.o 
 
 
 module_nesting.o: \
@@ -1770,11 +1775,13 @@ mediation_feedback_domain.o: \
 
 mediation_force_domain.o: \
 	../frame/module_domain.o \
+	../frame/module_gpu_updates.o \
 	../frame/module_configure.o 
 
 
 mediation_integrate.o: \
 	module_bc.o \
+	../frame/module_gpu_updates.o \
 	../dyn_em/module_bc_em.o \
 	../frame/module_comm_dm.o \
 	../frame/module_streams.o \
@@ -2380,6 +2387,7 @@ wrf_SST_ESMF.o: \
 
 module_wrf_top.o: \
 	../share/module_check_a_mundo.o \
+	../frame/module_gpu_updates.o \
 	../share/module_date_time.o \
 	../share/module_io_domain.o \
 	../frame/module_nesting.o \
@@ -2813,6 +2821,7 @@ shift_domain_em.o: \
 
 solve_em.o: \
 	module_after_all_rk_steps.o \
+	../frame/module_gpu_updates.o \
 	module_avgflx_em.o \
 	../share/module_bc.o \
 	module_bc_em.o \

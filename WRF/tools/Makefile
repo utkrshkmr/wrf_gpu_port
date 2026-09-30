@@ -8,7 +8,7 @@ OBJ = registry.o my_strtok.o reg_parse.o data.o type.o misc.o \
       gen_defs.o gen_allocs.o gen_mod_state_descr.o gen_scalar_indices.o \
       gen_args.o gen_config.o sym.o symtab_gen.o gen_irr_diag.o \
       gen_model_data_ord.o gen_interp.o gen_comms.o gen_scalar_derefs.o set_dim_strs.o gen_wrf_io.o\
-      gen_streams.o
+      gen_streams.o gen_gpu.o
 
 registry : $(OBJ) standard.exe
 	$(CC_TOOLS) -o registry $(DEBUG) $(LDFLAGS) $(OBJ)
@@ -32,6 +32,7 @@ gen_comms.c : gen_comms.stub
 
 data.o: registry.h protos.h data.h
 gen_allocs.o: protos.h registry.h data.h
+gen_gpu.o: protos.h registry.h data.h
 gen_args.o: protos.h registry.h data.h
 gen_scalar_derefs.o: protos.h registry.h data.h
 gen_config.o: protos.h registry.h data.h

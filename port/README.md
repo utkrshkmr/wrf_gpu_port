@@ -32,6 +32,9 @@ WRF source files added in Phase 0: `WRF/frame/module_repro_math.F` (P0.5), `modu
 `WRF/tools/gen_defs.c` (`i1_decl.inc`, `i1_assoc.inc`). The configure stanzas "NVHPC ... GPU port CPU-REF /
 GPU-REPRO / GPU-DEBUG" are at the end of `WRF/arch/configure.defaults`.
 
+Added at the Phase 1 handoff (P1.3): the Registry generator `WRF/tools/gen_gpu.c` (update lists
+`inc/gpu_upd_{dev_all,host_all,dev_bdy}.inc`) and `WRF/frame/module_gpu_updates.F`, which includes them.
+
 ## Phases 1–7 (H100 machine)
 
 The coding agent's documents, scripts and gates: [../AGENTS.md](../AGENTS.md), [agent/README.md](agent/README.md),

@@ -19,8 +19,10 @@ base=$(cpu_view_base)
 cd "$PORT_REPO"
 if [ $# -gt 0 ]; then files=("$@"); else
   mapfile -t files < <( { git diff --name-only "$base" -- WRF; git ls-files --others --exclude-standard -- WRF; } \
-    | grep -E '\.(F|F90|f90|inc|h)$' | sort -u)
+    | grep -E '\.(F|F90|f90|inc|h)$' | grep -v '^WRF/tools/' | sort -u)
 fi
+# WRF/tools/ is the C source of the Registry generator, not model code: its output (inc/*.inc) is checked by
+# port/tools/check_generated.py and by T-CPU-VIEW (port/gates/t_cpu_view.sh).
 out=$(python3 port/tests/tools/test_agent_tools.py 2>&1); rc=$?
 result tools "$([ $rc = 0 ] && echo PASS || echo FAIL)" "$(echo "$out" | tail -1)"
 [ $rc = 0 ] || echo "$out" | grep -v '^ok' | head -20

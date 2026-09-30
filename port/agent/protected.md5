@@ -6,11 +6,11 @@ e1ad27ad87953813607eb01794657684  ../../cases/eaton_20250108/manifest.md5
 09ad31745755de7ed58913b9ade1a0a2  CODING_STANDARD.md
 fc85e747ff85672538a5415861d68c62  DEBUGGING.md
 f5e94c6154bec85afa410f009f5839c4  ENV_H100.md
-f4cccec8db84643d6728c5a7b851c842  PHASE1.md
+92de4f9f2567521cc6f0fa65c08e25cb  PHASE1.md
 16db2cb43e9a28877eca0121965fdccc  PHASE2.md
 244b6776aaf8870c923f28fa7af9b232  PHASE3.md
 cfdeb15ce3bcb04859e730df58c12628  PHASE4.md
-c9ce2859ad87e3dc921480390603d468  PHASE5.md
+f14b29eeacd3ead058ffc661cd1e0844  PHASE5.md
 8008e0477d9616a1edf2340cac9d646b  PHASE6.md
 46770855dd595337f461ff497fbb341c  PHASE7.md
 5958864a9465328b204091ff0e4f577f  PITFALLS.md
@@ -46,7 +46,7 @@ f276f8cff4e2ddbe625cb88bab54499c  ../gates/g4.sh
 4b3b6256b8b4293f28a08f0d06705408  ../gates/g5.sh
 14f23f8af7338e28a41c79eecbe959a7  ../gates/lib.sh
 8c9e2f50e07d8aeaa92b3eddffdccc2d  ../gates/ref_tests.sh
-3477b254aa868b9c8e96c22dd68e3dd0  ../gates/static.sh
+77de88843c03b8db6e10a1a69b450922  ../gates/static.sh
 b2894dc86e80d6f6c0eb70040ddb99ca  ../gates/t_ab.sh
 e2baeb05ce286ab0310aeba2f1c9313b  ../gates/t_cpu_view.sh
 03024cff33cdb108f5076d274eb2bd3f  ../gates/t_drift.sh
@@ -136,10 +136,10 @@ c4b2f14bebe67710468dbaa5bdf9c691  ../tests/templates/mutants_b.py
 48bdcb981ab18f641c39bd1c4541dee5  ../tests/templates/t_tmpl_g.F90
 08028925984b24f32495cc019f839caa  ../tests/tools/calc_coef_w_gpu.inc
 3b3a20615f783bab6af5514bc957fd09  ../tests/tools/example_calc_alt.F
-1eb91f59a45353632746a276c0a253ca  ../tests/tools/test_agent_tools.py
+6cc98d9d29db68ec5fa49eaf39888554  ../tests/tools/test_agent_tools.py
 a693cf5df9e33639c140417b107e05f6  ../tests/tools/test_tools.py
 e0e689e4521e724d5136d5675cf9eb8c  ../tools/arith_guard.py
-32d96111968cbfdd1cd6f6bc7d097ac0  ../tools/check_generated.py
+499f0affc3fcbedaf54edb93a396111a  ../tools/check_generated.py
 0f651e9abcf84c5672b6ca5441c9077e  ../tools/check_verbatim.py
 b775af6927f6c4fddab0c05e16a79e4a  ../tools/ftn.py
 c61ce881690cb35c8cbed8f7bfa76feb  ../tools/gen_island.py

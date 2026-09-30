@@ -127,6 +127,7 @@ int gen_ddt_write1 ( FILE *, char *, node_t *);
 int gen_dealloc ( char * );
 int gen_dealloc1 ( char * );
 int gen_dealloc2 ( FILE *, char *, node_t *);
+int gen_gpu ( char * );
 int gen_scalar_tables ( FILE *);
 int AppendReg ( char *,int);
 int irr_diag_scalar_indices ( char * );

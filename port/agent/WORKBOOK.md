@@ -99,3 +99,16 @@ How to update, after every task (and at the end of every work session, even if t
 - Changed: Phase 0 done locally (port/RESULTS.md); guard tools, reference tests, H100 scripts, gates, phase cards.
 - Tests run: port/tests/tools/test_agent_tools.py PASS; port/tests/run_ref_tests.sh gnu PASS (host only).
 - Notes: nothing has run on NVHPC or a GPU yet. Start with H0.1.
+
+### 2026-09-30 P1.3 Update lists written at handoff (not ticked: NVHPC check pending)
+- Commit(s): the handoff commit that adds WRF/tools/gen_gpu.c (`git log -- WRF/tools/gen_gpu.c`)
+- Changed: WRF/tools/gen_gpu.c (new; called from registry.c after gen_dealloc; protos.h, tools/Makefile,
+  tools/CMakeLists.txt) writes inc/gpu_upd_dev_all.inc, gpu_upd_host_all.inc, gpu_upd_dev_bdy.inc;
+  WRF/frame/module_gpu_updates.F (new: gpu_upd_dev_all/host_all/dev_bdy, gpu_upd_host_stream = whole state through
+  Phase 4) in frame/Makefile, frame/CMakeLists.txt, main/depend.common (with the future callers depending on it);
+  check_generated.py C7 now requires the guard to name the updated field and exempts boundary arrays.
+- Tests run: gfortran worktree build --clean: the three lists are generated (2579 updates in each whole-state list,
+  104 in the boundary list); check_generated.py --only C4,C5,C7 PASS; module_gpu_updates.F compiles without
+  WRF_GPU (in the build) and with -DWRF_GPU -fopenmp (gfortran); static.sh PASS; test_agent_tools.py PASS.
+- Notes: to do on the H100 (PHASE1.md P1.3 "Your steps"): gpu-repro --clean build, C4/C5/C7, nvfortran accepts
+  `target update` of `grid%` components (fallback described there), T-TRACE W-20. Then tick P1.3.

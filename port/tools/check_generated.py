@@ -20,6 +20,8 @@ Run on a WRF build tree after './compile' (the Registry has written inc/).
   C6  inc/gpu_upd_host_force_slab.inc covers every field packed by
       inc/nest_interpdown_pack.inc (the parent side of nest forcing)
   C7  every update line is guarded by IF (in_use_for_config(grid%id,'<name>'))
+      naming the same field, within the 3 lines above it, except the boundary arrays, which allocs.inc allocates unconditionally
+      (IF(.TRUE.)...); <name> of a derived-type component is 'type%comp'
 
 Usage: check_generated.py <WRF build dir> [--only C1,C3,...]
 Exit status 0 if all selected checks pass.
@@ -34,8 +36,8 @@ ALLOC = re.compile(r"^\s*ALLOCATE\(\s*grid%(\w+)\s*\(", re.I)
 DEALLOC = re.compile(r"^\s*DEALLOCATE\(\s*grid%(\w+)\s*[,)]", re.I)
 ENTER = re.compile(r"^\s*!\$omp\s+target\s+enter\s+data\s+map\(\s*to\s*:\s*grid%(\w+)\s*\)", re.I)
 EXIT = re.compile(r"^\s*!\$omp\s+target\s+exit\s+data\s+map\(\s*(delete|release)\s*:\s*grid%(\w+)\s*\)", re.I)
-UPD = re.compile(r"^\s*!\$omp\s+target\s+update\s+(to|from)\s*\(\s*grid%(\w+)", re.I)
-INUSE = re.compile(r"in_use_for_config\s*\(\s*grid%id\s*,\s*'(\w+)'", re.I)
+UPD = re.compile(r"^\s*!\$omp\s+target\s+update\s+(to|from)\s*\(\s*grid%(\w+)((?:%\w+)*)", re.I)
+INUSE = re.compile(r"in_use_for_config\s*\(\s*grid%id\s*,\s*'([\w%]+)'", re.I)
 BDY = re.compile(r"_b(t)?(xs|xe|ys|ye)$")
 
 
@@ -92,9 +94,12 @@ def upd_names(lines, code):
             continue
         name = m.group(2).lower()
         names.add(name)
-        ctx = "\n".join(lines[max(0, i - 3):i])
-        if not INUSE.search(ctx):
-            errs.append(("C7", i + 1, f"{code}: update of {name} not guarded by in_use_for_config"))
+        if BDY.search(name):
+            continue  # boundary arrays are always allocated at full size
+        path = (name + m.group(3)).lower()
+        guards = [g.lower() for x in lines[max(0, i - 3):i] for g in INUSE.findall(x)]
+        if path not in guards:
+            errs.append(("C7", i + 1, f"{code}: update of {path} not guarded by in_use_for_config(grid%id,'{path}')"))
     return names, errs
 
 

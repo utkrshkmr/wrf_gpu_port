@@ -41,6 +41,12 @@ T-O3 (`gpu_selftest: T-O3 PASS/FAIL`: device `o3rad` checksum equals the host ch
 ## P5.3 The device world: remove the bracket
 
 1. After S1/S2 (initial uploads) set `gpu_world_host = .FALSE.`; the sync points S3/S4/S5 keep working.
+   Check S3/S4 first: `gpu_upd_host_stream` (`WRF/frame/module_gpu_updates.F`) copies the **whole state** device →
+   host. From now on a field that only host code writes between steps (P5.2 step 5: the `imask_*` arrays; `o3rad`
+   if O10 is ever done) has a stale device copy, and that copy would overwrite the host value at every history or
+   restart write. For each such field either upload it after the host writes it, or leave it out of the S3/S4
+   download (an exclusion list in `WRF/tools/gen_gpu.c`, or the per-stream walk of `grid%head_statevars`), and write
+   the choice into the workbook log. T-OUT and T-TRACE W-1H catch a mistake here.
 2. Remove the P1.9 bracket calls from `solve_em`.
 3. Every island now fires only for switched-off routes (T-AB still works). Any host code left inside `solve_em` that
    touches arrays reads stale data: find it with T-TRACE and move it into a route (a kernel) or an explicit update.

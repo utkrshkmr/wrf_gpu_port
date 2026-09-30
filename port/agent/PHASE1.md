@@ -13,8 +13,9 @@ their dependencies are: update lists and pool/work modules in `WRF/frame/` (they
 `module_integrate.F`, `module_domain.F`) calls routines that live in later directories as **external subroutines**
 without a USE: write such entry points outside any module (`SUBROUTINE gpu_update_tables()` at the end of the file,
 after `END MODULE`). `CALL gpu_*` lines are allowed in the CPU view. Every new file must be added to its directory's
-`Makefile` (module list) and to `WRF/main/depend.common` (who depends on it), as Phase 0 did for
-`module_gpu_route.o` (`frame/Makefile:21-23`, `depend.common:215-223`). Build with `--clean` after adding files.
+`Makefile` (module list) and to `WRF/main/depend.common` (who depends on it), as was done for
+`module_gpu_route.o` and `module_gpu_updates.o` (search for them in `WRF/frame/Makefile` and
+`WRF/main/depend.common`). Build with `--clean` after adding files.
 
 ---
 
@@ -140,34 +141,56 @@ gpu_selftest: T-MAP FAIL d01 3 of 812 fields not present: <first names>
 ```
 **Done when** C1–C3 pass, `bash port/gates/t_selftest.sh T-MAP` passes, `t_trace.sh W-20` still passes.
 
-## P1.3 Update lists: `WRF/tools/gen_gpu.c` (new) and `gpu_upd_host_stream`
+## P1.3 Update lists: `WRF/tools/gen_gpu.c` and `WRF/frame/module_gpu_updates.F` (provided)
 
-1. New file `WRF/tools/gen_gpu.c` with `int gen_gpu(char *dirname)`, called from `registry.c` after `gen_dealloc`
-   (`:246`); add it to `WRF/tools/Makefile` (object list and dependencies, like `gen_allocs.o`). Walk the fields as
-   `gen_alloc2` does (`Domain.fields`, the 4D members, `p->ntl` time levels, boundary arrays with `bdy_indicator`)
-   and write into `inc/`:
-   - `gpu_upd_dev_all.inc` / `gpu_upd_host_all.inc`: for every field that `allocs.inc` allocates (same names, same
-     `in_use_for_config(id,'<name>')` test with `grid%id`), a block
+**This code is already written and wired** (handoff commit, see the workbook log); your task is to verify it with
+NVHPC on the H100 and fix what the compiler rejects. What exists:
+
+1. `WRF/tools/gen_gpu.c`: `int gen_gpu(char *dirname)`, called from `WRF/tools/registry.c` right after
+   `gen_dealloc` (prototype in `protos.h`, object in `WRF/tools/Makefile`, source in `WRF/tools/CMakeLists.txt`).
+   It walks the fields exactly as `gen_alloc2` does (`Domain.fields`, arrays and boundary arrays of kind `FIELD` or
+   `FOURD`, every time level `p->ntl`, `_4d_bdy_array_`, the four boundary arrays with `bdy_indicator`, components
+   of derived types) and writes into `inc/`, all inside `#ifdef WRF_GPU`:
+   - `gpu_upd_dev_all.inc` / `gpu_upd_host_all.inc` (`to` / `from`): for every non-boundary array
      ```fortran
      IF (in_use_for_config(grid%id,'u_2')) THEN
      !$omp target update to(grid%u_2)
      ENDIF
      ```
-     (`from` for the host version). Boundary arrays: every `_bxs … _btye`. Fields allocated as `(1,1,1)` dummies need
-     no update.
+     (the same `in_use_for_config` name as `allocs.inc`; a derived-type component uses `'fdob%varobs'`), and for
+     every boundary array an unguarded `!$omp target update to(grid%u_bxs)` (… `_bxe`, `_bys`, `_bye`, `_btxs`, …):
+     `allocs.inc` allocates boundary arrays unconditionally (`IF(.TRUE.)`), so they are always full size. Fields
+     that are not in use are `(1,1,1)` dummies and are not moved.
    - `gpu_upd_dev_bdy.inc`: only the boundary arrays.
-   - (Phase 5, may be written now) `gpu_upd_host_force_slab.inc`, `gpu_pack_force_strips.inc`,
-     `gpu_upd_dev_force_full.inc` as plan.md P1.3 describes.
-2. New module `WRF/frame/module_gpu_updates.F` (port infrastructure; frame because `module_integrate.F` calls it) with `SUBROUTINE gpu_upd_dev_all(grid)`,
-   `gpu_upd_host_all(grid)`, `gpu_upd_dev_bdy(grid)` that `#include` the lists under `#ifdef WRF_GPU` (empty
-   otherwise), plus `gpu_upd_host_stream(grid, stream)`: walk `grid%head_statevars` and `target update from` every
-   field whose `streams` mask contains the stream (history: `streams(HISTORY_STREAM)`-style bit test as
-   `module_io_domain` uses; restart: the `restart` flag). A 4D array: update the whole array if any member is on the
-   stream. Add the module to `WRF/frame/Makefile` and its dependencies to `WRF/main/depend.common`.
-3. The debug switch `WRF_GPU_UPD_EVERY_STEP=1` (T-UPD) is implemented with the bracket, in step "P1.5 + P1.9".
+   - The Phase 5 lists (`gpu_upd_host_force_slab.inc`, `gpu_pack_force_strips.inc`, `gpu_upd_dev_force_full.inc`)
+     are **not** written yet; they belong to P5.2 (PHASE5.md).
+2. `WRF/frame/module_gpu_updates.F`: `MODULE module_gpu_updates` with `gpu_upd_dev_all(grid)`,
+   `gpu_upd_host_all(grid)`, `gpu_upd_dev_bdy(grid)` (each includes its list under `#ifdef WRF_GPU`, returns at once
+   for an intermediate grid, and is empty without `WRF_GPU`) and `gpu_upd_host_stream(grid, stream)`, which in
+   Phases 1–4 copies the **whole state** (`gpu_upd_host_all`): correct at S3/S4, only slower than a per-stream walk
+   of `grid%head_statevars` (that walk is optional, not needed for any gate). The module is in `frame/Makefile`,
+   `frame/CMakeLists.txt` and `main/depend.common`, and the files that will call it in step "P1.5 + P1.9"
+   (`module_integrate.o`, `mediation_integrate.o`, `mediation_force_domain.o`, `module_wrf_top.o`, `solve_em.o`)
+   already depend on it there; you only add the `USE module_gpu_updates, ONLY: ...` lines and the calls.
+3. Nothing calls the lists yet. The debug switch `WRF_GPU_UPD_EVERY_STEP=1` (T-UPD) is implemented with the bracket,
+   in step "P1.5 + P1.9".
 
-**Done when** `check_generated.py … --only C4,C5,C7` passes and T-TRACE W-20 still passes (nothing calls the lists
-yet). T-UPD is checked in step "P1.5 + P1.9".
+Checked before handoff (gfortran worktree build, no GPU): the Registry writes the three files; `check_generated.py
+--only C4,C5,C7` passes on them; `module_gpu_updates.F` compiles with and without `-DWRF_GPU` (gfortran
+`-fopenmp`); the CPU view of every Fortran file is unchanged (static.sh). **Not** checked: NVHPC.
+
+**Your steps:**
+
+1. `bash port/h100/build.sh gpu-repro --worktree --clean` (the Registry must run again), then
+   `python3 port/tools/check_generated.py $WORK/builds/gpu-repro/worktree --only C4,C5,C7` → PASS.
+2. Look at `module_gpu_updates` in `compile.log`: no errors. If `nvfortran` rejects `target update` of a component
+   of the derived type (`grid%u_2`), which is also the form P1.2 uses for `enter data`, the fallback is to update
+   through a local pointer (`REAL, POINTER :: p3(:,:,:)`; `p3 => grid%u_2`; `!$omp target update to(p3)`): the
+   device copy is found by the address of the data, so this moves the same bytes. Change `gen_gpu.c` (and P1.2) to
+   emit that form, one pointer per rank and type; write the change into the workbook log.
+3. `bash port/gates/t_trace.sh W-20` still passes (nothing calls the lists yet).
+
+**Done when** steps 1–3 pass. T-UPD is checked in step "P1.5 + P1.9".
 
 ## P1.4 Module tables on the device: `WRF/phys/module_gpu_tables.F` (new)
 
@@ -226,8 +249,8 @@ init, during the S6 forcing) the host copy is current (CODING_STANDARD.md §3).
 |---|---|---|
 | S1 | `WRF/main/module_wrf_top.F:418`, after `CALL med_initialdata_input( head_grid , config_flags )` | `CALL gpu_update_tables(); CALL gpu_upd_dev_all(head_grid)`; then the self tests if `WRF_GPU_SELFTEST=1` |
 | S2', S2 | `WRF/frame/module_integrate.F:351` around `CALL med_nest_initial ( grid , new_nest , config_flags )` | before: `CALL gpu_upd_host_all(grid)`; after: `CALL gpu_update_tables(); CALL gpu_upd_dev_all(new_nest); CALL gpu_upd_dev_all(grid)` |
-| S3 | first executable statement of `med_hist_out` (`WRF/share/mediation_integrate.F:1190`) | `CALL gpu_upd_host_stream(grid, <history stream of this call>)` (in Phase 1 it may simply call `gpu_upd_host_all(grid)`: correct, only slower) |
-| S4 | first executable statement of `med_restart_out` (`:1124`) | `CALL gpu_upd_host_stream(grid, RESTART_STREAM)` (or `gpu_upd_host_all(grid)`) |
+| S3 | first executable statement of `med_hist_out` (`WRF/share/mediation_integrate.F:1190`) | `CALL gpu_upd_host_stream(grid, <history stream of this call>)` (through Phase 4 it copies the whole state: correct, only slower) |
+| S4 | first executable statement of `med_restart_out` (`:1124`) | `CALL gpu_upd_host_stream(grid, RESTART_STREAM)` (whole state, as S3) |
 | S5 | inside `med_latbound_in` (`:1372-1531`), right after the boundary data were read (the read branch) | `CALL gpu_upd_dev_bdy(grid)` — inside the routine, so both call sites (`:86`, `:362`) are covered |
 | S6 | `WRF/frame/module_integrate.F:416` around `CALL med_nest_force ( grid_ptr , grid_ptr%nests(kid)%ptr )` | before: `gpu_upd_host_all` of both grids; after: `gpu_upd_dev_all` of both (Phase 1–4 form; P5.2 replaces it) |
 

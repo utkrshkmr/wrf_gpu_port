@@ -244,6 +244,7 @@ main( int argc, char *argv[], char *env[] )
   EXIT_ON_NONZERO( gen_alloc( "inc" ) );
   /* gen_alloc_count( "inc" ) ; */
   EXIT_ON_NONZERO( gen_dealloc( "inc" ) ) ;
+  EXIT_ON_NONZERO( gen_gpu( "inc" ) ) ;   /* GPU port: update lists (plan.md P1.3) */
   EXIT_ON_NONZERO( gen_scalar_indices( "inc" ) ) ;
   EXIT_ON_NONZERO( gen_module_state_description( "frame" ) ) ;
   EXIT_ON_NONZERO( gen_actual_args( "inc" ) ) ;

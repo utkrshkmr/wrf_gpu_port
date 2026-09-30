@@ -148,6 +148,7 @@ target_sources(
                   module_nesting.F
                   module_bittrace.F
                   module_gpu_route.F
+                  module_gpu_updates.F
                   module_gpu_scratch.F
                   module_quilt_outbuf_ops.F
                   module_sm.F

@@ -185,6 +185,16 @@ check(rc == 0, "check_generated: complete, guarded update lists pass", out)
 open(os.path.join(tmp, "inc", "gpu_upd_host_all.inc"), "w").write("!$omp target update from(grid%u_2)\n")
 rc, out = run(os.path.join(TOOLS, "check_generated.py"), tmp, "--only", "C7")
 check(rc == 1, "check_generated: unguarded update fails", out)
+open(os.path.join(tmp, "inc", "gpu_upd_host_all.inc"), "w").write(
+    upd_ok.replace("update to", "update from")
+    + "!$omp target update from(grid%u_bxs)\n"
+    + "IF (in_use_for_config(grid%id,'fdob%varobs')) THEN\n!$omp target update from(grid%fdob%varobs)\nENDIF\n")
+rc, out = run(os.path.join(TOOLS, "check_generated.py"), tmp, "--only", "C7")
+check(rc == 0, "check_generated: unguarded boundary array and guarded derived component pass", out)
+open(os.path.join(tmp, "inc", "gpu_upd_host_all.inc"), "w").write(
+    upd_ok.replace("update to", "update from") + "!$omp target update from(grid%fdob%varobs)\n")
+rc, out = run(os.path.join(TOOLS, "check_generated.py"), tmp, "--only", "C7")
+check(rc == 1, "check_generated: unguarded derived component fails", out)
 
 # ---- locate: an unchanged v4.6.0 line maps to the same text
 rc, out = run(os.path.join(TOOLS, "locate.py"), "SS", "1308", "--context", "0")

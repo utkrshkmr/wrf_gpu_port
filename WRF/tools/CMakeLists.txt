@@ -47,6 +47,7 @@ target_sources(
                   set_dim_strs.c
                   gen_wrf_io.c
                   gen_streams.c
+                  gen_gpu.c
                   )
 
 # set_target_properties( 
