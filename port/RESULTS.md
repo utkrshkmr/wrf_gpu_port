@@ -22,7 +22,7 @@ case manifest it was obtained with.
 | `T-OMP-FEAT` | P0.5b | GPU node: `port/tests/omp_features/run_probes.sh` |
 | `T-IPOW` | P0.6 | exponents found (below); host vs device test `t_ipow` on the GPU node |
 | `T-SYM` | P0.6 | CCR / GPU node: `port/sym_audit.sh` |
-| `T-SHARED-*` | P0.9a | local (gfortran): T-SHARED-POOL passes, **T-SHARED-1 open** (see below); on CCR: `port/ccr/t_shared.sh` |
+| `T-SHARED-*` | P0.9a | local (gfortran): T-SHARED-1 and T-SHARED-POOL pass bitwise on both smoke cases (below); on CCR: `port/ccr/t_shared.sh` |
 | `T-UNINIT` | P0.9a | local physics smoke case passes; dev case on CCR: `port/ccr/t_uninit.sh` |
 | `T-DET`, `T-DEC-A`, `T-DEC-B`, `T-RST`, `T-XM` | P0.10 | to do (CCR, GPU-node host) |
 | Reference runs archived (full case, dev case) | P0.11, P0.16 | to do (CCR) |
@@ -51,10 +51,11 @@ run in host mode (`ALLOW_HOST=1`); their device half needs the GPU node.
 
 #### Substitutions (P0.6)
 
-`port/rp_subst.py` over the 49 files of `port/rp_subst_files.txt`: 38 files changed, 646 intrinsic calls and 362
-powers rewritten to `rp_*`; 6 statements rewritten by hand (continued lines); 6 "refused" reports, all of them the
-array `gamma` in `module_small_step_em.F`, not the intrinsic (unchanged). `--check` on the result: nothing left to
-rewrite.
+`port/rp_subst.py` over the 49 files of `port/rp_subst_files.txt`: 38 files changed, 646 intrinsic calls and 265
+powers rewritten to `rp_*`; 35 powers with the literal exponent `2.` / `2.0` written as `**2`; 62 powers with a
+constant exponent (named constants) kept as written; 6 statements rewritten by hand (continued lines); 6 "refused"
+reports, all of them the array `gamma` in `module_small_step_em.F`, not the intrinsic (unchanged). `--check` on the
+result: nothing left to rewrite.
 
 `port/ipow_scan.py`: integer-literal exponents left in the rewritten files are 2, 3, 4, 8 and 32; `t_ipow` tests
 exactly these, and integer-variable exponents from −8 to 32 through `rp_pow`.
@@ -88,31 +89,38 @@ glibc's vector math, see "Deviations" 9):
 | repro | pool with `-DREPRO_MATH` (the CPU-REF configuration, gfortran instead of nvfortran) |
 | nan / zero | this commit, default flags plus `-finit-real=snan …` / `-finit-real=zero …` |
 
-Physics case (3 simulated minutes, 360 steps, radiation every 30 s, ignition at 120 s):
+Physics case (3 simulated minutes, 360 steps, radiation every 30 s, ignition at 120 s), and fire case (6 simulated
+minutes, 720 steps, no PBL/surface/radiation schemes):
 
 | Test | Comparison | Result |
 |---|---|---|
+| **T-SHARED-1**, physics case | up vs mod | **identical**: 241 history fields in 7 frames, 189,000 level-2 trace records over 360 steps (vs up+infra), identical fire spread |
+| **T-SHARED-1**, fire case | up vs mod | **identical**: 224 history fields in 7 frames; fire: the same 3,444 burned cells at 6 min, 0 differing cells in every frame |
 | Infrastructure is neutral | up vs up+infra | **identical** (241 history fields, 7 frames) |
 | Tracer only reads | mod with vs without `WRF_BITTRACE=2` | **identical** |
-| T-SHARED-POOL | mod vs pool | **identical** (189,000 level-2 trace records, 241 history fields) |
-| T-UNINIT | nan vs zero | **identical** (189,000 trace records, 241 history fields): no uninitialized local or automatic array is read |
-| Determinism of REPRO_MATH | repro vs repro (two runs) | **identical** |
-| T-SHARED-1 | up vs mod | **open: differs from step 184** (see below) |
+| **T-SHARED-POOL** | mod vs pool | **identical**: 189,000 level-2 trace records, 241 history fields |
+| **T-UNINIT** | nan vs zero | **identical** (189,000 trace records, 241 history fields): no uninitialized local or automatic array is read (run at commit 9c4c126; the fix below only changes how 62 powers are written, not which memory is read) |
+| Determinism of REPRO_MATH | repro vs repro (two runs) | **identical** (run at commit 9c4c126) |
 
-**T-SHARED-1, open difference.** Up to step 183 (91.5 s) up and mod agree bit for bit. Comparing the traces of
-up+infra and mod, the first differing record is step 184, RK stage 1, `RVBLTEN` (YSU tendency of v); `RUBLTEN` and
-all surface fields are still identical there, and everything differs a few steps later. Ruled out so far: vector math
-(fixed by the build flags), the fire files (reverting all five to v4.6.0 leaves the difference), the tracer, the pool,
-uninitialized memory, `sincos` merging (glibc's `sincosf`/`sincos` equal `sinf`/`cosf` and `sin`/`cos` on 6·10⁸
-inputs), compile-time folding of `x**c` (gfortran folds only exponents −1 and 2, both kept as integer powers now), and
-integer-PARAMETER exponents (only `pw = 2`). A bisection over the three PBL files (`bl_ysu.F90`, `module_bl_ysu.F`,
-`module_pbl_driver.F`) was running when Phase 0 was pushed. Until this is resolved, `T-SHARED-1` is not passed: the
-rewritten code is not yet proven to be a pure refactor of v4.6.0 with REPRO_MATH off. This does not affect CPU-REF
-vs GPU-REPRO (both use the same rewritten source), but it must be resolved or explained before the reference run
-(P0.11).
+**How T-SHARED-1 was brought to bitwise.** The first comparison differed everywhere. Three causes were found and fixed:
 
-Fire-only case (6 simulated minutes): up completed; the mod run was stopped by a time limit before the end and is
-still to be repeated.
+1. Vector math in the comparison builds (see "Deviations" 9): fixed by building both without glibc's vector
+   variants. After that the runs agreed for 183 steps.
+2. The remaining difference started at step 184 in `RVBLTEN`. The tracer localized it (up+infra vs mod), and a
+   bisection over files, then over the 25 rewrite hunks of `physics_mmm/bl_ysu.F90`, found one statement:
+   `xkzm = … zfac(i,k)**pfac …` with `real, parameter :: pfac = 2.0`. The compiler folds `x**pfac` into `x*x`;
+   `rp_pow(zfac, pfac)` computed `powf(zfac, 2.0)` at run time, which rounds some exact ties differently.
+   `rp_subst.py` now leaves powers with constant exponents (named constants with the value −1, 0, 1, 2 and INTEGER
+   constants) as written; 62 such sites were restored, among them Noah's `SNCOVR**SNOEXP` (`SNOEXP = 2.0`), which the
+   Eaton case runs.
+3. Not a result difference, but found on the way: WRF's `.f90.o` suffix rule (`arch/postamble`) lacked
+   `$(MODULE_DIRS)`, so an incremental rebuild after editing a `physics_mmm/*.F90` file could not find
+   `module_repro_math.mod`. Fixed; clean builds were never affected.
+
+Ruled out on the way (for the record): the tracer, the pool, uninitialized memory, the fire files, the surface layer
+(including the `zolri` fix), `module_bl_ysu.F` (BEP guard), `module_pbl_driver.F`, `sincos` merging (glibc's
+`sincosf`/`sincos` equal `sinf`/`cosf` and `sin`/`cos` on 6·10⁸ inputs), and folding of non-integral constant
+exponents (gfortran calls `powf` for them, as `rp_pow` does).
 
 #### Memory estimator (P0.15)
 
@@ -163,7 +171,11 @@ the boundary arrays exactly; the pool and work arrays are smaller. The total sta
 8. **`x**2.0` stays an integer power:** plan.md's standing rule "`x**2.0` becomes `x*x`" is implemented as `x**2`
    (the exponent literals −1., 0., 1., 2. become integers; 35 powers). Compilers fold `x**2.0` into `x*x` and
    compute `x**2` the same way, while `rp_pow(x, 2.0)` with REPRO_MATH off calls `powf`, which may round an exact
-   tie differently; so only the integer form keeps the rewrite a pure refactor.
+   tie differently; so only the integer form keeps the rewrite a pure refactor. The same holds for exponents that
+   are named constants: `x**pfac` with `parameter :: pfac = 2.0` (YSU), `SNCOVR**SNOEXP` with `SNOEXP = 2.0`
+   (Noah), and INTEGER constants such as the WENO `pw = 2` stay powers (62 sites; `rp_subst.py` resolves the
+   file's PARAMETERs). T-IPOW tests these forms host vs device, and T-SYM would show any `pow` call a compiler
+   leaves in host code.
 9. **Vector math and T-SHARED-1:** gfortran vectorizes loops that call `exp`, `log`, `pow`, … into glibc's SIMD
    variants (`_ZGVbN4v_expf`, …), whose results differ from the scalar functions. The rewritten loops call `rp_*`
    and are never vectorized, so unmodified and rewritten code differ although no arithmetic changed. The local
