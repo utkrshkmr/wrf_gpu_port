@@ -20,7 +20,9 @@ with [AGENTS.md](../../AGENTS.md) (the rules).
 | [PHASE5.md](PHASE5.md) | Phase 5: nest forcing, sync points, removing the last island |
 | [PHASE6.md](PHASE6.md) | Phase 6: performance (bit-neutral only) |
 | [PHASE7.md](PHASE7.md) | Phase 7: regression script, other fires |
-| [KERNEL_REFS.md](KERNEL_REFS.md) | Generated: for every kernel of plan.md, the exact CPU lines to port (file:line in the CPU-view base commit) and plan.md's v4.6.0 lines |
+| [KERNEL_REFS.md](KERNEL_REFS.md) | Generated: for every kernel of plan.md, the exact CPU lines to port (file:line in the CPU-view base commit) and plan.md's v4.6.0 lines. Read a row with `port/tools/ref.py <kernel id>`, not the whole file |
+| [PROMPTS.md](PROMPTS.md) | For the project owner: the prompts that start a first, a resumed and a next-phase session |
+| [CHEATSHEET.md](CHEATSHEET.md) | Rules, loop, templates, top pitfalls on two pages: read at the start of every session after the first |
 | [ROUTES.md](ROUTES.md) | Generated: for every route, its routines (definition file:lines) and every call site in the base commit |
 | [WORKBOOK.md](WORKBOOK.md) | **Kept by the agent**: current state, task checklist, log |
 | [kernels.csv](kernels.csv) | **Kept by the agent** (status columns): one row per kernel table row of plan.md |
@@ -65,6 +67,9 @@ with [AGENTS.md](../../AGENTS.md) (the rules).
 | `port/h100/compile_one.sh <mode> <file> [--minfo]` | Compiles one working-tree file against a build in seconds (BUILD_SYSTEM.md) |
 | `port/h100/build_cmds.py show <build> <dir/file.F>` | The exact preprocess/compile commands of a file |
 | `port/tools/add_to_build.py`, `port/tools/check_deps.py` | Register a new file with the build; check depend.common/Makefiles (static.sh) |
+| `port/tools/ref.py <kernel id|route|routine>` | The CPU code to port, from the base commit, in pages (context budget) |
+| `port/tools/index.py <file>` | Map of a file: modules and routines with line ranges |
+| `port/tools/workbook.py resume` / `archive` | What a fresh session needs; keep WORKBOOK.md small |
 | `port/tools/kernel_off.py` | Runs one kernel on the host, temporarily, to confirm a suspect (DEBUGGING.md §2) |
 | `port/gates/t_fine.sh` | Fine tracing: CPU-REF vs GPU (or route off vs on) with a checkpoint after every routine (DEBUGGING.md §1b) |
 | `port/tools/check_build_flags.py` | The arithmetic flags of the GPU-port stanzas (and of any build, `--build <dir>`) are intact |

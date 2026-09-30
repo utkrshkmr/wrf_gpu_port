@@ -2,7 +2,9 @@
 
 Plan: [plan.md §9](../../plan.md) (9.0 preparation, 9.1 kernel table, G4). Exact lines: [KERNEL_REFS.md](KERNEL_REFS.md);
 routes and call sites: [ROUTES.md](ROUTES.md). Fire runs on d02 once per step (RK stage 1) on the fire mesh
-(724×724 on the dev case). Same way of working as Phase 2.
+(724×724 on the dev case). Same way of working as Phase 2. Context: read with `ref.py <kernel id>` and
+`index.py phys/module_fr_fire_core.F`; `fire_model` (535 lines) and `interpolate_atm2fire` (433) are split by kernel
+rows (WORKFLOW.md §11).
 
 ## P4.0 Fire shared refactors (plan.md §9.0; WORKFLOW.md §6, one commit each, then move the base)
 

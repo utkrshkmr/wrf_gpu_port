@@ -255,7 +255,7 @@ and their `END IF`; directive lines. Everything else goes under `#ifdef WRF_GPU`
 
 ## 10. Per-routine checklist
 
-- [ ] CPU lines read from `KERNEL_REFS.md` (base commit), whole routine read once;
+- [ ] CPU lines read with `ref.py <kernel id>` (base commit); the whole routine read once, in `ref.py <routine>` pages;
 - [ ] template chosen; kernels in source order; statements copied verbatim;
 - [ ] every kernel: route, `default(none)`, complete data-sharing lists, correct `collapse`, no map, no I/O;
 - [ ] island generated and placed (entry after early returns; exit before every later RETURN and the END);

@@ -129,7 +129,8 @@ How to update, after every task (and at the end of every work session, even if t
   temporary; static.sh refuses KOFF-TEMP edits). GPU-DEBUG stanza macro renamed WRF_GPU_TRACE_FINE -> WRF_TRACE_FINE.
 - Tests run (gfortran, no GPU): static PASS; tool tests PASS; ref tests PASS (also template B module-function
   form). Smoke case S-3M: normal build of this tree = earlier build, bitwise (189000 trace records, output file);
-  --fine build at trace level 2 = normal build, bitwise. (8 fine checkpoints first sat inside continued CALL
+  --fine build at trace level 2 = normal build, bitwise; at level 3 (steps 100-101) the 1050 level-2 records are
+  unchanged and 64394 fine records appear (p1:, p2:, rkt: tags). (8 fine checkpoints first sat inside continued CALL
   statements and broke --fine builds: fixed in 2917d94.)
 - Notes: nothing of this has run on NVHPC or a GPU yet.
 
@@ -152,3 +153,13 @@ How to update, after every task (and at the end of every work session, even if t
   PASS; static PASS.
 - Notes: not run with NVHPC or on a GPU. First use on the H100: build cpu-ref and gpu-repro --worktree once
   (build.sh records the compile commands), then harness.sh calc_alt / calc_ww_cp as a check of the harness itself.
+
+### 2026-09-30 HANDOFF Context budget of 250k tokens (owner changes)
+- Changed: AGENTS.md (reading tiers: first session about 35k tokens, later sessions about 10k; rule 11), WORKFLOW.md
+  §11 (budget, reading/editing/output rules, checkpoint at 60%, WIP commits, split of the 18 routines above 500
+  lines), CHEATSHEET.md (resume read), PROMPTS.md (first/resume/next-phase prompts), context notes in PHASE2-4.
+- New tools: port/tools/ref.py (a kernel's/route's/routine's base-commit code, paged), port/tools/index.py (map
+  of a file), workbook.py resume (about 60 lines) and archive; workbook check limits WORKBOOK.md to 40000
+  characters and log entries to 25 lines.
+- Tests run: tool tests PASS (ref.py, index.py, resume/archive/limits on a scratch copy); static PASS.
+

@@ -10,6 +10,10 @@ them current lets anyone take over the port mid-way (port/agent/WORKFLOW.md,
                   [--commit SHA] [--tests "T-AB-x W-20 PASS; ..."] [--note TEXT]
                                           update kernels.csv rows
   workbook.py check                       consistency check (run by port/gates/static.sh)
+  workbook.py resume                      what a fresh session needs (about 60 lines): current state,
+                                          next items, kernels in progress, last log entries, open blockers,
+                                          the phase-card section to read
+  workbook.py archive [--keep N]          move all but the last N (10) log entries to WORKBOOK_ARCHIVE.md
 
 check verifies:
   - WORKBOOK.md has the sections and the "Current state" keys, and its
@@ -19,6 +23,8 @@ check verifies:
   - kernels.csv statuses are valid; every 'done' row has an existing commit and
     tests; every 'blocked' row has a note
   - the CPU-view base is the original one or is listed in port/agent/REFACTORS.md
+  - context budget (WORKFLOW.md section 11): WORKBOOK.md stays under 40000 characters
+    (else: workbook.py archive) and each log entry under 25 lines
 """
 
 import argparse
@@ -37,6 +43,9 @@ PORT = os.path.dirname(HERE)
 REPO = os.path.dirname(PORT)
 AG = os.path.join(PORT, "agent")
 WB = os.path.join(AG, "WORKBOOK.md")
+ARCH = os.path.join(AG, "WORKBOOK_ARCHIVE.md")
+MAX_CHARS = 40000
+MAX_ENTRY_LINES = 25
 KC = os.path.join(AG, "kernels.csv")
 STATES = ("todo", "in-progress", "done", "blocked", "n/a")
 KEYS = ("Phase", "Current task", "Last commit", "Last gate passed", "Builds", "Dev references", "Blockers",
@@ -91,7 +100,20 @@ def parse_wb():
         if m:
             items.append(dict(done=m.group(1) != " ", id=m.group(2), text=m.group(3), group=group, line=line))
     logs = [l[4:] for l in secs.get("Log", []) if l.startswith("### ")]
+    if os.path.exists(ARCH):
+        logs = [l[4:] for l in open(ARCH).read().split("\n") if l.startswith("### ")] + logs
     return secs, state, items, logs
+
+
+def log_entries(lines):
+    """[(heading line, [lines])] of a Log section"""
+    out = []
+    for l in lines:
+        if l.startswith("### "):
+            out.append([l, []])
+        elif out:
+            out[-1][1].append(l)
+    return out
 
 
 def cmd_status(args):
@@ -218,12 +240,94 @@ def cmd_check(args):
         ref = os.path.join(AG, "REFACTORS.md")
         if not os.path.exists(ref) or base[:12] not in open(ref).read():
             bad.append(f"cpu_view_base {base[:12]} is not the original base and is not listed in port/agent/REFACTORS.md")
+    size = os.path.getsize(WB)
+    if size > MAX_CHARS:
+        bad.append(f"WORKBOOK.md has {size} characters (limit {MAX_CHARS}, context budget): "
+                   f"run python3 port/tools/workbook.py archive")
+    for head, body in log_entries(secs.get("Log", [])):
+        while body and not body[-1].strip():
+            body = body[:-1]
+        if len(body) > MAX_ENTRY_LINES:
+            bad.append(f"log entry '{head[4:60]}' has {len(body)} lines (limit {MAX_ENTRY_LINES}): shorten it")
     for b in bad:
         print("FAIL  " + b)
     done_k = sum(1 for r in rows if r["status"] == "done")
     print(f"workbook: {'PASS' if not bad else 'FAIL (' + str(len(bad)) + ')'}  "
           f"({sum(i['done'] for i in items)}/{len(items)} tasks, {done_k}/{len(rows)} kernel rows done)")
     return 1 if bad else 0
+
+
+def cmd_resume(args):
+    secs, state, items, logs = parse_wb()
+    print("== Current state (port/agent/WORKBOOK.md)")
+    for k in KEYS:
+        print(f"  {k}: {state.get(k, '(missing)')}")
+    print("\n== Next checklist items")
+    for i in [i for i in items if not i["done"]][:3]:
+        print(f"  {i['id']} {i['text'][:110]}   [{i['group'][:40]}]")
+    rows = read_csv()
+    prog = [r for r in rows if r["status"] == "in-progress"]
+    todo = [r for r in rows if r["status"] == "todo"][:3]
+    if prog or todo:
+        print("\n== Kernels in progress, then next (show the CPU code: python3 port/tools/ref.py <key>)")
+        for r in prog + todo:
+            print(f"  {r['status']:11s} {r['key']:14s} {r['template']:3s} route={r['route']:24s} "
+                  f"{r['base_refs'][:70]}{(' | ' + r['notes'][:60]) if r['notes'] else ''}")
+    ents = log_entries(secs.get("Log", []))
+    if ents:
+        print("\n== Last log entries")
+        for head, body in ents[-2:]:
+            print(head)
+            body = [x for x in body if x.strip()]
+            for l in body[:15]:
+                print(l)
+            if len(body) > 15:
+                print(f"  ... ({len(body) - 15} more lines in WORKBOOK.md)")
+    bl = os.path.join(AG, "BLOCKERS.md")
+    if os.path.exists(bl):
+        open_b = [l.strip() for l in open(bl) if re.match(r"^## B\d+\b", l) and "resolved" not in l]
+        print("\n== Open blockers: " + ("; ".join(open_b) if open_b else "none"))
+    task = state.get("Current task", "").split()[0] if state.get("Current task") else ""
+    if task:
+        for card in sorted(f for f in os.listdir(AG) if re.match(r"PHASE\d\.md$", f)):
+            lines = open(os.path.join(AG, card)).read().split("\n")
+            hit = next((n for n, l in enumerate(lines) if l.startswith("#") and re.search(
+                r"(^|[\s(])" + re.escape(task.split(".")[0] + "." + task.split(".")[1] if "." in task else task)
+                + r"\b", l)), None)
+            if hit is not None:
+                lvl = len(lines[hit]) - len(lines[hit].lstrip("#"))
+                end = next((n for n in range(hit + 1, len(lines)) if lines[n].startswith("#") and
+                            len(lines[n]) - len(lines[n].lstrip("#")) <= lvl), len(lines))
+                print(f"\n== Read the card section of {task}: sed -n '{hit + 1},{end}p' port/agent/{card}")
+                break
+    print("\n== Then: python3 port/tools/workbook.py next; the loop of port/agent/CHEATSHEET.md")
+    return 0
+
+
+def cmd_archive(args):
+    text = open(WB).read()
+    lines = text.split("\n")
+    try:
+        start = lines.index("## Log") + 1
+    except ValueError:
+        print("WORKBOOK.md has no '## Log' section")
+        return 1
+    end = next((n for n in range(start, len(lines)) if lines[n].startswith("## ")), len(lines))
+    ents = log_entries(lines[start:end])
+    if len(ents) <= args.keep:
+        print(f"{len(ents)} log entries, nothing to archive (keep {args.keep})")
+        return 0
+    old, keep = ents[:-args.keep], ents[-args.keep:]
+    first_entry = next(n for n in range(start, end) if lines[n].startswith("### "))
+    new_log = [l for e in keep for l in [e[0]] + e[1]]
+    lines[first_entry:end] = new_log
+    open(WB, "w").write("\n".join(lines))
+    head = "" if os.path.exists(ARCH) else ("# Workbook log archive\n\nOlder log entries of WORKBOOK.md, oldest "
+                                              "first (moved by workbook.py archive).\n\n")
+    with open(ARCH, "a") as f:
+        f.write(head + "\n".join(l for e in old for l in [e[0]] + e[1]).rstrip("\n") + "\n\n")
+    print(f"archived {len(old)} log entries to {os.path.relpath(ARCH, REPO)}; {len(keep)} kept")
+    return 0
 
 
 def main():
@@ -239,8 +343,12 @@ def main():
     p.add_argument("--tests")
     p.add_argument("--note")
     sub.add_parser("check")
+    sub.add_parser("resume")
+    p = sub.add_parser("archive")
+    p.add_argument("--keep", type=int, default=10)
     args = ap.parse_args()
-    return {"status": cmd_status, "next": cmd_next, "set": cmd_set, "check": cmd_check}[args.cmd](args)
+    return {"status": cmd_status, "next": cmd_next, "set": cmd_set, "check": cmd_check, "resume": cmd_resume,
+            "archive": cmd_archive}[args.cmd](args)
 
 
 if __name__ == "__main__":

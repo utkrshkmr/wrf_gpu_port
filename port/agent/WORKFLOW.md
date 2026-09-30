@@ -17,7 +17,7 @@ How to work on the port, from picking a task to pushing it. The rules behind it 
 ```
 1. python3 port/tools/workbook.py next          -> the next task / kernel
 2. read its section in the phase card (PHASE<N>.md) and plan.md
-3. open the CPU lines:  KERNEL_REFS.md row  ->  git show <base>:<file> | sed -n 'a,bp'
+3. open the CPU lines:  python3 port/tools/ref.py <kernel id>   (paged; §11: never whole files)
 4. write the code (CODING_STANDARD.md), under #ifdef WRF_GPU, with its island (gen_island.py)
 5. bash port/gates/static.sh                    -> must PASS (fix, repeat)
 6. fast:   bash port/h100/compile_one.sh gpu-repro <file> --minfo;  bash port/h100/harness.sh <file> <routine>
@@ -201,8 +201,78 @@ the fallbacks of plan.md §15 do not solve, a test that fails in a way you canno
 
 ## 10. End of session checklist
 
+- [ ] the checkpoint of §11 done (also when a session ends because the context is full);
 - [ ] everything committed and pushed;
 - [ ] WORKBOOK.md: Current state rewritten, checklist ticked, log entry written;
 - [ ] kernels.csv statuses current (`workbook.py status`);
 - [ ] `bash port/gates/static.sh` PASS on the pushed commit;
 - [ ] long runs that are still going are named in the log (run directory, what to check).
+
+## 11. Working in a 250k-token context
+
+Your context holds about 250k tokens (Fortran: roughly 12 tokens per line). The port has to be done in many
+sessions. Two rules make that work: read only what the task needs, and leave the repository at every checkpoint so
+that a fresh session can continue from `workbook.py resume`.
+
+**Budget (typical):**
+
+| Item | Tokens |
+|---|---|
+| session start: AGENTS.md, CHEATSHEET.md, `workbook.py resume`, one card section | about 10k |
+| first session only: the full reading list of AGENTS.md | about 35k |
+| one routine of 100-300 lines: CPU code via `ref.py`, edits, tool outputs, tests | 30-80k |
+| a routine above 500 lines (table below) | more than one session |
+
+**Reading.**
+- Code: `ref.py <kernel id>` shows exactly the lines a kernel replaces; `ref.py <route>` and `ref.py <routine>` show
+  whole routines in pages of 250 lines; `index.py <file>` maps a file.
+- Plan and tables: `grep -n` for the ID or section, then `sed -n 'a,bp'`. Never read `plan.md`, `KERNEL_REFS.md`,
+  `kernels.csv` or `ROUTES.md` whole.
+- Do not reread what you already have. Note line numbers in the workbook for the next session.
+- Largest files, which must never be opened whole: `phys/module_ra_rrtmg_lw.F` (14,640 lines),
+  `dyn_em/module_advect_em.F` (13,050), `phys/module_surface_driver.F` (7,288), `dyn_em/module_diffusion_em.F`
+  (8,483), `dyn_em/module_big_step_utilities_em.F` (6,759), `phys/module_radiation_driver.F` (5,711),
+  `dyn_em/solve_em.F` (5,238), `phys/module_sf_noahlsm.F` (4,760).
+
+**Editing.** Change a large file with targeted replacements (your edit tool's string replacement, or a small script
+that replaces one exact block). Never write a whole large file back. Check the result with `git diff -- <file> |
+head -150` or `sed -n` of the changed range, not by reading the file.
+
+**Output.** The gate and build scripts print short summaries and write the rest to files. Read those files with
+`grep -n -m 20`, `head` or `tail`, never `cat`: `compile.log` is megabytes and `bittrace*.txt` hundreds of thousands
+of lines. Pipe long commands through `| tail -30`.
+
+**Checkpoint.** At about 60% of your context, before any long run, and at the end of every task:
+
+1. Bring the edited files to a state where `static.sh` passes and `compile_one.sh` compiles them. If that is not
+   possible yet, stop at the last point where it was.
+2. Mark kernel progress: `workbook.py set <kernel> in-progress --note "Y1 done; next Y2, ADV:600-647"`.
+3. Rewrite "Current state" with an exact next step (file, routine, kernel, line numbers, the command to run next).
+4. Write a log entry of at most 25 lines. When `static.sh` reports the workbook too large, run
+   `workbook.py archive`.
+5. Commit, then push. Title a routine that is not finished `WIP <routine>: <kernels written>`; the final commit of
+   the routine carries the test results (AGENTS.md rule 4).
+6. Continue in a fresh session, starting with the resume read of AGENTS.md. If your environment compacts the
+   context instead, the compacted state must still include the checkpoint.
+
+**Routines too large for one session.** Port them kernel by kernel (`ref.py <kernel id>` per kernel row), with a WIP
+commit after each group. Each group passes `compile_one.sh`; the routine as a whole passes `harness.sh` and the W-20
+tests before its final commit. The routed routines above 500 lines (lines of the base commit, with their routed
+callees):
+
+| Route | Lines | Split by |
+|---|---|---|
+| `lsm` (Noah: lsm, SFLX and callees) | 6,421 | one callee group per session (`index.py phys/module_sf_noahlsm.F`); CP-3 declarations first |
+| `surface_driver` | 4,496 | the K-SD kernels, in source order |
+| `pbl_driver` | 2,278 | K-PBLD; the rest is branches this case does not take |
+| `ysu` | 1,826 | wrapper (ysu), then `bl_ysu_run` declarations (CP-3), then callees |
+| `advect_scalar_pd` | 1,817 | K-PD-Y, K-PD-X, K-PD-Z, limiter L1-L3, divergence |
+| `advect_w`, `advect_v`, `advect_u`, `advect_scalar` | 1,331-1,701 each | Y (Y1/Y2), then X, then Z |
+| `wsm6` | 1,619 | wrapper, then `mp_wsm6_run` declarations, then the slope/sedimentation callees |
+| `rrtmg_lwrad` | 1,447 (+ the whole RRTMG tree) | setup, `taumol`/`taugb*` in groups of four, `rtrnmc` |
+| `cal_deform_and_div` | 1,174 | K-DEF in groups of about ten nests |
+| `sfclayrev` | 1,151 | wrapper, then `sf_sfclayrev_run`, then `zolri`/psi functions |
+| `rhs_ph` | 814 | K-RHSPH-1/2, then the advection nests 3..8 |
+| `horizontal_diffusion_2`, `vertical_diffusion_2` | 683-740 | one sub-routine (`_u_2`, `_v_2`, `_w_2`, `_s`) per group |
+| `fire_model`, `swrad` | 504-535 | by kernel rows |
+

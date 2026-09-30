@@ -5,6 +5,14 @@ Plan: [plan.md §8](../../plan.md) (8.0 column-physics transformation CP-1..CP-5
 and call sites: [ROUTES.md](ROUTES.md). Same way of working as Phase 2 (PHASE2.md §0): host world, one routine per
 commit, T-AB + T-TRACE per routine, W-100 (radiation: W-RAD) per sub-phase.
 
+**Context (WORKFLOW.md §11).** The physics files are the largest of the port: `module_ra_rrtmg_lw.F` (14,640
+lines, more than your whole context), `module_surface_driver.F` (7,288), `module_sf_noahlsm.F` (4,760). Map them with
+`python3 port/tools/index.py <file>` and read one subroutine at a time (`ref.py <routine>`). The CP-3 work (fixed-size
+locals in the core routine and every callee) is spread over many subroutines: keep a per-subroutine list in the
+kernel row's note (`workbook.py set <kernel> in-progress --note "CP-3 done: SFLX, REDPRM; next: SNOPAC"`) and commit
+WIP after each group. Noah (`lsm`, 6,421 lines with callees), `surface_driver`, `pbl_driver`, `ysu`, `wsm6` and RRTMG
+each take several sessions; the split is in WORKFLOW.md §11.
+
 ## P3.0 Column-physics infrastructure (before any scheme)
 
 1. `WRF/inc/gpu_col.h` (new): `#define WRF_KMAX 64`, `#define WRF_NLAYMAX 128`, `#define WRF_NSOILMAX 4`, and the

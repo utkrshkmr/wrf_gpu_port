@@ -372,5 +372,44 @@ check(rc == 0 and "USE module_big_step_utilities_em, ONLY : calc_ww_cp" in out a
       and "!$omp target enter data map(alloc: h_u," in out and "CALL hdump_r4(hu, 'ww', h_ww," in out
       and re.search(r"ALLOCATE\(h_u\(\s*h_ims:h_ime", out) is not None, "gen_harness: calc_ww_cp driver", out[:3000])
 
+# ---- context tools: ref.py pages the CPU code, index.py maps a file
+rc, out = run(os.path.join(TOOLS, "ref.py"), "K-PREP-5b")
+check(rc == 0 and "template C" in out and "   713  " in out and "DO i=its,ite" in out and "=== end" in out,
+      "ref.py: a kernel row and its base-commit lines", out[:1500])
+rc, out = run(os.path.join(TOOLS, "ref.py"), "advect_u")
+check(rc == 0 and "part 1/" in out and "--part 2" in out and len(out.split("\n")) < 270,
+      "ref.py: a large route is paged", out[:800])
+rc, out = run(os.path.join(TOOLS, "index.py"), os.path.join(REPO, "WRF", "dyn_em", "module_small_step_em.F"))
+check(rc == 0 and re.search(r"subroutine advance_w\s+\d+-\d+\s+\d+ lines", out) is not None,
+      "index.py: routines with line ranges", out[:800])
+
+# ---- workbook.py resume / archive / size limits, on a scratch copy
+wr = tempfile.mkdtemp()
+os.makedirs(os.path.join(wr, "port", "tools"))
+os.makedirs(os.path.join(wr, "port", "agent"))
+shutil.copy(os.path.join(TOOLS, "workbook.py"), os.path.join(wr, "port", "tools"))
+shutil.copy(os.path.join(REPO, "port", "agent", "kernels.csv"), os.path.join(wr, "port", "agent"))
+shutil.copy(os.path.join(REPO, "port", "agent", "cpu_view_base"), os.path.join(wr, "port", "agent"))
+subprocess.run(["git", "init", "-q", wr])
+wb_head = open(os.path.join(REPO, "port", "agent", "WORKBOOK.md")).read().split("## Log")[0]
+entries = "".join(f"### 2026-10-{i + 1:02d} P1.{i} task {i}\n- Changed: x\n- Tests run: y\n\n" for i in range(14))
+open(os.path.join(wr, "port", "agent", "WORKBOOK.md"), "w").write(wb_head + "## Log\n\n" + entries)
+wbt = os.path.join(wr, "port", "tools", "workbook.py")
+rc, out = run(wbt, "resume")
+check(rc == 0 and "== Current state" in out and "P1.13 task 13" in out and len(out.split("\n")) < 90,
+      "workbook resume: short, with the last log entries", out)
+rc, out = run(wbt, "archive", "--keep", "5")
+wbt_text = open(os.path.join(wr, "port", "agent", "WORKBOOK.md")).read()
+arch = open(os.path.join(wr, "port", "agent", "WORKBOOK_ARCHIVE.md")).read()
+check(rc == 0 and wbt_text.count("### 2026-10") == 5 and arch.count("### 2026-10") == 9 and "P1.0 task 0" in arch
+      and "P1.13 task 13" in wbt_text, "workbook archive: old entries moved, the last ones kept", out)
+open(os.path.join(wr, "port", "agent", "WORKBOOK.md"), "a").write(
+    "### 2026-10-20 P1.99 long\n" + "".join(f"- line {i}\n" for i in range(30)))
+rc, out = run(wbt, "check")
+check(rc == 1 and "has 30 lines" in out, "workbook check: a log entry over 25 lines fails", out)
+open(os.path.join(wr, "port", "agent", "WORKBOOK.md"), "a").write("x" * 41000 + "\n")
+rc, out = run(wbt, "check")
+check(rc == 1 and "workbook.py archive" in out, "workbook check: WORKBOOK.md over 40000 characters fails", out)
+
 print("RESULT:", "PASS" if bad == 0 else f"FAIL ({bad})")
 sys.exit(1 if bad else 0)

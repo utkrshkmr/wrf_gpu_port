@@ -6,6 +6,12 @@ commit). Every route with its routines and call sites: [ROUTES.md](ROUTES.md). T
 those) list, per sub-phase, the routes, the routines to edit (file:lines in the base commit), the kernel rows and
 where the routines are called from.
 
+**Context (WORKFLOW.md §11).** Read a kernel's lines with `python3 port/tools/ref.py <kernel id>`, never
+`module_advect_em.F` (13,050 lines) or `module_big_step_utilities_em.F` whole. The advection routines
+(`advect_u/v/w/scalar`, 1,300-1,700 lines each), `advect_scalar_pd` (1,817), `cal_deform_and_div` (1,174), `rhs_ph`
+and the diffusion routines take more than one session: port them kernel group by kernel group, with a WIP commit and
+a checkpoint after each group.
+
 ## 0. How Phase 2 works
 
 - The model stays on the host (the P1.9 bracket, `gpu_world_host = .TRUE.`). Each ported routine gets kernels and
@@ -17,7 +23,8 @@ where the routines are called from.
   `harness.sh`, the build, `t_ab.sh calc_alt W-20` and `t_trace.sh W-20` proves the whole pipeline before any hard
   kernel.
 - Per routine: read the routine completely in the base commit; list its loop nests; map each nest to a kernel row of
-  KERNEL_REFS.md and a template; write the kernels and the island; `static.sh`;
+  KERNEL_REFS.md and a template (`ref.py <kernel id>` prints the row and its lines); write the kernels and the
+  island; `static.sh`;
   `compile_one.sh gpu-repro <file> --minfo`; `harness.sh <file> <routine>` (with `--set` for each code path you
   ported, e.g. `rk_step=1` and `3`); repeat until they pass (a minute per try); then build; `t_ab.sh <route> W-20`;
   `t_trace.sh W-20`; commit; `workbook.py set ... done`.
