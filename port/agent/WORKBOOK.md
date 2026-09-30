@@ -15,13 +15,13 @@ How to update, after every task (and at the end of every work session, even if t
 ## Current state
 
 - Phase: H0 (entry tasks on the H100 machine)
-- Current task: H0.1
-- Last commit: (none yet by the agent; handoff package on branch claude/wrf-gpu-port-cpu-7doq8n)
-- Last gate passed: G0, local part only (CPU, gfortran; see port/RESULTS.md)
-- Builds: none yet on the H100 machine
+- Current task: H0.2
+- Last commit: d45e2d4
+- Last gate passed: H0.1 toolchain: PASS on iad-cmp2 (G0 machine rows still open; see port/ENVIRONMENT.md)
+- Builds: none yet. Image and deps are ready under $WORK.
 - Dev references: not made yet (no Eaton inputs; smoke case S-3M until they arrive)
-- Blockers: B1 open — ticking H0.1 makes the locked workbook self-test a no-op (static.sh tools FAIL). H0.1 itself passed.
-- Next step: H0.2 — in port/tests/repro_math, `make fma_cases.bin` on the host, then `x make` and `CUDA_VISIBLE_DEVICES=$GPU_ID x ./run_tests.sh` (T-FMA first). If T-FMA fails, stop and write BLOCKERS.md.
+- Blockers: B1 open (H0.1 checkbox must stay unticked). B2 open (nvfortran 25.1 S-1054 on module_repro_math; T-FMA not run).
+- Next step: Stop for B2. Do not start H0.3 or any kernel until the owner allows a device-data fix in WRF/frame/module_repro_math.F or names a flag that compiles the current source, and T-FMA has passed.
 - Pending the case data: H0.6; H0.7; H0.8 on W-20; t_trace.sh W-T0; t_trace.sh W-20; t_upd.sh; t_selftest.sh; t_nsys.sh W-20; t_mem.sh 55; g1.sh
 
 ### Owner decisions (override the cards)
@@ -104,6 +104,10 @@ How to update, after every task (and at the end of every work session, even if t
 - [ ] P7.2 Onboarding guide for a new case
 
 ## Log
+
+### 2026-09-30 H0.2 module_repro_math does not compile on the device
+- `make fma_cases.bin` wrote 1000000 records. `x make` failed: NVFORTRAN-S-1054 on PIo2, two_over_pi, npio2_hw, atanhi. T-FMA was not run.
+- A scratch copy compiles only with `!$acc declare create` plus `-acc`. OpenMP `declare target` on the same arrays does not. The locked module was not edited. See BLOCKERS.md B2. Stopped.
 
 ### 2026-09-30 H0.1 checkbox left open (B1)
 - Commit 78611a4 ticked H0.1. static.sh then failed: test_agent_tools.py only detects a bad tick by rewriting the still-open `- [ ] H0.1` line. The box is open again so static.sh passes. The check itself passed; see BLOCKERS.md B1.
