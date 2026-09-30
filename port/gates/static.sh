@@ -11,6 +11,7 @@
 #                (port/agent/infra.md5, check_tool_fixes.py)
 #   flags        the GPU-port configure stanzas keep the arithmetic flags (check_build_flags.py)
 #   koff         no temporary kernel_off.py edit (KOFF-TEMP) is left in WRF/
+#   deps         build dependencies of the changed WRF files (check_deps.py: depend.common, Makefiles)
 #   verbatim     the 'original' code in port/tests is the WRF source (check_verbatim.py)
 #   arith_guard  CPU view unchanged, no new arithmetic in GPU code
 #   kernel_lint  directive rules of every kernel
@@ -42,6 +43,9 @@ result flags "$([ $rc = 0 ] && echo PASS || echo FAIL)" "$(echo "$out" | tail -1
 koff=$(grep -rl "KOFF-TEMP" WRF --include='*.F' --include='*.F90' --include='*.inc' --include='*.h' 2>/dev/null | head -5 | tr '\n' ' ')
 result koff "$([ -z "$koff" ] && echo PASS || echo FAIL)" \
   "$([ -z "$koff" ] && echo 'no kernel_off edits' || echo "kernel_off edits left, run port/tools/kernel_off.py --revert: $koff")"
+out=$(python3 port/tools/check_deps.py 2>&1); rc=$?
+result deps "$([ $rc = 0 ] && echo PASS || echo FAIL)" "$(echo "$out" | tail -1)"
+[ $rc = 0 ] || echo "$out" | head -20
 out=$(python3 port/tools/check_verbatim.py 2>&1); rc=$?
 result verbatim "$([ $rc = 0 ] && echo PASS || echo FAIL)" "$(echo "$out" | tail -1)"
 [ $rc = 0 ] || echo "$out" | grep FAIL

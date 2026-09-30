@@ -7,7 +7,8 @@
       guides.  The coding agent never changes these; static.sh checks them with
       md5sum -c.
   port/agent/infra.md5  INFRASTRUCTURE: scripts that build, run and set up
-      (port/h100 apart from compare.sh and windows.txt, the container files,
+      (port/h100 apart from compare.sh and windows.txt: builds, windows, the dev
+      case, the per-routine harness, the one-file compile; the container files;
       the dev-case cutter).  They have never met the real machine, so the agent
       may fix them, but only through the "tool fix" protocol of WORKFLOW.md:
       static.sh requires every changed infrastructure file to be named in
@@ -31,10 +32,10 @@ INCLUDE = ["port/tests/*", "port/tools/*", "port/gates/*", "port/h100/*", "port/
            "port/agent/*.md"]
 EXCLUDE = ["port/h100/env.sh", "port/agent/WORKBOOK.md", "port/agent/BLOCKERS.md", "port/agent/REFACTORS.md",
            "port/agent/KERNEL_REFS.md", "port/agent/ROUTES.md", "port/agent/TOOL_FIXES.md"]
-# infrastructure: fixable through a logged tool fix (everything else in INCLUDE is locked)
-INFRA = ["port/h100/build.sh", "port/h100/common.sh", "port/h100/dev_case.sh", "port/h100/in_container.sh",
-         "port/h100/setup_toolchain.sh", "port/h100/smoke_case.sh", "port/h100/sync_tree.py",
-         "port/h100/window.sh", "port/h100/x.sh", "port/container/*", "port/make_dev_case.py", "port/nml.py"]
+# infrastructure: fixable through a logged tool fix (everything else in INCLUDE is locked):
+# all of port/h100 except the comparison script and the window table
+INFRA = ["port/h100/*", "port/container/*", "port/make_dev_case.py", "port/nml.py"]
+INFRA_LOCKED = ["port/h100/compare.sh", "port/h100/windows.txt"]
 
 
 def files():
@@ -43,7 +44,8 @@ def files():
     for f in tracked:
         if any(fnmatch.fnmatch(f, p) for p in INCLUDE) and not any(fnmatch.fnmatch(f, p) for p in EXCLUDE):
             if os.path.isfile(os.path.join(REPO, f)):
-                (infra if any(fnmatch.fnmatch(f, p) for p in INFRA) else locked).append(f)
+                is_infra = any(fnmatch.fnmatch(f, p) for p in INFRA) and f not in INFRA_LOCKED
+                (infra if is_infra else locked).append(f)
     return sorted(locked), sorted(infra)
 
 

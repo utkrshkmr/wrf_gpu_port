@@ -20,9 +20,11 @@ How to work on the port, from picking a task to pushing it. The rules behind it 
 3. open the CPU lines:  KERNEL_REFS.md row  ->  git show <base>:<file> | sed -n 'a,bp'
 4. write the code (CODING_STANDARD.md), under #ifdef WRF_GPU, with its island (gen_island.py)
 5. bash port/gates/static.sh                    -> must PASS (fix, repeat)
-6. build:  bash port/h100/build.sh gpu-repro --worktree   (and cpu-ref --worktree when the CPU view could change)
-7. test:   bash port/gates/t_ab.sh <route> W-20;  bash port/gates/t_trace.sh W-20
-8. on FAIL: DEBUGGING.md (coarse trace -> t_fine.sh -> bt_fine3 inside the routine -> kernel_off.py);
+6. fast:   bash port/h100/compile_one.sh gpu-repro <file> --minfo;  bash port/h100/harness.sh <file> <routine>
+           (seconds to a minute; DEBUGGING.md §0; repeat 4-6 until both PASS)
+7. build:  bash port/h100/build.sh gpu-repro --worktree   (and cpu-ref --worktree when the CPU view could change)
+   test:   bash port/gates/t_ab.sh <route> W-20;  bash port/gates/t_trace.sh W-20
+8. on FAIL: DEBUGGING.md (harness -> coarse trace -> t_fine.sh -> bt_fine3 inside the routine -> kernel_off.py);
    at most three honest attempts per failure mode, then BLOCKERS.md
 9. commit, workbook.py set <kernel> done ..., update WORKBOOK.md, commit, push
 ```
@@ -60,6 +62,8 @@ bash port/h100/build.sh gpu-repro --worktree --fine   # fine tracing (and cpu-re
 - Incremental builds follow WRF's make dependencies. If a build behaves strangely after editing a module that many
   files use (e.g. `module_gpu_route.F`), rebuild clean: `build.sh <mode> --worktree --clean`.
 - Changing `WRF/Registry/*`, `WRF/tools/*.c` (the Registry generator) or `arch/*` needs `--clean`.
+- How the build works, adding files (`port/tools/add_to_build.py`), dependencies (`check_deps.py`, in static.sh),
+  compile errors: [BUILD_SYSTEM.md](BUILD_SYSTEM.md). One file in seconds: `port/h100/compile_one.sh`.
 - A failed compile leaves no `main/wrf.exe`; `build.sh` prints the first errors and the log path.
 - WRF's build deletes comment lines that contain an apostrophe before preprocessing. A directive is a comment line:
   **never put `'` in a `!$omp` line** (it silently disappears).
@@ -145,8 +149,8 @@ The port's own files come in two tiers (`python3 port/tools/protect.py --list` s
 - **Locked** (`port/agent/protected.md5`): tests, checkers, gate scripts, `port/h100/compare.sh`,
   `port/h100/windows.txt`, the comparison tools (`port/*.py` apart from the two below), the reproducible-math
   module, the case contract, the agent guides. They decide pass or fail; you never change them.
-- **Infrastructure** (`port/agent/infra.md5`): `port/h100/build.sh`, `common.sh`, `dev_case.sh`, `in_container.sh`,
-  `setup_toolchain.sh`, `smoke_case.sh`, `sync_tree.py`, `window.sh`, `x.sh`, `port/container/*`,
+- **Infrastructure** (`port/agent/infra.md5`): everything in `port/h100/` except `compare.sh` and `windows.txt`
+  (build, windows, dev case, harness, one-file compile, container runner, setup), `port/container/*`,
   `port/make_dev_case.py`, `port/nml.py`. They build, run and set up. They were written without the H100 machine,
   NVHPC or the Eaton inputs, so expect bugs on first contact (a container flag, an MPI launcher option, a configure
   prompt, a netCDF attribute in the real inputs). You may fix them.

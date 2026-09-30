@@ -11,7 +11,8 @@ with [AGENTS.md](../../AGENTS.md) (the rules).
 | [WORKFLOW.md](WORKFLOW.md) | The task loop, builds, windows, commits, the workbook, shared refactors, what to do when a test fails |
 | [CODING_STANDARD.md](CODING_STANDARD.md) | How to write a kernel: templates A, B, C, D, G and column physics (CP), with tested worked examples |
 | [PITFALLS.md](PITFALLS.md) | Everything that breaks bit-for-bit equality or compiles into something unexpected |
-| [DEBUGGING.md](DEBUGGING.md) | From "T-AB FAIL" to the wrong statement: tracer, bisection, sanitizer, runtime logs |
+| [DEBUGGING.md](DEBUGGING.md) | From "T-AB FAIL" to the wrong statement: fast harness, tracer, fine tracing, bisection, sanitizer |
+| [BUILD_SYSTEM.md](BUILD_SYSTEM.md) | How WRF is built: build order, flags, the 4 compile steps, the Registry, depend.common, compile errors, fast iteration |
 | [PHASE1.md](PHASE1.md) | Entry tasks H0 on the H100 machine; Phase 1: device residency, update lists, tables, pool, work arrays, startup gate, NVTX, logs |
 | [PHASE2.md](PHASE2.md) | Phase 2: dynamics kernels, sub-phases P2.A–P2.G |
 | [PHASE3.md](PHASE3.md) | Phase 3: physics kernels (glue, WSM6, surface, YSU, radiation) |
@@ -60,6 +61,10 @@ with [AGENTS.md](../../AGENTS.md) (the rules).
 | `port/tools/locate.py` | plan.md's v4.6.0 line → the line in your working tree |
 | `port/tools/nsys_copies.py` | Counts host↔device copies in an nsys report |
 | `port/tools/check_verbatim.py` | The "original" code in the reference tests is the WRF source |
+| `port/h100/harness.sh <file> <routine>` | One routine on random inputs: host vs device and CPU view vs device, in about a minute (DEBUGGING.md §0) |
+| `port/h100/compile_one.sh <mode> <file> [--minfo]` | Compiles one working-tree file against a build in seconds (BUILD_SYSTEM.md) |
+| `port/h100/build_cmds.py show <build> <dir/file.F>` | The exact preprocess/compile commands of a file |
+| `port/tools/add_to_build.py`, `port/tools/check_deps.py` | Register a new file with the build; check depend.common/Makefiles (static.sh) |
 | `port/tools/kernel_off.py` | Runs one kernel on the host, temporarily, to confirm a suspect (DEBUGGING.md §2) |
 | `port/gates/t_fine.sh` | Fine tracing: CPU-REF vs GPU (or route off vs on) with a checkpoint after every routine (DEBUGGING.md §1b) |
 | `port/tools/check_build_flags.py` | The arithmetic flags of the GPU-port stanzas (and of any build, `--build <dir>`) are intact |

@@ -13,10 +13,13 @@ where the routines are called from.
   routine can be ported and tested on its own, in any order, and `WRF_GPU_OFF=<route>` gives the host execution of
   the same code (T-AB).
 - Work routine by routine (one commit each), in the order of the tables. Start with **`calc_alt`** (K-PREP-7): its
-  complete port is the tested example `port/tests/tools/example_calc_alt.F`. Getting it through `static.sh`, the
-  build, `t_ab.sh calc_alt W-20` and `t_trace.sh W-20` proves the whole pipeline before any hard kernel.
+  complete port is the tested example `port/tests/tools/example_calc_alt.F`. Getting it through `static.sh`,
+  `harness.sh`, the build, `t_ab.sh calc_alt W-20` and `t_trace.sh W-20` proves the whole pipeline before any hard
+  kernel.
 - Per routine: read the routine completely in the base commit; list its loop nests; map each nest to a kernel row of
-  KERNEL_REFS.md and a template; write the kernels and the island; `static.sh`; build; `t_ab.sh <route> W-20`;
+  KERNEL_REFS.md and a template; write the kernels and the island; `static.sh`;
+  `compile_one.sh gpu-repro <file> --minfo`; `harness.sh <file> <routine>` (with `--set` for each code path you
+  ported, e.g. `rk_step=1` and `3`); repeat until they pass (a minute per try); then build; `t_ab.sh <route> W-20`;
   `t_trace.sh W-20`; commit; `workbook.py set ... done`.
 - Per sub-phase gate (G2.A … G2.G): every route of the sub-phase passes `t_ab.sh <route> W-100`, and
   `t_trace.sh W-100` passes. Tick the sub-phase in the workbook with those results.

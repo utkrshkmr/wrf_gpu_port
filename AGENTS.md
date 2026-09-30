@@ -11,7 +11,8 @@ Read, in this order, before touching code:
 2. [port/agent/README.md](port/agent/README.md): the map of the agent documents and tools;
 3. [port/agent/ENV_H100.md](port/agent/ENV_H100.md): setting up the machine;
 4. [port/agent/WORKFLOW.md](port/agent/WORKFLOW.md): the task loop, commits, the workbook, what to do when a test fails;
-5. [port/agent/CODING_STANDARD.md](port/agent/CODING_STANDARD.md) and [port/agent/PITFALLS.md](port/agent/PITFALLS.md);
+5. [port/agent/CODING_STANDARD.md](port/agent/CODING_STANDARD.md), [port/agent/PITFALLS.md](port/agent/PITFALLS.md) and
+   [port/agent/BUILD_SYSTEM.md](port/agent/BUILD_SYSTEM.md) (how WRF is built; adding files; compile errors);
 6. the card of your phase: [PHASE1.md](port/agent/PHASE1.md) ... [PHASE7.md](port/agent/PHASE7.md);
 7. [port/agent/WORKBOOK.md](port/agent/WORKBOOK.md): where the work stands. Continue from its "Current state".
 
@@ -31,8 +32,9 @@ Read, in this order, before touching code:
    **locked**: `port/tests`, `port/tools`, `port/gates`, `port/h100/compare.sh`, `port/h100/windows.txt`, the
    comparison tools in `port/*.py`. Their checksums are in `port/agent/protected.md5`, which `static.sh` checks.
    If a locked file is wrong, stop and write it up in `port/agent/BLOCKERS.md` (WORKFLOW.md, "Tool problems").
-   The **infrastructure** scripts are not locked: build, run and setup (`port/h100/*.sh` apart from `compare.sh`,
-   `sync_tree.py`, `port/container/*`, `port/make_dev_case.py`, `port/nml.py`; checksums in `port/agent/infra.md5`).
+   The **infrastructure** scripts are not locked: build, run and setup (everything in `port/h100/` apart from
+   `compare.sh` and `windows.txt`, `port/container/*`, `port/make_dev_case.py`, `port/nml.py`; checksums in
+   `port/agent/infra.md5`).
    They have never run on the real machine, so you may fix them, but only as a "tool fix": one commit per fix,
    logged in `port/agent/TOOL_FIXES.md`, never changing what is compared or how (WORKFLOW.md §8). Never change
    `plan.md`'s decisions; record deviations in the workbook log and in BLOCKERS.md.
@@ -62,6 +64,8 @@ python3 port/tools/workbook.py next                    # what to do
 # read the task in the phase card, the CPU lines in KERNEL_REFS.md, the template in CODING_STANDARD.md
 # edit WRF/... under #ifdef WRF_GPU
 bash port/gates/static.sh                              # guards (no GPU needed)
+bash port/h100/compile_one.sh gpu-repro <file> --minfo # one file, seconds
+bash port/h100/harness.sh <file> <routine>             # one routine, host vs device vs CPU view, ~1 min
 bash port/gates/t_ab.sh <route> W-20                   # device vs host of this routine, real data
 bash port/gates/t_trace.sh W-20                        # GPU-REPRO vs CPU-REF
 git commit ...; python3 port/tools/workbook.py set <kernel> done --commit <sha> --tests "..."

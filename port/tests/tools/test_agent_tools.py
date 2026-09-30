@@ -9,6 +9,7 @@ check, which is skipped here).
 
 import hashlib
 import os
+import struct
 import re
 import subprocess
 import sys
@@ -319,6 +320,57 @@ check(rc == 0 and len(dirs) == 1 and "if(target: .FALSE.)" in dirs[0] and -1 < b
       "kernel_off: host run with copies before and after the kernel", txt[-2500:])
 rc, out = run(os.path.join(TOOLS, "kernel_off.py"), "--revert", ko)
 check(rc == 0 and open(ko).read() == src_ko, "kernel_off --revert restores the file exactly", out)
+
+# ---- check_deps / add_to_build on a small scratch repository
+cr = tempfile.mkdtemp()
+for sub in ("WRF/frame", "WRF/main", "port/tools", "port/agent"):
+    os.makedirs(os.path.join(cr, sub))
+for t in ("check_deps.py", "add_to_build.py"):
+    shutil.copy(os.path.join(TOOLS, t), os.path.join(cr, "port", "tools", t))
+open(os.path.join(cr, "WRF/frame/Makefile"), "w").write("MODULES =       module_a.o        \\\n                module_b.o\n")
+open(os.path.join(cr, "WRF/frame/CMakeLists.txt"), "w").write(
+    "target_sources(\n    x\n    PRIVATE\n      module_a.F\n      module_b.F\n    )\n")
+open(os.path.join(cr, "WRF/main/depend.common"), "w").write("module_b.o: \\\n\tmodule_a.o \n")
+open(os.path.join(cr, "WRF/frame/module_a.F"), "w").write("MODULE module_a\nEND MODULE module_a\n")
+open(os.path.join(cr, "WRF/frame/module_b.F"), "w").write("MODULE module_b\n USE module_a\nEND MODULE module_b\n")
+subprocess.run(["git", "init", "-q", cr]); subprocess.run(["git", "-C", cr, "add", "-A"])
+subprocess.run(["git", "-C", cr, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "base"])
+sha = subprocess.run(["git", "-C", cr, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+open(os.path.join(cr, "port/agent/cpu_view_base"), "w").write(sha + "  # base\n")
+open(os.path.join(cr, "WRF/frame/module_new.F"), "w").write("MODULE module_new\n USE module_b\nEND MODULE module_new\n")
+open(os.path.join(cr, "WRF/frame/module_a.F"), "w").write("MODULE module_a\n USE module_new\nEND MODULE module_a\n")
+rc, out = run(os.path.join(cr, "port/tools/check_deps.py"))
+check(rc == 1 and "D3 frame/module_new.F: new file not in frame/Makefile" in out and "CMakeLists" in out
+      and "D1 frame/module_a.F: USE module_new" in out, "check_deps: unregistered new file and new USE fail", out)
+rc, out = run(os.path.join(cr, "port/tools/add_to_build.py"), os.path.join(cr, "WRF/frame/module_new.F"))
+rc2, out2 = run(os.path.join(cr, "port/tools/add_to_build.py"), "--deps", os.path.join(cr, "WRF/frame/module_a.F"))
+rc3, out3 = run(os.path.join(cr, "port/tools/check_deps.py"))
+dep = open(os.path.join(cr, "WRF/main/depend.common")).read()
+check(rc == 0 and rc2 == 0 and rc3 == 0 and "module_new.o: \\\n\tmodule_b.o" in dep and "module_new.o" in
+      open(os.path.join(cr, "WRF/frame/Makefile")).read(), "add_to_build: registers the file; check_deps then passes",
+      out + out2 + out3 + dep)
+
+# ---- harness_diff: identical, a 1-ulp difference, NaN in both (big-endian records as WRF builds write them)
+def hrec(name, vals):
+    body = struct.pack(f">{len(vals)}f", *vals)
+    return (name.ljust(32) + "r4".ljust(4)).encode() + struct.pack(">i4i4iq", 1, 1, 1, 1, 1, len(vals), 1, 1, 1,
+                                                                    len(body)) + body
+hd = tempfile.mkdtemp()
+nan = float("nan")
+open(os.path.join(hd, "a.bin"), "wb").write(hrec("ww", [1.0, 2.0, nan]))
+open(os.path.join(hd, "b.bin"), "wb").write(hrec("ww", [1.0, 2.0, nan]))
+open(os.path.join(hd, "c.bin"), "wb").write(hrec("ww", [1.0, struct.unpack(">f", struct.pack(">I", 0x40000001))[0], nan]))
+rc, out = run(os.path.join(TOOLS, "harness_diff.py"), os.path.join(hd, "a.bin"), os.path.join(hd, "b.bin"))
+check(rc == 0 and "IDENTICAL" in out, "harness_diff: identical outputs pass", out)
+rc, out = run(os.path.join(TOOLS, "harness_diff.py"), os.path.join(hd, "a.bin"), os.path.join(hd, "c.bin"))
+check(rc == 1 and "DIFFERENT: 1 of 3 values, first at (2)" in out, "harness_diff: a 1-ulp difference fails", out)
+
+# ---- gen_harness: driver of calc_ww_cp (prefixed names, config from the namelist, outputs)
+rc, out = run(os.path.join(PORT, "h100", "gen_harness.py"),
+              os.path.join(REPO, "WRF", "dyn_em", "module_big_step_utilities_em.F"), "calc_ww_cp", "--mode", "gpu")
+check(rc == 0 and "USE module_big_step_utilities_em, ONLY : calc_ww_cp" in out and "CALL initial_config" in out
+      and "!$omp target enter data map(alloc: h_u," in out and "CALL hdump_r4(hu, 'ww', h_ww," in out
+      and re.search(r"ALLOCATE\(h_u\(\s*h_ims:h_ime", out) is not None, "gen_harness: calc_ww_cp driver", out[:3000])
 
 print("RESULT:", "PASS" if bad == 0 else f"FAIL ({bad})")
 sys.exit(1 if bad else 0)

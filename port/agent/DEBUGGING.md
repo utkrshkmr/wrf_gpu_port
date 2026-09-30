@@ -2,6 +2,43 @@
 
 From "FAIL" to the statement that is wrong. Work top-down; write what you find into the workbook log as you go.
 
+## 0. Fast checks (before and between the W-20 runs)
+
+A W-20 run takes 10-20 minutes while most of the model still runs on one host core. Check one routine in about a
+minute first:
+
+```sh
+bash port/h100/compile_one.sh gpu-repro WRF/dyn_em/module_big_step_utilities_em.F --minfo   # compiles? offloaded?
+bash port/h100/harness.sh WRF/dyn_em/module_big_step_utilities_em.F calc_ww_cp              # bits equal?
+```
+
+`harness.sh` compiles the working-tree file against the existing `cpu-ref` and `gpu-repro` worktree builds (only
+this file; the builds are not changed). A generated driver (`gen_harness.py`) then calls the routine once, on
+pseudo-random inputs built from random bits, and writes its outputs. The comparisons, bit for bit (`harness_diff.py`):
+
+- `HOST vs DEVICE`: GPU build, route off vs on. This is what T-AB checks: races, missing `private`, a missing island
+  entry, uninitialized device data.
+- `CPU vs DEVICE`: CPU-REF build (the CPU view of the file) vs GPU build. This is what T-TRACE checks: wrong range,
+  reordered statement, a branch you did not port.
+
+`DIFFERENT: n of N values, first at (i,k,j)` names the output and the first index.
+
+Know the limits:
+- The driver sets config_flags from the dev-case namelist and the WRF dimensions to one tile of 40×36×20 with a
+  halo of 5 (`--grid`).
+- Other scalars get defaults, printed as `harness default: ...`. Set the ones that choose a code path with
+  `--set name=value`, e.g. `--set rk_step=3`, and run again for each path you ported.
+- Random values are positive 0.5..4 (winds, fluxes, tendencies: ±4). Use `--range name=lo:hi` when a routine needs
+  physical values.
+- Module arrays the routine reads without arguments hold whatever the library holds.
+- `TYPE(domain)` dummies are not supported: use T-AB for driver routines.
+
+A PASS is a fast pre-check, not the acceptance test. The routine is done only after `t_ab.sh` and `t_trace.sh` on
+W-20. A FAIL is always real: fix it before spending a W-20 run.
+
+If `gen_harness.py` cannot handle a declaration, fix it as a tool fix (WORKFLOW.md §8). It is in `port/h100/`,
+infrastructure.
+
 ## 1. Read the comparison
 
 `port/h100/compare.sh A B` (called by every gate) prints, from `port/bittrace_diff.py`:
@@ -126,6 +163,7 @@ Compare the kernel with its CPU lines (`KERNEL_REFS.md`) side by side, statement
 | GPU-DEBUG build (`build.sh gpu-debug --worktree`) | `-g -traceback -gpu=lineinfo`, `WRF_TRACE_FINE`; line numbers in sanitizer reports |
 | `build.sh <mode> --worktree --fine`, `port/gates/t_fine.sh` | level-3 checkpoints after every routine, and your `bt_fine*` calls inside routines (§1b) |
 | `port/tools/kernel_off.py` | one kernel on the host, temporarily (§2) |
+| `port/h100/harness.sh`, `port/h100/compile_one.sh` | one routine / one file in seconds to a minute (§0, BUILD_SYSTEM.md) |
 | `python3 port/compare_fields.py A/wrfout... B/wrfout... --all` | which history fields differ and by how much (the size of the difference hints at the cause: 1 ulp → rounding/FMA/order; large → wrong index/stale data) |
 
 Pass `RUN_WRAPPER` and other variables through `window.sh`: `RUN_WRAPPER="compute-sanitizer --tool memcheck"

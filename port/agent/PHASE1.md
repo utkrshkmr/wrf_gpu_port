@@ -14,8 +14,11 @@ their dependencies are: update lists and pool/work modules in `WRF/frame/` (they
 without a USE: write such entry points outside any module (`SUBROUTINE gpu_update_tables()` at the end of the file,
 after `END MODULE`). `CALL gpu_*` lines are allowed in the CPU view. Every new file must be added to its directory's
 `Makefile` (module list) and to `WRF/main/depend.common` (who depends on it), as was done for
-`module_gpu_route.o` and `module_gpu_updates.o` (search for them in `WRF/frame/Makefile` and
-`WRF/main/depend.common`). Build with `--clean` after adding files.
+`module_gpu_route.o` and `module_gpu_updates.o`: `python3 port/tools/add_to_build.py WRF/<dir>/<file>.F` does all
+three (Makefile, CMakeLists.txt, depend.common); after adding `USE` lines to an existing file,
+`add_to_build.py --deps <file>`. `static.sh` runs `check_deps.py`. Build with `--clean` after adding files.
+[BUILD_SYSTEM.md](BUILD_SYSTEM.md) explains the build and its errors; `port/h100/compile_one.sh` compiles one file
+in seconds.
 
 ---
 

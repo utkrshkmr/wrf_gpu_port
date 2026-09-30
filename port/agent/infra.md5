@@ -1,9 +1,13 @@
 d3925a64f0dcb735b1633cd12a8c447c  ../container/Dockerfile
 1ab459fd18c7ca08098a911da88cc361  ../container/README.md
 c6b4b85ecd866cca6617aa40c38b7101  ../container/wrf-gpu.def
-5d78204bfd210b6ce418babeb0c53553  ../h100/build.sh
+36f033f122092ecce143c6feffa43676  ../h100/build.sh
+3ae8e5dfd9f0c13933b77c97828d0864  ../h100/build_cmds.py
 ddb2d66da671cecfe78e23ceb7a94bab  ../h100/common.sh
+3df582222974cb2a38693bd064799cfb  ../h100/compile_one.sh
 926b5ea5e1ac89c4ef5f742f73f92108  ../h100/dev_case.sh
+2db785e4f45add1dfba26c2e8f9f95c6  ../h100/gen_harness.py
+24f1909553621da4709321c18899cb0b  ../h100/harness.sh
 1ff7aee1289bb4483b6de987866aac10  ../h100/in_container.sh
 3b2b02ea890a712272846fb4f326f9a3  ../h100/setup_toolchain.sh
 b5f661a8c048c36aee97048465e3331b  ../h100/smoke_case.sh

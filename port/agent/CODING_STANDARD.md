@@ -263,6 +263,7 @@ and their `END IF`; directive lines. Everything else goes under `#ifdef WRF_GPU`
 - [ ] non-dummy arrays the routine touches handled (island or P1.4 table);
 - [ ] error branches and messages converted (§7);
 - [ ] `static.sh` PASS; build shows the kernels offloaded (`-Minfo=mp`);
+- [ ] `harness.sh <file> <routine>` PASS (HOST vs DEVICE, CPU vs DEVICE) for each code path you ported (`--set`);
 - [ ] `t_ab.sh <route> W-20` and `t_trace.sh W-20` PASS;
 - [ ] every kernel has its `! K-...` ID comment; no `KOFF-TEMP` edit left (static.sh checks);
 - [ ] kernels.csv and the workbook updated; commit names kernel IDs and tests.

@@ -127,5 +127,28 @@ How to update, after every task (and at the end of every work session, even if t
   WRF_TRACE_FINE only; CPU view unchanged), bt_fine2/3/f for checkpoints inside routines, filters
   WRF_BITTRACE_DOMAIN/FIELDS, port/gates/t_fine.sh, port/tools/kernel_off.py (one kernel on the host,
   temporary; static.sh refuses KOFF-TEMP edits). GPU-DEBUG stanza macro renamed WRF_GPU_TRACE_FINE -> WRF_TRACE_FINE.
-- Tests run: see the commit message (gfortran builds normal and --fine; smoke case bitwise; tool tests).
+- Tests run (gfortran, no GPU): static PASS; tool tests PASS; ref tests PASS (also template B module-function
+  form). Smoke case S-3M: normal build of this tree = earlier build, bitwise (189000 trace records, output file);
+  --fine build at trace level 2 = normal build, bitwise. (8 fine checkpoints first sat inside continued CALL
+  statements and broke --fine builds: fixed in 2917d94.)
 - Notes: nothing of this has run on NVHPC or a GPU yet.
+
+### 2026-09-30 HANDOFF Fast per-routine harness and build-system tools (owner changes)
+- Commit(s): the handoff commit that adds port/h100/harness.sh (`git log -- port/h100/harness.sh`)
+- Changed (iteration speed, DEBUGGING.md §0): port/h100/harness.sh + gen_harness.py (driver calling one routine on
+  random-bit inputs, config_flags from the namelist) + build_cmds.py (exact per-file compile commands, recorded by
+  build.sh after every build) + port/tools/harness_diff.py (locked comparison): HOST vs DEVICE and CPU vs DEVICE for
+  one routine in about a minute. port/h100/compile_one.sh: one file against a build in seconds (--minfo).
+  WORKFLOW.md task loop step 6, PHASE2.md, CODING_STANDARD checklist use them.
+- Changed (build system): port/agent/BUILD_SYSTEM.md (build order, flags, the 4 compile steps incl. what
+  standard.exe does, Registry, depend.common, errors); port/tools/check_deps.py (static.sh "deps": new USE ->
+  depend.common, compile order, new files in Makefile/CMakeLists) and port/tools/add_to_build.py. check_deps found
+  3 missing depend.common entries from the fine-trace USEs (module_em, first_rk_step_part1/2): added. All of
+  port/h100 except compare.sh and windows.txt is now infrastructure (fixable as a tool fix).
+- Tests run (gfortran worktree build, no GPU): harness PASS on calc_ww_cp, advance_w, advance_uv, calc_p_rho_phi,
+  rk_update_scalar (11 s each incl. compile); a regrouped product in calc_ww_cp is caught (12537 of 46000 ww values
+  differ); compile_one.sh 3 s on module_small_step_em.F and reports a planted syntax error; a GPU-mode driver
+  compiles with gfortran -fopenmp; tool tests (check_deps/add_to_build on a scratch repo, harness_diff, gen_harness)
+  PASS; static PASS.
+- Notes: not run with NVHPC or on a GPU. First use on the H100: build cpu-ref and gpu-repro --worktree once
+  (build.sh records the compile commands), then harness.sh calc_alt / calc_ww_cp as a check of the harness itself.

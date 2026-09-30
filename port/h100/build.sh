@@ -112,4 +112,6 @@ fi
   [ -n "${IMAGE:-}" ] && echo "image: $IMAGE sha256 $(sha256sum < "$IMAGE" | cut -d' ' -f1)"
 } > BUILD_INFO
 cat BUILD_INFO >&2
+# remember the exact compile commands of this build (for compile_one.sh and harness.sh)
+python3 "$HERE_H100/build_cmds.py" update "$out" >&2 || note "build_cmds.py update failed (compile_one.sh/harness.sh need it)"
 echo "$out"

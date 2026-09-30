@@ -4,8 +4,9 @@ The build, run and setup scripts were written without access to the H100 machine
 first contact will find bugs in them. Those scripts are the **infrastructure tier** (`port/agent/infra.md5`,
 written by `port/tools/protect.py`):
 
-`port/h100/build.sh`, `common.sh`, `dev_case.sh`, `in_container.sh`, `setup_toolchain.sh`, `smoke_case.sh`,
-`sync_tree.py`, `window.sh`, `x.sh`; `port/container/*`; `port/make_dev_case.py`, `port/nml.py`.
+everything in `port/h100/` except `compare.sh` and `windows.txt` (builds, windows, dev case, the per-routine
+harness `harness.sh`/`gen_harness.py`, `build_cmds.py`, `compile_one.sh`, container runner, setup);
+`port/container/*`; `port/make_dev_case.py`, `port/nml.py`.
 
 You may fix them, following the protocol in [WORKFLOW.md](WORKFLOW.md) §8. Every infrastructure file that differs
 from `infra.md5` must be named in a row below, or `static.sh` fails (`check_tool_fixes.py`). Everything else under
