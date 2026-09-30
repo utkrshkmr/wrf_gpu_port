@@ -1,0 +1,11 @@
+# file  expected (PASS, or the option the gate must name)
+bad_cu_physics.input cu_physics
+bad_mp_physics.input mp_physics
+bad_sr_odd.input sr_x
+bad_e_vert.input e_vert
+bad_fire_upwinding.input fire_upwinding
+bad_nwp_diagnostics.input nwp_diagnostics
+bad_diff_opt.input diff_opt
+bad_pbl_on_d02.input bl_pbl_physics
+bad_nlayers.input NLAYERS
+ok_other_fire.input PASS

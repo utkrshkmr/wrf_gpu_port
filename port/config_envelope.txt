@@ -1,0 +1,49 @@
+# Supported-option envelope of the GPU port (plan.md 2.2, 2.3, P1.8).
+#
+# The envelope is the reference case's namelist (cases/eaton_20250108/
+# namelist.input) with these changes:
+#   free:   options that other fires may change freely (plan.md 2.3)
+#   pinned: options that change executed code without being physics choices
+#           (plan.md P1.8); if the reference namelist does not set them, a
+#           new case must leave them at these values
+# Every other option set in the reference namelist must have the same value
+# in a new case, for every domain.  port/check_case.py and the Fortran
+# startup gate gpu_check_config (plan.md P1.8) both follow this file; T-GATE
+# (port/tests/gate/) checks that they agree.
+
+free: start_year start_month start_day start_hour start_minute start_second
+free: end_year end_month end_day end_hour end_minute end_second
+free: run_days run_hours run_minutes run_seconds
+free: interval_seconds input_from_file
+free: history_interval history_interval_d history_interval_h history_interval_m history_interval_s
+free: frames_per_outfile restart restart_interval restart_interval_d restart_interval_h restart_interval_m
+free: restart_interval_s io_form_history io_form_restart io_form_input io_form_boundary
+free: history_outname rst_outname rst_inname write_hist_at_0h_rst override_restart_timers
+free: override_history_timers iofields_filename ignore_iofields_warning auxinput1_inname
+free: debug_level fire_print_msg fire_print_file diag_print nocolons
+free: e_we e_sn e_vert dx dy time_step time_step_fract_num time_step_fract_den
+free: i_parent_start j_parent_start parent_grid_ratio parent_time_step_ratio parent_id grid_id
+free: p_top_requested num_metgrid_levels num_metgrid_soil_levels eta_levels
+free: nproc_x nproc_y numtiles nio_tasks_per_group nio_groups
+free: fire_num_ignitions
+free: fire_ignition_ros1 fire_ignition_start_lat1 fire_ignition_start_lon1 fire_ignition_end_lat1
+free: fire_ignition_end_lon1 fire_ignition_radius1 fire_ignition_start_time1 fire_ignition_end_time1
+free: fire_ignition_start_x1 fire_ignition_start_y1 fire_ignition_end_x1 fire_ignition_end_y1
+free: fire_ignition_ros2 fire_ignition_start_lat2 fire_ignition_start_lon2 fire_ignition_end_lat2
+free: fire_ignition_end_lon2 fire_ignition_radius2 fire_ignition_start_time2 fire_ignition_end_time2
+free: fire_ignition_ros3 fire_ignition_start_lat3 fire_ignition_start_lon3 fire_ignition_end_lat3
+free: fire_ignition_end_lon3 fire_ignition_radius3 fire_ignition_start_time3 fire_ignition_end_time3
+free: fire_ignition_ros4 fire_ignition_start_lat4 fire_ignition_start_lon4 fire_ignition_end_lat4
+free: fire_ignition_end_lon4 fire_ignition_radius4 fire_ignition_start_time4 fire_ignition_end_time4
+free: fire_ignition_ros5 fire_ignition_start_lat5 fire_ignition_start_lon5 fire_ignition_end_lat5
+free: fire_ignition_end_lon5 fire_ignition_radius5 fire_ignition_start_time5 fire_ignition_end_time5
+free: fire_fuel_read fire_fuel_cat fire_fmc_read fire_ext_grnd fire_ext_crwn fire_crwn_hgt
+
+pinned: mp_zero_out=0 bucket_mm=-1. bucket_j=-1. prec_acc_dt=0. acc_phy_tend=0 nwp_diagnostics=0
+pinned: output_diagnostics=0 do_radar_ref=0 sfs_opt=0 topo_shading=0 slope_rad=0
+pinned: use_adaptive_time_step=.false. vert_refine_method=0 cu_physics=0 shcu_physics=0
+pinned: sf_urban_physics=0 sf_lake_physics=0 fmoist_run=.false. tracer_opt=0 fire_lsm_rain=0
+pinned: max_dom=2 feedback=0 periodic_x=.false. periodic_y=.false. specified=.true.
+
+# numeric limits (plan.md P1.8, 12)
+limit: WRF_KMAX=64 WRF_NLAYMAX=128 GPU_MEM_GB=70
