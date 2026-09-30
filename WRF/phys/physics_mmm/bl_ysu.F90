@@ -958,14 +958,14 @@
          endif
          prnum0 = (phih(i)/phim(i)+prfac)
          prnum0 = max(min(prnum0,prmax),prmin)
-           xkzm(i,k) = wscalek(i,k) *karman*    zq(i,k+1)      *    rp_pow(zfac(i,k), pfac)+ &
-                       wscalek2(i,k)*karman*(hpbl(i)-zq(i,k+1))*rp_pow((1-zfac(i,k)), pfac)
+           xkzm(i,k) = wscalek(i,k) *karman*    zq(i,k+1)      *    zfac(i,k)**pfac+ &
+                       wscalek2(i,k)*karman*(hpbl(i)-zq(i,k+1))*(1-zfac(i,k))**pfac
          !Do not include xkzm at kpbl-1 since it changes entrainment
          if (k.eq.kpbl(i)-1.and.cloudflg(i).and.we(i).lt.0.0) then
            xkzm(i,k) = 0.0
          endif
          prnum =  1. + (prnum0-1.)*rp_exp(prnumfac)
-         xkzq(i,k) = xkzm(i,k)/prnum*rp_pow(zfac(i,k), (pfac_q-pfac))
+         xkzq(i,k) = xkzm(i,k)/prnum*zfac(i,k)**(pfac_q-pfac)
          prnum0 = prnum0/(1.+prfac2*karman*sfcfrac)
          prnum =  1. + (prnum0-1.)*rp_exp(prnumfac)
          xkzh(i,k) = xkzm(i,k)/prnum

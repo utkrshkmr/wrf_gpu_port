@@ -17,7 +17,9 @@ Integer-literal exponents (x**2, x**3) are left alone; they are checked by
 T-IPOW.  A real-literal exponent with the value -1, 0, 1 or 2 (x**2., x**2.0,
 x**(-1.0), ...) becomes the integer literal (x**2): compilers fold x**2.0 into
 x*x (GCC always does for these four values), which is what the integer power
-computes, while a call to pow() could round an exact tie differently.  A
+computes, while a call to pow() could round an exact tie differently.  For the
+same reason a power whose exponent is a constant expression of named constants
+with such a value (x**pfac with 'parameter :: pfac = 2.0') is left as written.  A
 non-literal exponent is always wrapped: the generic rp_pow resolves INTEGER
 exponents to x**n unchanged.
 
@@ -139,6 +141,53 @@ def folded_int_exponent(text):
     return f"({val})" if val.startswith("-") else val
 
 
+NUM_LIT = r"(?:\d+\.?\d*|\.\d+)(?:[eEdD][+-]?\d+)?(?:_\w+)?"
+
+
+def real_parameters(text):
+    """Named constants of the file with a numeric literal value:
+    'real, parameter :: pfac = 2.0, h1 = 0.33' and 'PARAMETER (a = 1.)'."""
+    joined = re.sub(r"&[ \t]*(![^\n]*)?\n[ \t]*&?", " ", text)
+    params = {}
+    for line in joined.split("\n"):
+        code = line.split("!")[0]
+        m = re.search(r"\bparameter\b[^:]*::(.*)$", code, re.I) or \
+            re.search(r"^\s*parameter\s*\((.*)\)\s*$", code, re.I)
+        if not m:
+            continue
+        for name, val in re.findall(r"([A-Za-z_]\w*)\s*=\s*([+-]?" + NUM_LIT + r")(?=\s*(?:,|$))", m.group(1)):
+            params[name.lower()] = val
+    return params
+
+
+def folded_param_exponent(text, params):
+    """True if the exponent is a constant expression of literals and named
+    constants (params) that is INTEGER, or REAL with the value -1, 0, 1 or 2:
+    the compiler turns such a power into multiplications at compile time
+    (x**pfac with pfac = 2.0 becomes x*x), so it must stay a power for the
+    rewrite to be a pure refactor."""
+    if not params or not re.search(r"[A-Za-z_]", text):
+        return False
+    expr = text
+    for name in set(re.findall(r"[A-Za-z_]\w*", text)):
+        if name.lower() not in params:
+            return False
+        expr = re.sub(r"\b" + name + r"\b", "(" + params[name.lower()] + ")", expr)
+    expr = re.sub(r"_\w+", "", expr)
+    expr = re.sub(r"(\d|\.)[dD]([+-]?\d)", r"\1e\2", expr)
+    if not re.fullmatch(r"[\d.eE+\-*/() ]+", expr):
+        return False
+    try:
+        val = eval(expr, {"__builtins__": {}}, {})
+    except Exception:
+        return False
+    if isinstance(val, int):
+        # INTEGER constant exponent: the compiler expands x**n into a fixed
+        # chain of multiplications, a runtime power would use another chain
+        return True
+    return val in (-1.0, 0.0, 1.0, 2.0)
+
+
 class NeedManual(Exception):
     pass
 
@@ -237,8 +286,9 @@ def extend_component_left(toks, j):
     return j
 
 
-def rewrite_powers(code, report):
-    """Rewrite a**b in one line of code (no comment).  Returns new code."""
+def rewrite_powers(code, report, params=None):
+    """Rewrite a**b in one line of code (no comment).  Returns new code.
+    params: named constants of the file (real_parameters)."""
     # Stars are processed right to left; a star's distance from the end of the
     # line does not change when a star to its left is rewritten.
     changed = True
@@ -259,6 +309,10 @@ def rewrite_powers(code, report):
                 continue
             exp_text = code[toks[si + 1].start:toks[r_end].end]
             if is_int_literal(exp_text.replace(" ", "")):
+                done.add(key)
+                continue
+            if folded_param_exponent(exp_text.replace(" ", ""), params):
+                report("kept", f"**{exp_text} kept (constant exponent the compiler expands)")
                 done.add(key)
                 continue
             folded = folded_int_exponent(exp_text.replace(" ", ""))
@@ -359,7 +413,7 @@ def process_file(path, check_only, log):
     with open(path, errors="replace") as f:
         lines = f.read().split("\n")
     original = list(lines)
-    stats = {"call": 0, "pow": 0, "ipow": 0, "manual": 0, "refused": 0}
+    stats = {"call": 0, "pow": 0, "ipow": 0, "kept": 0, "manual": 0, "refused": 0}
     if is_fixed_form(lines) and not path.endswith((".f90", ".F90")):
         log(f"{path}: refused: fixed-form source, edit by hand")
         stats["refused"] += 1
@@ -368,6 +422,7 @@ def process_file(path, check_only, log):
     # Our own USE lines are removed and re-inserted below, so running the
     # script again on a rewritten file is safe.
     lines = [l for l in lines if not USE_LINE.match(l)]
+    params = real_parameters("\n".join(lines))
     new_lines = list(lines)
     # program units: remember header statements and whether the unit uses rp_*
     units = []            # [header_last_line_idx, changed, name, depth]
@@ -414,7 +469,7 @@ def process_file(path, check_only, log):
                 if kind_ in ("manual", "refused"):
                     log(f"{path}:{_i + 1}: {kind_}: {msg}")
                     log(f"    {lines[_i].strip()}")
-            c2 = rewrite_powers(code, rep)
+            c2 = rewrite_powers(code, rep, params)
             c2 = rewrite_calls(c2, rep)
             if c2 != code:
                 new_lines[i] = c2 + comment
@@ -474,15 +529,15 @@ def main():
         if "manual" in msg or "refused" in msg:
             print(msg)
 
-    total = {"call": 0, "pow": 0, "ipow": 0, "manual": 0, "refused": 0}
+    total = {"call": 0, "pow": 0, "ipow": 0, "kept": 0, "manual": 0, "refused": 0}
     for p in args.files:
         st, ch = process_file(p, args.check, log)
         for k in total:
             total[k] += st[k]
-        print(f"{p}: {st['call']} calls, {st['pow']} powers, {st['ipow']} integer powers, {st['manual']} manual, "
+        print(f"{p}: {st['call']} calls, {st['pow']} powers, {st['ipow']} integer powers, {st['kept']} kept, {st['manual']} manual, "
               f"{st['refused']} refused"
               f"{'' if ch else ' (unchanged)'}")
-    print(f"total: {total['call']} calls, {total['pow']} powers, {total['ipow']} integer powers, {total['manual']} manual, "
+    print(f"total: {total['call']} calls, {total['pow']} powers, {total['ipow']} integer powers, {total['kept']} kept, {total['manual']} manual, "
           f"{total['refused']} refused")
     if logf:
         logf.close()

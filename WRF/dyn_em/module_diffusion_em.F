@@ -5254,8 +5254,8 @@ END SUBROUTINE nonlocal_flux
 
    if (h .ne. 0) then
       doh   = d/h
-      num   = a1*rp_pow((doh), b1) + a2*rp_pow((doh), b2)+a3
-      den   = a4*rp_pow((doh), b1) + a5*rp_pow((doh), b2)+a6
+      num   = a1*(doh)**b1 + a2*rp_pow((doh), b2)+a3
+      den   = a4*(doh)**b1 + a5*rp_pow((doh), b2)+a6
       pthnl = a7*num/den + (1. - a7)
    else
       pthnl = 1.
@@ -5283,8 +5283,8 @@ END SUBROUTINE nonlocal_flux
 
    if (h .ne. 0) then
       doh  = d/h
-      num  = a1*rp_pow((doh), b1) + a2*rp_pow((doh), b2)+a3
-      den  = a4*rp_pow((doh), b1) + a5*rp_pow((doh), b2)+a6
+      num  = a1*(doh)**b1 + a2*rp_pow((doh), b2)+a3
+      den  = a4*(doh)**b1 + a5*rp_pow((doh), b2)+a6
       pthl = a7*num/den+(1. - a7)
    else
       pthl = 1.
@@ -5310,8 +5310,8 @@ END SUBROUTINE nonlocal_flux
 
    if (h .ne. 0) then
       doh = d/h
-      num = a1*rp_pow((doh), b1) + a2*rp_pow((doh), b2)
-      den = a3*rp_pow((doh), b1) + a4*rp_pow((doh), b2)+a5
+      num = a1*(doh)**b1 + a2*rp_pow((doh), b2)
+      den = a3*(doh)**b1 + a4*rp_pow((doh), b2)+a5
       pu  = num/den
    else
       pu = 1.
