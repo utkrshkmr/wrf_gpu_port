@@ -3918,9 +3918,6 @@ BENCH_START(micro_driver_tim)
       &        ,CLDFRA=grid%cldfra, EXCH_H=grid%exch_h &
       &        ,NSOURCE=grid%qndropsource                                 &
 #if (WRF_CHEM == 1)
-#ifdef WRF_TRACE_FINE
-     CALL bt_fine_em('microphysics_driver', 0)
-#endif
       &        ,QLSINK=grid%qlsink,CLDFRA_OLD=grid%cldfra_old             &
       &        ,PRECR=grid%precr, PRECI=grid%preci, PRECS=grid%precs, PRECG=grid%precg &
       &        ,CHEM_OPT=config_flags%chem_opt, PROGN=config_flags%progn  &
@@ -4154,6 +4151,9 @@ BENCH_START(micro_driver_tim)
       &        ,pert_thom_qi=config_flags%pert_thom_qi                   &
       &        ,pert_thom_qs=config_flags%pert_thom_qs                   &
       &        ,pert_thom_ni=config_flags%pert_thom_ni  )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_em('microphysics_driver', 0)
+#endif
                                                                           
 BENCH_END(micro_driver_tim)
    CALL bt_checkpoint(grid, 'microphysics', 2, 0)

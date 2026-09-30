@@ -259,9 +259,6 @@ BENCH_END(phy_prep_tim)
      &        ,nested=config_flags%nested, min_ptchsz=grid%min_ptchsz          &
      &        ,spec_bdy_width=config_flags%spec_bdy_width                      &
             ! indexes
-#ifdef WRF_TRACE_FINE
-     CALL bt_fine_p1('pre_radiation_driver', rk_step)
-#endif
      &        ,IDS=ids,IDE=ide, JDS=jds,JDE=jde, KDS=kds,KDE=kde               &
      &        ,IMS=ims,IME=ime, JMS=jms,JME=jme, KMS=kms,KME=kme               &
      &        ,IPS=ips,IPE=ipe, JPS=jps,JPE=jpe, KPS=kps,KPE=kpe               &
@@ -269,6 +266,9 @@ BENCH_END(phy_prep_tim)
      &        ,j_start=grid%j_start,j_end=min(grid%j_end, jde-1)               &
      &        ,kts=k_start, kte=min(k_end,kde-1)                               &
      &        ,num_tiles=grid%num_tiles                                        )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('pre_radiation_driver', rk_step)
+#endif
 
       CALL wrf_debug ( 200 , ' call radiation_driver' )
 BENCH_START(rad_driver_tim)
@@ -302,9 +302,6 @@ BENCH_START(rad_driver_tim)
      &        ,WARM_RAIN=grid%warm_rain ,XICE=grid%xice         ,XLAND=grid%xland    &
      &        ,XLAT=grid%xlat          ,XLONG=grid%xlong        ,YR=yr               &
            ! SSiB LSM radiation components (fds 06/2010)
-#ifdef WRF_TRACE_FINE
-     CALL bt_fine_p1('radiation_driver', rk_step)
-#endif
      &        ,ALSWVISDIR=grid%alswvisdir ,ALSWVISDIF=grid%alswvisdif      &  !ssib 
      &        ,ALSWNIRDIR=grid%alswnirdir ,ALSWNIRDIF=grid%alswnirdif      &  !ssib
      &        ,SWVISDIR=grid%swvisdir ,SWVISDIF=grid%swvisdif              &  !ssib
@@ -545,6 +542,9 @@ BENCH_START(rad_driver_tim)
      &         ,sw_difdflux=grid%sw_difdflux          &
 #endif
                                                       )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('radiation_driver', rk_step)
+#endif
 
 BENCH_END(rad_driver_tim)
 
@@ -633,9 +633,6 @@ BENCH_START(surf_driver_tim)
      &        ,TICE2TSK_IF2COLD=config_flags%tice2tsk_if2cold             &
      &        ,IFNDALBSI=grid%ifndalbsi, IFNDICEDEPTH=grid%ifndicedepth   &
 #if ( WRF_CHEM == 1 )
-#ifdef WRF_TRACE_FINE
-     CALL bt_fine_p1('surface_driver', rk_step)
-#endif
               ,NE_AREA=grid%ne_area,E_BIO=grid%e_bio &
 #endif
               ,IFNDSNOWSI=grid%ifndsnowsi, DO_BIOE=do_bioe, DO_MEGANFILE=do_meganfile          &
@@ -1107,6 +1104,9 @@ BENCH_START(surf_driver_tim)
      &        ,pert_noah_smois=config_flags%pert_noah_smois                          &
      &        ,pert_noah_tslb=config_flags%pert_noah_tslb                            &
      &                                                           )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('surface_driver', rk_step)
+#endif
 
 #ifdef WRF_HYDRO
         if(HYDRO_dt .gt. 1 ) call wrf_drv_HYDRO(HYDRO_dt, grid,  &
@@ -1165,9 +1165,6 @@ BENCH_START(pbl_driver_tim)
      &        ,ysu_topdown_pblmix=config_flags%ysu_topdown_pblmix              &
      &        ,shinhong_tke_diag=config_flags%shinhong_tke_diag               &
 ! paj: topo_wind
-#ifdef WRF_TRACE_FINE
-     CALL bt_fine_p1('pbl_driver', rk_step)
-#endif
      &        ,CTOPO=grid%ctopo,CTOPO2=grid%ctopo2                                   &
 ! variables added for BEP
      &          ,FRC_URB2D=grid%frc_urb2d                                                  &
@@ -1337,6 +1334,9 @@ BENCH_START(pbl_driver_tim)
 #endif
      &        ,QNORM=grid%QNORM, fasdas=config_flags%fasdas               & !fasdas
      &        )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('pbl_driver', rk_step)
+#endif
 
 #if (WRF_CHEM == 1)
 #ifdef DM_PARALLEL
@@ -1400,9 +1400,6 @@ BENCH_END(fire_driver_tim)
 BENCH_START(cu_driver_tim)
       CALL cumulus_driver(grid                                             &
                  ! Prognostic variables
-#ifdef WRF_TRACE_FINE
-     CALL bt_fine_p1('cumulus_driver', rk_step)
-#endif
      &             ,U=grid%u_phy   ,V=grid%v_phy   ,TH=th_phy  ,T=grid%t_phy                  &
      &             ,W=grid%w_2     ,P=grid%p_hyd   ,PI=pi_phy  ,RHO=grid%rho             &
                  ! Other arguments
@@ -1566,6 +1563,9 @@ BENCH_START(cu_driver_tim)
                    ,aeropcu=grid%aeropcu,ID=grid%id                                     &
                    ,JULDAY=grid%julday, JULIAN=grid%julian                              &
                    ,aerovar=grid%aerovar,EFCS=grid%EFCS,EFIS=grid%EFIS,EFSS=grid%EFSS)
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('cumulus_driver', rk_step)
+#endif
 BENCH_END(cu_driver_tim)
 !
 ! this for calculating (G3 scheme only)  time averaged variables for online (WRF-CHem) or offline (other models) chem runs
@@ -1631,9 +1631,6 @@ BENCH_START(shcu_driver_tim)
      &             ,QNC_CURR=scalar(ims,kms,jms,P_QNC)                    & !BSINGH - Neede for UWSHCU scheme
      &             ,QNI_CURR=scalar(ims,kms,jms,P_QNI)                    & !BSINGH - Neede for UWSHCU schem 
 #if (WRF_CHEM == 1)
-#ifdef WRF_TRACE_FINE
-     CALL bt_fine_p1('shallowcu_driver', rk_step)
-#endif
      &             ,CHEM=chem,chem_opt=config_flags%chem_opt              &
 #endif
      &             ,DLF=grid%dlf, RLIQ=grid%rliq, RLIQ2=grid%rliq2        &
@@ -1694,6 +1691,9 @@ BENCH_START(shcu_driver_tim)
      &             ,pert_deng_t=config_flags%pert_deng_t                  &
      &             ,pert_deng_w=config_flags%pert_deng_w                  &
      &                                                                    )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('shallowcu_driver', rk_step)
+#endif
 
 #if (WRF_CHEM == 1)
 #ifdef DM_PARALLEL
@@ -1809,9 +1809,6 @@ BENCH_START(fdda_driver_tim)
                   RTHNDGDTEN=grid%rthndgdten,RPHNDGDTEN=grid%rphndgdten,            &
                   RQVNDGDTEN=grid%rqvndgdten,RMUNDGDTEN=grid%rmundgdten,            &
 !
-#ifdef WRF_TRACE_FINE
-     CALL bt_fine_p1('fddagd_driver', rk_step)
-#endif
 ! FASDAS
 !
                   SDA_HFX=grid%SDA_HFX, SDA_QFX=grid%SDA_QFX,      &
@@ -1870,6 +1867,9 @@ BENCH_START(fdda_driver_tim)
                    ,IPSX=ipsx,IPEX=ipex,JPSX=jpsx,JPEX=jpex,KPSX=kpsx,KPEX=kpex     &
                    ,IMSY=imsy,IMEY=imey,JMSY=jmsy,JMEY=jmey,KMSY=kmsy,KMEY=kmey     &
                    ,IPSY=ipsy,IPEY=ipey,JPSY=jpsy,JPEY=jpey,KPSY=kpsy,KPEY=kpey     )
+#ifdef WRF_TRACE_FINE
+     CALL bt_fine_p1('fddagd_driver', rk_step)
+#endif
 
 BENCH_END(fdda_driver_tim)
 #ifdef WRF_TRACE_FINE
