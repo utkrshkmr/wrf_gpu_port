@@ -30,3 +30,12 @@ port/tests/omp_features/f_privarr
 port/tests/omp_features/f_red
 port/tests/omp_features/f_stack
 port/tests/repro_math/module_repro_math.f90
+port/tests/pdlim/t_pdlim
+port/tests/kiss/t_kiss
+port/tests/ozn/t_ozn
+port/tests/templates/t_tmpl_b
+port/tests/templates/t_tmpl_c
+port/tests/templates/t_tmpl_g
+port/tests/*/*.mod
+port/tests/*/*.o
+port/tests/*/build.log

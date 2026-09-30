@@ -175,6 +175,17 @@ open(summ, "w").write("Total (MB),Count,Avg (MB),Med (MB),Min (MB),Max (MB),StdD
 rc, out = run(os.path.join(TOOLS, "nsys_copies.py"), summ)
 check(rc == 0 and re.search(r"HtoD\s+2 copies", out) and "323.642" in out, "nsys_copies: summary report", out)
 
+# ---- check_verbatim: the reference tests' copies of WRF code, and a tampered copy
+rc, out = run(os.path.join(TOOLS, "check_verbatim.py"))
+check(rc == 0, "check_verbatim: the copies in port/tests are verbatim", out)
+tmp = tempfile.mkdtemp()
+t = open(os.path.join(PORT, "tests", "pdlim", "t_pdlim.F90")).read()
+tampered = os.path.join(tmp, "t.F90")
+open(tampered, "w").write(t.replace("scale = max(0.,ph_low(i,k,j)/(flux_out(i,k,j)+eps))",
+                                    "scale = max(0.,ph_low(i,k,j)*(1./(flux_out(i,k,j)+eps)))", 1))
+rc, out = run(os.path.join(TOOLS, "check_verbatim.py"), tampered)
+check(rc == 1 and "not a verbatim copy" in out, "check_verbatim: an edited copy fails", out)
+
 # ---- check_case / T-GATE namelists
 rc, out = run(os.path.join(PORT, "check_case.py"), os.path.join(REPO, "cases", "eaton_20250108", "namelist.input"))
 check(rc == 0, "check_case: the reference case is inside the envelope", out)

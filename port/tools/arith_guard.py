@@ -217,6 +217,10 @@ def skeleton(expr):
 
 def trivial(rhs):
     sk = skeleton(rhs)
+    # comparisons and logical operators of variables/literals round nothing
+    if re.fullmatch(r"(\s|v|\(|\)|\.(gt|ge|lt|le|eq|ne|and|or|not|true|false)\.|[<>]=?|==|/=|[-+]?[\d.]+(e[+-]?\d+)?)+", sk) \
+            and re.search(r"\.(gt|ge|lt|le|eq|ne|and|or|not)\.|[<>]|==|/=", sk):
+        return True
     return sk == "v" or re.fullmatch(r"-?\s?[\d.][\w.+-]*", sk.replace(" ", "")) is not None or \
         re.fullmatch(r"-?\s?v", sk) is not None or sk in (".true.", ".false.")
 
@@ -378,11 +382,15 @@ def self_test():
     head_bad = base.replace("a(i)/(b(i) + 1.0)", "a(i)/b(i) + 1.0").replace("*2.0", "*2.0 ")
     head_gpu_bad = head_ok.replace("tmp = b(i)*2.0 + a(i)/(b(i) + 1.0)", "tmp = (b(i)*2.0 + a(i))/(b(i) + 1.0)")
     head_gpu_exp = head_ok.replace("a(i) = tmp", "a(i) = exp(tmp)")
+    head_flag = head_ok.replace("         a(i) = tmp\n", "         a(i) = tmp\n         lim(i) = a(i) .gt. b(i) .and. .not. c(i)\n")
+    head_flag_bad = head_ok.replace("         a(i) = tmp\n", "         a(i) = tmp\n         lim(i) = a(i)*3.0 .gt. b(i)\n")
     import types
     for name, head, n_expected in (("directives + island + GPU copy", head_ok, 0),
                                    ("changed CPU arithmetic", head_bad, 2),
                                    ("new GPU arithmetic", head_gpu_bad, 1),
-                                   ("intrinsic EXP in GPU code", head_gpu_exp, 1)):
+                                   ("intrinsic EXP in GPU code", head_gpu_exp, 1),
+                                   ("logical flag of a comparison in GPU code", head_flag, 0),
+                                   ("comparison of new arithmetic in GPU code", head_flag_bad, 1)):
         d = tempfile.mkdtemp()
         f = os.path.join(d, "x.F")
         open(f, "w").write(head)
