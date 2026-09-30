@@ -91,6 +91,12 @@ kernels, everything runs on the host through the GPU binary).
 (GPU binary without kernels = CPU-REF). Also `x bash port/sym_audit.sh <gpu build>` (device part: no MUFU
 approximations). Tick P1.1.
 
+If this T-TRACE fails, first check whether CPU-REF itself depends on the MPI decomposition (the GPU build runs one
+rank, CPU-REF `$CPU_RANKS`): run the CPU-REF build with `--ranks 1` on W-20 (`window.sh <cpu-ref build> W-20 --ranks 1
+--tag r1`) and compare with the N-rank run. A difference there is a T-DEC failure of plan.md P0.10 (CPU-REF must be
+decomposition-independent before any kernel work): localize it with the traces, write BLOCKERS.md, and use
+`CPU_RANKS=1` for CPU-REF windows meanwhile (slower, but a valid reference for the GPU build).
+
 ## P1.2 Device residency of all state (`WRF/tools/gen_allocs.c`)
 
 The Registry generator writes `inc/allocs.inc` / `inc/deallocs.inc` (`WRF/tools/registry.c:244-246` calls
