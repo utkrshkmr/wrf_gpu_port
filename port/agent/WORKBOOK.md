@@ -37,7 +37,7 @@ How to update, after every task (and at the end of every work session, even if t
 ## Task checklist
 
 ### H0 — entry tasks on the H100 machine (PHASE1.md §0)
-- [ ] H0.1 Toolchain installed and checked (setup_toolchain.sh check), versions in port/ENVIRONMENT.md — done in fact (commit 10c3f22, toolchain: PASS) but left unticked: see BLOCKERS.md B1
+- [ ] H0.1 Toolchain installed and checked (setup_toolchain.sh check), versions in port/ENVIRONMENT.md
 - [ ] H0.2 Reproducible-math checks on the H100 (T-FMA first, T-IEEE, T-IPOW, T-RM-EXH, T-RM-POW, T-RM-D)
 - [ ] H0.3 OpenMP feature probes F-* run, decisions recorded in port/ENVIRONMENT.md
 - [ ] H0.4 Reference tests on the GPU (port/gates/ref_tests.sh)
