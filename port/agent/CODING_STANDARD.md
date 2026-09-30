@@ -72,6 +72,14 @@ switched-off routes move data. The same island code serves every phase:
   the world flag flips while the routine runs (so the islands of routes nested inside see the right world);
 - exit: flip back, copy every non-`INTENT(IN)` array dummy back.
 
+How the whole-state copies fit in (Phases 1–4, PHASE1.md step "P1.5 + P1.9"): the bracket downloads the state at the
+top of `solve_em` and uploads it at the end; between steps the sync points upload what host code changes (initial
+state, nest start, boundary read, nest forcing) and download before host code reads (nest start, history, restart,
+nest forcing). So between two `solve_em` calls host and device copies are equal, and inside `solve_em` the host copy
+is the current one — which is why the flag stays `.TRUE.` through Phase 4 and islands only move data for routes that
+are on. Never remove or reorder one half of this (an upload without its download or the reverse): the model then
+silently continues from stale data.
+
 Rules:
 
 1. Generate the island with `gen_island.py`; do not write it by hand. Put the entry block at the first executable

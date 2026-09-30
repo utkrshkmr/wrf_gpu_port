@@ -80,6 +80,10 @@ bash port/gates/static.sh
 
 ---
 
+**Order of work in Phase 1:** P1.1, P1.2, P1.3, P1.4, P1.6, then **P1.5 and P1.9 together as one step**, then P1.7,
+P1.8, P1.10–P1.12. P1.5 (sync points) and P1.9 (the `solve_em` bracket) cannot be done one after the other; see the
+section "P1.5 + P1.9" for why.
+
 ## P1.1 First GPU-REPRO build
 
 `bash port/h100/build.sh gpu-repro --worktree`. Fix compile errors **without changing executable statements**
@@ -122,7 +126,10 @@ The Registry generator writes `inc/allocs.inc` / `inc/deallocs.inc` (`WRF/tools/
 Intermediate grids (allocated every parent step for nest forcing) stay on the host because of the guard.
 
 **Self test T-MAP** (contract used by `port/gates/t_selftest.sh`): write `WRF/phys/module_gpu_selftest.F` (phys, so
-that later self tests can USE the table modules) with an external `SUBROUTINE gpu_selftest_map(grid)`, called after S1/S2 (P1.5) when the environment variable `WRF_GPU_SELFTEST=1`.
+that later self tests can USE the table modules) with an external `SUBROUTINE gpu_selftest_map(grid)`, called when the environment variable `WRF_GPU_SELFTEST=1`
+right after `CALL med_initialdata_input` in `WRF/main/module_wrf_top.F:418` and after `CALL med_nest_initial` in
+`WRF/frame/module_integrate.F:351` (the places of S1 and S2; the self test only reads, so it is safe to wire before
+step "P1.5 + P1.9").
 It walks `grid%head_statevars` (type `fieldlist`, `WRF/frame/module_domain_type.F:41-115`; pointers
 `rfield_1d … rfield_4d`, `Ndim`, `VarName`), and for every allocated field calls
 `omp_target_is_present(c_loc(<first element>), omp_get_default_device())`. It prints exactly one line per domain via
@@ -157,10 +164,10 @@ gpu_selftest: T-MAP FAIL d01 3 of 812 fields not present: <first names>
    field whose `streams` mask contains the stream (history: `streams(HISTORY_STREAM)`-style bit test as
    `module_io_domain` uses; restart: the `restart` flag). A 4D array: update the whole array if any member is on the
    stream. Add the module to `WRF/frame/Makefile` and its dependencies to `WRF/main/depend.common`.
-3. Debug switch `WRF_GPU_UPD_EVERY_STEP=1`: at the end of `solve_em` (inside the bracket code of P1.9) call
-   `gpu_upd_host_all` then `gpu_upd_dev_all` once more.
+3. The debug switch `WRF_GPU_UPD_EVERY_STEP=1` (T-UPD) is implemented with the bracket, in step "P1.5 + P1.9".
 
-**Done when** `check_generated.py … --only C4,C5,C7` passes, `bash port/gates/t_upd.sh` passes.
+**Done when** `check_generated.py … --only C4,C5,C7` passes and T-TRACE W-20 still passes (nothing calls the lists
+yet). T-UPD is checked in step "P1.5 + P1.9".
 
 ## P1.4 Module tables on the device: `WRF/phys/module_gpu_tables.F` (new)
 
@@ -172,26 +179,70 @@ phases; for Phase 1 at least: `module_state_description` species indices used by
 `module_ra_sw` tables, `sf_sfclayrev` psi tables, `module_sf_noahlsm` parameters, `mp_wsm6` SAVE scalars,
 `module_fr_fire_util` flags (after the set_flags hoist of P4.0, else skip now).
 
+Call `gpu_update_tables()` now at the places of S1 and S2 (after `med_initialdata_input` and after
+`med_nest_initial`). It only uploads, which is harmless before the bracket of step "P1.5 + P1.9" exists; that step
+then adds the state uploads next to it.
+
 Self test T-TAB (`gpu_selftest_tab`, when `WRF_GPU_SELFTEST=1`, after the upload): for each uploaded table compute
 an integer bit-sum on the host and in a kernel on the device; print
 `gpu_selftest: T-TAB PASS 17 tables` or `gpu_selftest: T-TAB FAIL <table names>`.
 
 **Done when** `t_selftest.sh T-TAB` passes and T-TRACE W-20 passes.
 
-## P1.5 Sync points
+## P1.5 + P1.9 Sync points and the whole-`solve_em` bracket (one step)
+
+**Why one step.** Through Phase 4 the model computes on the host inside `solve_em`, and the device holds a copy of the
+state between steps (the copy Phase 5 will compute on). Two rules keep the two copies consistent, and each needs the
+other half of this step:
+
+1. The bracket **downloads** the whole state at the top of `solve_em` (`gpu_upd_host_all`). That is only correct if
+   every change made on the host between steps was **uploaded** first: the initial state (S1), a nest start (S2), a
+   boundary read (S5) and nest forcing (S6 after). Without them the download overwrites the new host values with old
+   device values (e.g. the boundary data read at t = 0, or the nest boundaries written by forcing).
+2. The sync points **download** before host code reads the state between steps (S2' before a nest start, S3 before
+   history output, S4 before restart output, S6 before nest forcing). That is only correct if the device copy is
+   current, which the bracket guarantees by **uploading** the whole state at the end of `solve_em`
+   (`gpu_upd_dev_all`). Without it the downloads overwrite the current host state with stale device values.
+
+So after this step, at every moment between two `solve_em` calls, host and device copies are equal. Wire all of it,
+then test; do not commit a half.
+
+**The bracket** (was P1.9). In `WRF/dyn_em/solve_em.F`: after `#include "bench_solve_em_init.h"` (`:276`) insert
+`CALL gpu_bracket_begin(grid)`; before `END SUBROUTINE solve_em` (`:5040`, and before any `RETURN` of the routine)
+`CALL gpu_bracket_end(grid)`. Implement both in `WRF/frame/module_gpu_updates.F`:
+
+- `gpu_bracket_begin(grid)`: `CALL gpu_upd_host_all(grid)`; `gpu_world_host = .TRUE.`
+- `gpu_bracket_end(grid)`: if `WRF_GPU_UPD_EVERY_STEP=1` (read once): `CALL gpu_upd_dev_all(grid)` then
+  `CALL gpu_upd_host_all(grid)` — a round trip host → device → host of the whole state (T-UPD: with complete, exact
+  lists nothing changes; `check_generated.py` C4 checks completeness statically); then, always,
+  `CALL gpu_upd_dev_all(grid)`.
+
+The world flag (`module_gpu_route`) stays `.TRUE.` through Phase 4: whenever a route runs (inside `solve_em`, during
+init, during the S6 forcing) the host copy is current (CODING_STANDARD.md §3).
+
+**The sync points** (was P1.5):
 
 | # | Where (base commit) | Insert |
 |---|---|---|
 | S1 | `WRF/main/module_wrf_top.F:418`, after `CALL med_initialdata_input( head_grid , config_flags )` | `CALL gpu_update_tables(); CALL gpu_upd_dev_all(head_grid)`; then the self tests if `WRF_GPU_SELFTEST=1` |
 | S2', S2 | `WRF/frame/module_integrate.F:351` around `CALL med_nest_initial ( grid , new_nest , config_flags )` | before: `CALL gpu_upd_host_all(grid)`; after: `CALL gpu_update_tables(); CALL gpu_upd_dev_all(new_nest); CALL gpu_upd_dev_all(grid)` |
-| S3 | first executable statement of `med_hist_out` (`WRF/share/mediation_integrate.F:1190`) | `CALL gpu_upd_host_stream(grid, <history stream of this call>)` |
-| S4 | first executable statement of `med_restart_out` (`:1124`) | `CALL gpu_upd_host_stream(grid, RESTART_STREAM)` |
+| S3 | first executable statement of `med_hist_out` (`WRF/share/mediation_integrate.F:1190`) | `CALL gpu_upd_host_stream(grid, <history stream of this call>)` (in Phase 1 it may simply call `gpu_upd_host_all(grid)`: correct, only slower) |
+| S4 | first executable statement of `med_restart_out` (`:1124`) | `CALL gpu_upd_host_stream(grid, RESTART_STREAM)` (or `gpu_upd_host_all(grid)`) |
 | S5 | inside `med_latbound_in` (`:1372-1531`), right after the boundary data were read (the read branch) | `CALL gpu_upd_dev_bdy(grid)` — inside the routine, so both call sites (`:86`, `:362`) are covered |
 | S6 | `WRF/frame/module_integrate.F:416` around `CALL med_nest_force ( grid_ptr , grid_ptr%nests(kid)%ptr )` | before: `gpu_upd_host_all` of both grids; after: `gpu_upd_dev_all` of both (Phase 1–4 form; P5.2 replaces it) |
 
-All inserted calls are `CALL gpu_*` (allowed in the CPU view) and do nothing without `WRF_GPU`. **Done when**
-T-TRACE on `W-T0` passes (it includes the nest start, one history write every 3 s and a restart at 9 s) and the
-history and restart files are identical (compare.sh compares them).
+All inserted calls are `CALL gpu_*` (allowed in the CPU view) and do nothing without `WRF_GPU`. If you find another
+place where host code changes the state between steps (an auxiliary input read, a moving nest — not used by this
+case), it needs an upload too: write it into the workbook log.
+
+**Done when**, with the bracket and all six sync points in place:
+- T-TRACE on `W-T0` passes (`bash port/gates/t_trace.sh W-T0`: from t = 0 it covers the first boundary read, the nest
+  start, nest forcing every d01 step, a history write every 3 s and a restart at 9 s; the history and restart files
+  are compared too);
+- T-TRACE on `W-20` passes (starts from a restart: S1 after a restart read);
+- T-UPD passes (`bash port/gates/t_upd.sh`).
+
+Tick both P1.5 and P1.9 in the workbook with the same commit(s).
 
 ## P1.6 Scratch pool on the device (`WRF/frame/module_gpu_scratch.F`)
 
@@ -238,14 +289,6 @@ Put it in `WRF/share/module_gpu_check.F` with an external entry `SUBROUTINE gpu_
 A development override `WRF_GPU_CHECK=warn` prints the violations without stopping (never used in gates).
 
 **Done when** `bash port/gates/t_gate.sh` passes (all 10 namelists of `port/tests/gate/`).
-
-## P1.9 Whole-`solve_em` bracket
-
-In `WRF/dyn_em/solve_em.F`: after `#include "bench_solve_em_init.h"` (`:276`) insert `CALL gpu_bracket_begin(grid)`;
-before `END SUBROUTINE solve_em` (`:5040`, and before any `RETURN` of the routine) `CALL gpu_bracket_end(grid)`.
-Implement both in `WRF/frame/module_gpu_updates.F`: begin = `gpu_upd_host_all(grid)` and `gpu_world_host = .TRUE.`; end =
-(`WRF_GPU_UPD_EVERY_STEP` handling of P1.3), `gpu_upd_dev_all(grid)`. The world flag (module_gpu_route) stays
-`.TRUE.` through Phase 4 (CODING_STANDARD.md §3). **Done when** T-TRACE W-20 and W-T0 pass.
 
 ## P1.10 NVTX ranges
 

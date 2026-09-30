@@ -1,7 +1,8 @@
 #!/bin/bash
-# T-UPD (plan.md P1.3, G1): with WRF_GPU_UPD_EVERY_STEP=1 the GPU build copies
-# the whole state device->host->device every step (gpu_upd_host_all then
-# gpu_upd_dev_all); results stay bit-identical to CPU-REF on W-20.
+# T-UPD (plan.md P1.3, G1; PHASE1.md step "P1.5 + P1.9"): with
+# WRF_GPU_UPD_EVERY_STEP=1 the end of the solve_em bracket copies the whole
+# state host->device->host once more (gpu_upd_dev_all then gpu_upd_host_all)
+# before its final upload; results stay bit-identical to CPU-REF on W-20.
 set -uo pipefail
 source "$(dirname "$0")/lib.sh"
 cb=$(build_for cpu-ref) || { result T-UPD FAIL "cpu-ref build failed"; gate_end T-UPD; }

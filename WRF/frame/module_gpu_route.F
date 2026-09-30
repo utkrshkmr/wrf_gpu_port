@@ -112,10 +112,12 @@ MODULE module_gpu_route
 
    ! Data residency for the islands (port/agent/CODING_STANDARD.md, "Islands").
    ! .TRUE. while the current values of the model arrays are in host memory:
-   ! from the start through Phase 4 (the whole-solve_em bracket of plan.md
-   ! P1.9 keeps the model on the host and each ported routine moves its own
-   ! arguments).  Phase 5 (P5.3) sets it .FALSE. after the initial upload:
-   ! then the arrays live on the device and only switched-off routes move data.
+   ! from the start through Phase 4.  Then the whole-solve_em bracket (plan.md
+   ! P1.9) makes the host copy current inside solve_em, the sync points (P1.5)
+   ! keep host and device copies equal between steps, and each ported routine
+   ! moves its own arguments.  Phase 5 (P5.3) sets it .FALSE. after the
+   ! initial upload: then the arrays live on the device and only
+   ! switched-off routes move data.
    ! A routine whose island moved data flips it for the time it runs, so the
    ! islands of routes nested inside it see where the data are.
    LOGICAL, SAVE, PUBLIC :: gpu_world_host = .TRUE.

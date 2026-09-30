@@ -38,13 +38,13 @@ How to update, after every task (and at the end of every work session, even if t
 ### Phase 1 — GPU infrastructure (PHASE1.md)
 - [ ] P1.1 First GPU-REPRO build compiles and runs W-20 on the host path
 - [ ] P1.2 Device residency of all state (gen_allocs.c), T-MAP
-- [ ] P1.3 Generated update lists (gen_gpu.c), gpu_upd_host_stream, T-UPD
+- [ ] P1.3 Generated update lists (gen_gpu.c), gpu_upd_host_stream
 - [ ] P1.4 Module tables on the device (gpu_update_tables), T-TAB
-- [ ] P1.5 Sync points S1-S6 wired
+- [ ] P1.5 Sync points S1-S6, in one step with P1.9 (T-TRACE W-T0 and W-20, T-UPD)
 - [ ] P1.6 Scratch pool on the device, T-POOL
 - [ ] P1.7 Work arrays (shared refactor protocol), T-WORK
 - [ ] P1.8 Startup gate gpu_check_config, T-GATE
-- [ ] P1.9 Whole-solve_em island
+- [ ] P1.9 Whole-solve_em bracket, in one step with P1.5 (tick both with the same commit)
 - [ ] P1.10 NVTX ranges
 - [ ] P1.11 Timing log
 - [ ] P1.12 Memory log

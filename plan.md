@@ -702,8 +702,9 @@ ENDIF
 
 Slab variants take `js, je` from the caller.
 
-**Test `T-UPD`:** a debug switch runs `upd_host_all` then `upd_dev_all` every step. Results remain bitwise equal to
-CPU-REF on `W-20` (G1).
+**Test `T-UPD`:** a debug switch makes the end of the `solve_em` bracket (P1.9) run `upd_dev_all` then `upd_host_all`
+once more (a host → device → host round trip of the whole state) before its final upload, every step. Results remain
+bitwise equal to CPU-REF on `W-20` (G1).
 
 ### P1.4 Module tables to the device
 
@@ -1719,7 +1720,11 @@ These refine the plan above; `port/RESULTS.md` ("Deviations from plan.md in Phas
 7. **Work arrays** that replace existing automatic arrays are shared refactors made routine by routine, each with the
    protocol of `port/agent/WORKFLOW.md` §6 (bitwise evidence, then a move of the CPU-view base); GPU-only temporaries
    (`fqy3`, `scl`, `lim`) exist only in the GPU build.
-8. **H100 development machine without root:** the toolchain runs in the NVHPC container image (Apptainer, rootless
+8. **P1.5 and P1.9 are one step.** The bracket's download at the top of `solve_em` is only correct once every host-side
+   change between steps is uploaded (S1, S2, S5, S6 after), and the sync-point downloads (S2', S3, S4, S6 before) are
+   only correct once the bracket uploads the state at the end of `solve_em`. Wired separately, either half makes the
+   model continue from stale data; `port/agent/PHASE1.md` has them as one step and the order of work around it.
+9. **H100 development machine without root:** the toolchain runs in the NVHPC container image (Apptainer, rootless
    Podman or Docker); dependencies are built inside it into a user directory (`port/agent/ENV_H100.md`). CCR remains
    the place of the full-case reference and acceptance runs (G5).
 

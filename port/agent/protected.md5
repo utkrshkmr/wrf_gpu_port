@@ -3,10 +3,10 @@
 7691c3e7ab400e6ab9ecf9e04973818c  ../../cases/eaton_20250108/README.md
 e1ad27ad87953813607eb01794657684  ../../cases/eaton_20250108/manifest.md5
 79ab4b8f9cded819151770aad9b962da  ../../cases/eaton_20250108/namelist.input
-2e420e13662720a0d3413fe3fa977525  CODING_STANDARD.md
+09ad31745755de7ed58913b9ade1a0a2  CODING_STANDARD.md
 fc85e747ff85672538a5415861d68c62  DEBUGGING.md
 f5e94c6154bec85afa410f009f5839c4  ENV_H100.md
-ea597f3b514d25e3393fa136a7075848  PHASE1.md
+f4cccec8db84643d6728c5a7b851c842  PHASE1.md
 16db2cb43e9a28877eca0121965fdccc  PHASE2.md
 244b6776aaf8870c923f28fa7af9b232  PHASE3.md
 cfdeb15ce3bcb04859e730df58c12628  PHASE4.md
@@ -57,7 +57,7 @@ f219c12885257f79a091db8456f053d3  ../gates/t_mem.sh
 427c5c3815a6a43b15a70209f329afa1  ../gates/t_reg20.sh
 47631a567e69ec26298f7d8ef6e36d98  ../gates/t_selftest.sh
 b4218c846193674c2fa725134033814f  ../gates/t_trace.sh
-1eaa57b320f398c1e015f64da93fde4b  ../gates/t_upd.sh
+8837c40eb1845f66f3c84b85b2af1fb1  ../gates/t_upd.sh
 6c81188a0711d5031180c3e2f7cc3726  ../gpu_mem_estimate.py
 a58fb4fded6b432e6a1991b3c3e54e79  ../h100/build.sh
 ddb2d66da671cecfe78e23ceb7a94bab  ../h100/common.sh
