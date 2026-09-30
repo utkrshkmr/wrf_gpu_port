@@ -28,5 +28,14 @@
         gamma(i,kde,j) = c*alpha(i,kde,j)
       ENDDO
       ENDDO
+      ! exit island (port/tools/gen_island.py), before this RETURN
+      IF (gpu_isl) THEN
+        gpu_world_host = .NOT. gpu_world_host
+        IF (gpu_world_host) THEN
+!$omp target update from(a, alpha, gamma)
+        ELSE
+!$omp target update to(a, alpha, gamma)
+        END IF
+      END IF
       RETURN
 #endif

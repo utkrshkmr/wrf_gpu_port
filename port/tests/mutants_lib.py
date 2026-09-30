@@ -24,6 +24,7 @@ def run(test_file, mutants, after, args=("20",), extra_env=None):
     """mutants: {name: (old, new)}; the replacement is applied once, in the
     text after the first occurrence of `after` (the GPU version)."""
     comp = sys.argv[1] if len(sys.argv) > 1 else "gnu"
+    tc = os.environ.get("TC", "").split()     # e.g. "bash port/h100/x.sh": compile and run in the container
     src = open(test_file).read()
     head, sep, tail = src.partition(after)
     assert sep, f"marker {after!r} not found in {test_file}"
@@ -36,13 +37,13 @@ def run(test_file, mutants, after, args=("20",), extra_env=None):
         d = tempfile.mkdtemp()
         f = os.path.join(d, os.path.basename(test_file))
         open(f, "w").write(head + sep + tail.replace(old, new, 1))
-        c = subprocess.run(FLAGS[comp] + ["-o", os.path.join(d, "m"), f], capture_output=True, text=True, cwd=d)
+        c = subprocess.run(tc + FLAGS[comp] + ["-o", os.path.join(d, "m"), f], capture_output=True, text=True, cwd=d)
         if c.returncode != 0:
             print(f"FAIL  mutant '{name}' does not compile:\n{c.stderr[-2000:]}")
             bad += 1
             continue
         env = dict(os.environ, ALLOW_HOST="1", **(extra_env or {}))
-        r = subprocess.run([os.path.join(d, "m")] + list(args), capture_output=True, text=True, cwd=d, env=env)
+        r = subprocess.run(tc + [os.path.join(d, "m")] + list(args), capture_output=True, text=True, cwd=d, env=env)
         caught = r.returncode == 1 and "FAIL" in r.stdout
         print(("ok    caught: " if caught else "FAIL  missed: ") + name)
         bad += not caught

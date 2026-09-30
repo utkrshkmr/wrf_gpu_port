@@ -22,6 +22,9 @@ For every OpenMP construct that launches a kernel ('!$omp target teams ...',
   W2  a procedure called in the body has no '!$omp declare target' in its
       definition (searched under WRF/)
   E8  a file with kernels does not USE module_gpu_route
+  E9  a route used by a kernel has no island in the file: gpu_island(R_<ROUTE>)
+      (port/tools/gen_island.py), or a comment '! island of R_<ROUTE> in <routine>'
+      naming the routine (in another file) whose island covers it
 
 Usage: kernel_lint.py [file ...]      default: WRF files changed vs port/agent/cpu_view_base
        kernel_lint.py --self-test
@@ -112,6 +115,7 @@ def lint_file(path, routes):
     stmts = list(ftn.statements(list(enumerate(lines, 1))))
     findings = []
     n_kernels = 0
+    used_routes = {}
     for idx, (n, s, is_dir) in enumerate(stmts):
         if not is_dir:
             continue
@@ -124,6 +128,8 @@ def lint_file(path, routes):
             findings.append(("E1", n, "missing if(target: gpu_on(R_<ROUTE>))"))
         elif routes and m.group(1) not in routes:
             findings.append(("E1", n, f"unknown route {m.group(1).upper()} (see module_gpu_route.F)"))
+        if m:
+            used_routes.setdefault(m.group(1), n)
         if "default(none)" not in d:
             findings.append(("E2", n, "missing default(none)"))
         for mm in re.finditer(r"map\(([a-z,]*):", d):
@@ -195,6 +201,10 @@ def lint_file(path, routes):
                 findings.append(("W2", n, f"called procedure {c} has no '!$omp declare target'"))
     if n_kernels and not re.search(r"^\s*use\s+module_gpu_route\b", text, re.I | re.M):
         findings.append(("E8", 1, "file has kernels but does not USE module_gpu_route"))
+    for r, n in used_routes.items():
+        if not re.search(r"gpu_island\s*\(\s*" + r + r"\s*\)", text, re.I) and \
+                not re.search(r"!\s*island\s+of\s+" + r + r"\s+in\s+\w+", text, re.I):
+            findings.append(("E9", n, f"route {r.upper()} has no island (port/tools/gen_island.py)"))
     return rel, n_kernels, findings
 
 
@@ -234,7 +244,7 @@ def self_test():
     open(f, "w").write(SELF_TEST_SRC)
     _, nk, fnd = lint_file(f, {"r_zero_tend"})
     codes = sorted(c for c, _, _ in fnd)
-    expected = sorted(["E1", "E2", "E3", "E4", "E5", "E5", "E6", "E6"])
+    expected = sorted(["E1", "E2", "E3", "E4", "E5", "E5", "E6", "E6", "E9"])
     ok = nk == 2 and codes == expected
     print(("ok    " if ok else "FAIL  ") + f"self-test: {nk} kernels, findings {codes} (expected {expected})")
     if not ok:

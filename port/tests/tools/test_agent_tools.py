@@ -65,10 +65,19 @@ if not anchor_ok:
 else:
     i = src.index("SUBROUTINE calc_coef_w")
     k = src.index("      IMPLICIT NONE  ! religion first", i)
-    s = src[:k] + "      USE module_gpu_route, ONLY : gpu_on, R_CALC_COEF_W\n" + src[k:]
+    s = src[:k] + "      USE module_gpu_route, ONLY : gpu_on, gpu_island, gpu_world_host, R_CALC_COEF_W\n" + src[k:]
     i = s.index("SUBROUTINE calc_coef_w")
     d = s.index("  INTEGER :: ij, ijp, ijm, lid_flag\n", i) + len("  INTEGER :: ij, ijp, ijm, lid_flag\n")
-    s = s[:d] + "#ifdef WRF_GPU\n  REAL :: cofs\n#endif\n" + s[d:]
+    s = s[:d] + "#ifdef WRF_GPU\n  REAL :: cofs\n  LOGICAL :: gpu_isl\n#endif\n" + s[d:]
+    entry = ("#ifdef WRF_GPU\n      gpu_isl = gpu_island(R_CALC_COEF_W)\n      IF (gpu_isl) THEN\n"
+             "        IF (gpu_world_host) THEN\n!$omp target update to(a, alpha, gamma, mut, c1h, c2h, c1f, c2f, &\n"
+             "!$omp&   c3h, c4h, c3f, c4f, cqw, rdn, rdnw, c2a)\n        ELSE\n"
+             "!$omp target update from(a, alpha, gamma, mut, c1h, c2h, c1f, c2f, &\n"
+             "!$omp&   c3h, c4h, c3f, c4f, cqw, rdn, rdnw, c2a)\n        END IF\n"
+             "        gpu_world_host = .NOT. gpu_world_host\n      END IF\n#endif\n")
+    s = s.replace("      i_start = its\n      i_end   = min(ite,ide-1)\n      j_start = jts\n      j_end   = min(jte,jde-1)\n"
+                  "      k_start = kts\n", entry + "      i_start = its\n      i_end   = min(ite,ide-1)\n"
+                  "      j_start = jts\n      j_end   = min(jte,jde-1)\n      k_start = kts\n", 1)
     s = s.replace("      IF(top_lid)lid_flag=0\n     outer_j_loop:", "      IF(top_lid)lid_flag=0\n" + GPU +
                   "     outer_j_loop:", 1)
     tmp = tempfile.mkdtemp()
@@ -85,11 +94,39 @@ else:
     check(rc == 1 and "new arithmetic" in out, "arith_guard: a reassociation in the GPU code fails", out)
     rc, out = run(os.path.join(TOOLS, "kernel_lint.py"), good)
     check(rc == 0 and "1 kernels" in out, "kernel_lint: Template C port of calc_coef_w passes", out)
+    open(badf, "w").write(s.replace("gpu_isl = gpu_island(R_CALC_COEF_W)", "gpu_isl = .FALSE."))
+    rc, out = run(os.path.join(TOOLS, "kernel_lint.py"), badf)
+    check(rc == 1 and "E9" in out, "kernel_lint: a kernel without an island fails (E9)", out)
+    rc, out = run(os.path.join(TOOLS, "gen_island.py"), os.path.join(REPO, "WRF", "dyn_em", "module_small_step_em.F"),
+                  "calc_coef_w")
+    check(rc == 0 and "!$omp target update from(a, alpha, gamma)" in out and "gpu_island(R_CALC_COEF_W)" in out,
+          "gen_island: calc_coef_w island (16 arrays in, 3 out)", out)
     s_cpu = s.replace("          c =   -cqw(i,k,j)*cof(i)*rdn(k)*rdnw(k  )*c2a(i,k,j  )",
                       "          c =   -cqw(i,k,j)*cof(i)*rdn(k)*(rdnw(k  )*c2a(i,k,j  ))", 1)
     open(badf, "w").write(s_cpu)
     rc, out = run(os.path.join(TOOLS, "arith_guard.py"), "--base", BASE, badf)
     check(rc == 1 and "CPU view" in out, "arith_guard: a change in the CPU-REF code fails", out)
+
+# ---- Template A example of CODING_STANDARD.md (calc_alt, with its island) passes both guards
+src = subprocess.run(["git", "-C", REPO, "show", f"{BASE}:WRF/dyn_em/module_big_step_utilities_em.F"],
+                     capture_output=True, text=True).stdout
+ex = open(os.path.join(HERE, "example_calc_alt.F")).read()
+i = src.find("SUBROUTINE calc_alt (")
+e = src.find("END SUBROUTINE calc_alt", i) + len("END SUBROUTINE calc_alt")
+if i < 0:
+    print("skip  calc_alt example: routine not in the base commit")
+else:
+    tmp = tempfile.mkdtemp()
+    f = os.path.join(tmp, "WRF", "dyn_em", "module_big_step_utilities_em.F")
+    os.makedirs(os.path.dirname(f))
+    open(f, "w").write(src[:i] + ex.rstrip("\n") + src[e:])
+    rc, out = run(os.path.join(TOOLS, "arith_guard.py"), "--base", BASE, f)
+    check(rc == 0, "arith_guard: CODING_STANDARD Template A example (calc_alt) passes", out)
+    rc, out = run(os.path.join(TOOLS, "kernel_lint.py"), f)
+    check(rc == 0 and "1 kernels" in out, "kernel_lint: CODING_STANDARD Template A example (calc_alt) passes", out)
+    open(f, "w").write(src[:i] + ex.rstrip("\n").replace("al(i,k,j)+alb(i,k,j)", "alb(i,k,j)+al(i,k,j)") + src[e:])
+    rc, out = run(os.path.join(TOOLS, "arith_guard.py"), "--base", BASE, f)
+    check(rc == 1 and "CPU view" in out, "arith_guard: swapping the operands of the calc_alt sum fails", out)
 
 # ---- check_generated on a tiny synthetic Registry output
 tmp = tempfile.mkdtemp()
@@ -185,6 +222,25 @@ open(tampered, "w").write(t.replace("scale = max(0.,ph_low(i,k,j)/(flux_out(i,k,
                                     "scale = max(0.,ph_low(i,k,j)*(1./(flux_out(i,k,j)+eps)))", 1))
 rc, out = run(os.path.join(TOOLS, "check_verbatim.py"), tampered)
 check(rc == 1 and "not a verbatim copy" in out, "check_verbatim: an edited copy fails", out)
+
+# ---- workbook: the real workbook passes; a ticked task without commit/log fails
+rc, out = run(os.path.join(TOOLS, "workbook.py"), "check")
+check(rc == 0, "workbook: port/agent/WORKBOOK.md and kernels.csv are consistent", out)
+import shutil
+wb = os.path.join(PORT, "agent", "WORKBOOK.md")
+saved = open(wb).read()
+try:
+    open(wb, "w").write(saved.replace("- [ ] H0.1 Toolchain", "- [x] H0.1 Toolchain", 1))
+    rc, out = run(os.path.join(TOOLS, "workbook.py"), "check")
+    check(rc == 1 and "H0.1" in out and "commit" in out, "workbook: a ticked task without commit and log fails", out)
+finally:
+    open(wb, "w").write(saved)
+
+# ---- gen_island on a routine with a TYPE(domain) dummy and OPTIONAL arrays
+rc, out = run(os.path.join(TOOLS, "gen_island.py"), os.path.join(REPO, "WRF", "dyn_em", "module_first_rk_step_part1.F"),
+              "first_rk_step_part1")
+check(rc == 0 and "gpu_upd_dev_all(grid)" in out and "IF (PRESENT(" in out,
+      "gen_island: whole-state update for grid, PRESENT() for optional arrays", out[:2000])
 
 # ---- check_case / T-GATE namelists
 rc, out = run(os.path.join(PORT, "check_case.py"), os.path.join(REPO, "cases", "eaton_20250108", "namelist.input"))

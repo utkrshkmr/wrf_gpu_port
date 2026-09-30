@@ -39,3 +39,6 @@ port/tests/templates/t_tmpl_g
 port/tests/*/*.mod
 port/tests/*/*.o
 port/tests/*/build.log
+
+# site settings of the H100 scripts (copied from port/h100/env.sh)
+port/h100/env.local.sh
