@@ -181,5 +181,6 @@ How to update, after every task (and at the end of every work session, even if t
 - Tests run (gfortran, no GPU): Registry output passes check_generated C1-C7 (5158 enter, 2579 exit, 2579x2+104
   updates); module_alloc_space_0..9, module_domain, module_gpu_updates compile with -DWRF_GPU -fopenmp (the last
   now in arch/noopt_exceptions*: -O2 took >20 min, -O0 6 s); CPU-view
-  build OK; run_ref_tests gnu PASS incl. T-TMPL-CP, mutants, T-CALLCHECK; tool tests PASS; static PASS.
+  build OK, its S-3M run bit-identical to the run before (189000 records); window.sh TIMEOUT path; t_uninit.sh S-3M
+  PASS end to end; run_ref_tests gnu PASS incl. T-TMPL-CP, mutants, T-CALLCHECK; tool tests PASS; static PASS.
 - Not checked: NVHPC, the GPU.
