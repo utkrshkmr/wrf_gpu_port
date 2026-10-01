@@ -184,3 +184,13 @@ How to update, after every task (and at the end of every work session, even if t
   build OK, its S-3M run bit-identical to the run before (189000 records); window.sh TIMEOUT path; t_uninit.sh S-3M
   PASS end to end; run_ref_tests gnu PASS incl. T-TMPL-CP, mutants, T-CALLCHECK; tool tests PASS; static PASS.
 - Not checked: NVHPC, the GPU.
+
+### 2026-10-01 HANDOFF Fixes found by the first H100 session (owner changes)
+- setup_toolchain.sh: HDF5 1.14.4-3 is downloaded from release tag hdf5_1.14.4.3 (the hyphenated tag and the old
+  FTP path return 404); deps runs its closing self-check by absolute path (it had changed directory).
+- test_agent_tools.py: the workbook negative test adds its own ticked item T0.0 instead of ticking H0.1, so H0.1
+  can be ticked normally (it broke static.sh once H0.1 was done).
+- Tests run: the new HDF5 URL answers (HTTP 206), the old one 404; the self-check path resolves from another
+  directory; tool tests PASS with H0.1 ticked (simulated) and unticked; static PASS.
+- Not changed: module_repro_math on nvfortran 25.1 (S-1054 on module PARAMETER arrays in device routines) is open.
+

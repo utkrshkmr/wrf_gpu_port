@@ -9,7 +9,7 @@ ddb2d66da671cecfe78e23ceb7a94bab  ../h100/common.sh
 2db785e4f45add1dfba26c2e8f9f95c6  ../h100/gen_harness.py
 f2019de3cd436c26d28a0f1d45fd95f8  ../h100/harness.sh
 1ff7aee1289bb4483b6de987866aac10  ../h100/in_container.sh
-6403b70078d037d68e0b21f0301d6e9d  ../h100/setup_toolchain.sh
+3aa848859c58ee2a86fba8174bbe57c8  ../h100/setup_toolchain.sh
 b5f661a8c048c36aee97048465e3331b  ../h100/smoke_case.sh
 763ee0a6e59f80ca2cdcc5189a609c17  ../h100/sync_tree.py
 63d5bbe7c21b7a47c291502e1b277a41  ../h100/window.sh

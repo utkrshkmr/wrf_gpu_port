@@ -18,6 +18,7 @@
 #   setup_toolchain.sh shell    print the command for an interactive shell in the container
 set -uo pipefail
 source "$(dirname "$0")/common.sh"
+SELF=$HERE_H100/setup_toolchain.sh     # absolute: deps and deps-gnu change directory
 HDF5_VERSION=1.14.4-3; NETCDF_C_VERSION=4.9.2; NETCDF_F_VERSION=4.6.1
 NCURSES_VERSION=6.4; TCSH_VERSION=6.24.13; M4_VERSION=1.4.19; PERL_VERSION=5.38.2
 row() { printf '%-6s %-26s %s\n' "$1" "$2" "$3"; }
@@ -66,8 +67,9 @@ case ${1:-check} in
     if ! x bash -c "$NETCDF/bin/nf-config --fc 2>/dev/null | grep -q nvfortran"; then
       note "building HDF5, netCDF-C, netCDF-Fortran with nvc/nvfortran into $NETCDF (30-60 min)"
       H=hdf5-$HDF5_VERSION
-      fetch https://github.com/HDFGroup/hdf5/releases/download/hdf5_$HDF5_VERSION/$H.tar.gz $H.tar.gz \
-        || fetch https://support.hdfgroup.org/ftp/HDF5/releases/$H/src/$H.tar.gz $H.tar.gz || die "download HDF5"
+      # the release tag of 1.14.4-3 is hdf5_1.14.4.3 (dots); the tarball keeps the hyphen
+      fetch "https://github.com/HDFGroup/hdf5/releases/download/hdf5_${HDF5_VERSION//-/.}/$H.tar.gz" "$H.tar.gz" \
+        || die "download HDF5"
       fetch https://github.com/Unidata/netcdf-c/archive/refs/tags/v$NETCDF_C_VERSION.tar.gz nc.tar.gz || die "download netCDF-C"
       fetch https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v$NETCDF_F_VERSION.tar.gz nf.tar.gz || die "download netCDF-Fortran"
       rm -rf hdf5-*/ netcdf-c-*/ netcdf-fortran-*/; tar xzf $H.tar.gz; tar xzf nc.tar.gz; tar xzf nf.tar.gz
@@ -76,7 +78,7 @@ case ${1:-check} in
       x bash -c "cd netcdf-c-$NETCDF_C_VERSION && $E CPPFLAGS=-I$NETCDF/include LDFLAGS=-L$NETCDF/lib ./configure --prefix=$NETCDF --disable-dap --disable-byterange --disable-libxml2 && make -j $BUILD_JOBS && make install" > netcdf-c.log 2>&1 || die "netCDF-C build failed ($src/netcdf-c.log)"
       x bash -c "cd netcdf-fortran-$NETCDF_F_VERSION && $E CPPFLAGS=-I$NETCDF/include LDFLAGS=-L$NETCDF/lib LD_LIBRARY_PATH=$NETCDF/lib ./configure --prefix=$NETCDF && make -j $BUILD_JOBS && make install" > netcdf-f.log 2>&1 || die "netCDF-Fortran build failed ($src/netcdf-f.log)"
     fi
-    note "deps ready in $DEPS"; bash "$0" check ;;
+    note "deps ready in $DEPS"; bash "$SELF" check ;;
   deps-gnu)
     x bash -c "command -v gfortran && command -v gcc" >/dev/null || die "the container has no gfortran: T-UNINIT cannot run (write it in the workbook)"
     x bash -c "$NETCDF/bin/nc-config --version" >/dev/null 2>&1 || die "build the nvfortran netCDF first: setup_toolchain.sh deps"

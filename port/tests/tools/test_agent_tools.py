@@ -243,9 +243,12 @@ import shutil
 wb = os.path.join(PORT, "agent", "WORKBOOK.md")
 saved = open(wb).read()
 try:
-    open(wb, "w").write(saved.replace("- [ ] H0.1 Toolchain", "- [x] H0.1 Toolchain", 1))
+    # an extra ticked item with no commit, tests or log entry; independent of which real tasks are ticked
+    hdr = "## Task checklist\n"
+    assert hdr in saved, "WORKBOOK.md has no '## Task checklist' section"
+    open(wb, "w").write(saved.replace(hdr, hdr + "- [x] T0.0 Workbook self-test item (not a real task)\n", 1))
     rc, out = run(os.path.join(TOOLS, "workbook.py"), "check")
-    check(rc == 1 and "H0.1" in out and "commit" in out, "workbook: a ticked task without commit and log fails", out)
+    check(rc == 1 and "T0.0" in out and "commit" in out, "workbook: a ticked task without commit and log fails", out)
 finally:
     open(wb, "w").write(saved)
 
