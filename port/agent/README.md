@@ -39,23 +39,27 @@ with [AGENTS.md](../../AGENTS.md) (the rules).
 | Path | What |
 |---|---|
 | `port/h100/env.sh` → `env.local.sh` | Machine settings (paths, ranks, GPU); copy and edit |
-| `port/h100/setup_toolchain.sh` | No root needed: `image` (pull the NVHPC container), `deps` (tcsh, m4, netCDF built in the container into `$WORK/deps`), `python`, `check`, `shell` |
+| `port/h100/setup_toolchain.sh` | No root needed: `image` (pull the NVHPC container), `deps` (tcsh, m4, netCDF built in the container into `$WORK/deps`), `deps-gnu` (gfortran netCDF for T-UNINIT), `python`, `check`, `shell` |
 | `port/h100/common.sh` (`x`) | Runs a command in the container (Apptainer, rootless Podman or Docker) with the port's environment (`in_container.sh`) |
-| `port/h100/build.sh` | Builds: `cpu-ref`, `gpu-repro`, `gpu-debug`; `--commit REV` (clean) or `--worktree` (incremental) |
+| `port/h100/build.sh` | Builds: `cpu-ref`, `gpu-repro`, `gpu-debug`; `--commit REV` (clean) or `--worktree` (incremental); `--fire-ideal` (smoke case), `--fine`, `gnu --uninit nan\|zero` (T-UNINIT) |
 | `port/h100/dev_case.sh` | Make the dev case `eaton_small` and its CPU-REF references (restarts at 02:00 and 02:20) |
-| `port/h100/window.sh` | Run a test window (W-T0, W-20, W-100, W-RAD, W-FORCE, W-TKE, W-IGN, W-FIRE, W-1H) with a build |
+| `port/h100/window.sh` | Run a test window (W-T0, W-20, W-100, W-RAD, W-FORCE, W-TKE, W-IGN, W-FIRE, W-1H; S-3M smoke) with a build; stops after `RUN_TIMEOUT` |
 | `port/h100/compare.sh` | Compare two runs bit for bit (traces and output files) |
-| `port/h100/smoke_case.sh` | The em_fire smoke case (CPU-view checks only; not a GPU case) |
+| `port/h100/smoke_case.sh` | The em_fire smoke case (window S-3M): no inputs needed; the stand-in while the case data are missing (PHASE1.md "Without the case data"), and the fast call-check case for physics |
 | `port/gates/static.sh` | Guards before every commit (no GPU): tools, locked files, logged tool fixes, build flags, arith_guard, kernel_lint, rp_subst, workbook |
 | `port/gates/t_ab.sh <route> [window]` | T-AB: a routine on the device vs on the host, same run otherwise |
 | `port/gates/t_trace.sh [window]` | T-TRACE: GPU-REPRO vs CPU-REF |
 | `port/gates/t_cpu_view.sh`, `t_drift.sh` | The CPU view is unchanged (fast / 1 h) |
 | `port/gates/t_reg20.sh` | T-REG-20, the per-commit regression |
 | `port/gates/t_selftest.sh`, `t_upd.sh`, `t_gate.sh`, `t_mem.sh`, `t_nsys.sh`, `t_fire.sh` | Phase-specific tests (see the cards) |
+| `port/gates/t_dec.sh`, `t_uninit.sh` | T-DEC (CPU-REF 1 rank = N ranks), T-UNINIT (no read of uninitialized memory): PHASE1.md H0.8, H0.9 |
 | `port/gates/g1.sh` … `g5.sh` | Phase gates: run everything, print a PASS/FAIL table |
 | `port/gates/ref_tests.sh` | The standalone reference tests on the GPU (`port/tests/run_ref_tests.sh`) |
 | `port/tools/workbook.py` | `status`, `next`, `set`, `check` for the workbook and kernels.csv |
-| `port/tools/gen_island.py <file> <routine>` | Generates the island (entry/exit data movement) of a ported routine |
+| `port/tools/gen_island.py <file> <routine>` | Generates the island (entry/exit data movement) of a ported routine, with its call check (`WRF_GPU_CALLCHECK=<route>`, DEBUGGING.md §0b) |
+| `WRF/frame/module_gpu_map.F` | By-address device mapping of the state (P1.2/P1.3 generated code calls it) |
+| `WRF/frame/module_gpu_callcheck.F` | The in-model call check of the islands |
+| `WRF/inc/gpu_col.h` | Fixed column sizes and declaration macros of the column-physics kernels (P3.0) |
 | `port/tools/gen_kernels_csv.py`, `gen_routes_md.py` | Regenerate KERNEL_REFS.md/kernels.csv and ROUTES.md after the CPU-view base moves (statuses are kept) |
 | `port/tools/arith_guard.py` | CPU view unchanged; no new arithmetic in GPU code |
 | `port/tools/kernel_lint.py` | Directive rules of every kernel |
@@ -85,7 +89,9 @@ with [AGENTS.md](../../AGENTS.md) (the rules).
 | `port/tests/kiss/` T-KISS | K-RRTMG-COL | RRTMG's random numbers are identical host vs device |
 | `port/tests/ozn/` T-OZN | K-OZP | the ozone interpolation as one thread per j-row is exact |
 | `port/tests/templates/` B, C, G | K-ADVU-Y1/Y2, K-PREP-5a/b, K-BC-3D | rolling-buffer split, column kernel with range guards, boundary strips |
+| `port/tests/templates/t_tmpl_cp.F90` T-TMPL-CP | K-WSM6 and the other CP kernels | column physics: slab wrapper → one thread per column, assumed-shape core, fixed-size locals, SAVE constants, errors |
+| `port/tests/callcheck/` T-CALLCHECK | every island | the call check finds a device-only difference at its element and restores the inputs |
 | `port/tests/tools/calc_coef_w_gpu.inc` | K-CCW | a complete in-place port (Template C) that passes arith_guard and kernel_lint |
-| `port/tests/repro_math/`, `port/tests/omp_features/` | – | compiler facts (T-FMA, T-IEEE, …, F-* probes) |
+| `port/tests/repro_math/`, `port/tests/omp_features/` | – | compiler facts (T-FMA, T-IEEE, …, F-* probes incl. F-COMPMAP, F-EQUIV, F-DATA) |
 
 Each reference test has mutants (`mutants*.py`): plausible mistakes that the test must catch.

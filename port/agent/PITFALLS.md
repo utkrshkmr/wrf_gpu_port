@@ -97,4 +97,21 @@ offload. Read it once completely; come back when a test fails.
     anyway; the tracer will show different hashes.
 42. **Test the right thing**: T-AB compares the GPU view on the device with the GPU view on the host; it cannot find
     a restructuring mistake. T-TRACE (GPU vs CPU-REF) finds those. Both must pass.
-43. **Timeouts are not failures of the code**: a window killed by a time limit has no `SUCCESS COMPLETE WRF`; rerun.
+43. **A TIMEOUT is a finding, not noise.** `window.sh` stops a run after `RUN_TIMEOUT` and writes `TIMEOUT` in
+    `window.info` (`harness.sh`: `HARNESS_TIMEOUT`). First compare with the wall time of the same window with the
+    previous build (`window.info`). If that build took far less, the new code hangs: a device loop that never ends,
+    e.g. a `DO WHILE` on unphysical data. Find it with the call check or `t_fine.sh`. Only a run that is merely slow
+    (a bigger window, a busy machine) is rerun with a larger `RUN_TIMEOUT`.
+
+## Preprocessor and language
+
+44. **`/*` in a Fortran comment** (`! see physics_mmm/*.F90`) opens a C comment for cpp, and the file fails with
+    "unterminated comment". Never write `/*` or `*/` in a `.F`/`.F90` file. Apostrophes in comment lines are
+    removed by WRF's sed step (BUILD_SYSTEM.md §3).
+45. **Never name a `grid` field in an OpenMP clause** (`map(to: grid%u_2)`, `target update to(grid%u_2)`): it is
+    a structure-member map, which gfortran rejects for types with allocatable components and compilers treat
+    differently. Whole-state moves call `module_gpu_map` (P1.2/P1.3). Inside a routine the field is an
+    explicit-shape dummy, and the islands and kernels name that.
+46. **Operator precedence in host checks**: `.OR.` binds tighter than `.EQV.`/`.NEQV.`, so
+    `a .NEQV. b .OR. c .NEQV. d` is not two comparisons joined by `.OR.`. Parenthesize every logical expression
+    that mixes them.

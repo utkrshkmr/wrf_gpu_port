@@ -21,6 +21,8 @@ MODULES =       module_repro_math.o        \
                 module_bittrace.o          \
                 module_gpu_scratch.o       \
                 module_gpu_route.o         \
+                module_gpu_map.o           \
+                module_gpu_callcheck.o     \
                 module_gpu_updates.o       \
                 module_wrf_error.o         \
                 module_state_description.o \

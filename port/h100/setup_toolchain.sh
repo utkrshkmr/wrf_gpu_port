@@ -8,6 +8,9 @@
 #                               m4, perl only if missing, HDF5 + netCDF-C + netCDF-Fortran
 #                               with nvc/nvfortran into $NETCDF.  Sources are downloaded on
 #                               the host into $DEPS/src (curl or python).
+#   setup_toolchain.sh deps-gnu netCDF-Fortran built with the image gfortran into $NETCDF_GNU
+#                               (default $DEPS/netcdf-gnu; netCDF-C shared with $NETCDF), for
+#                               the gfortran builds of T-UNINIT (port/gates/t_uninit.sh)
 #   setup_toolchain.sh python   Python with numpy, netCDF4, mpmath for the port's tools, on the
 #                               host: the system python3 if it has them, else a venv or a
 #                               micromamba environment in $PYENV (no root)
@@ -74,6 +77,18 @@ case ${1:-check} in
       x bash -c "cd netcdf-fortran-$NETCDF_F_VERSION && $E CPPFLAGS=-I$NETCDF/include LDFLAGS=-L$NETCDF/lib LD_LIBRARY_PATH=$NETCDF/lib ./configure --prefix=$NETCDF && make -j $BUILD_JOBS && make install" > netcdf-f.log 2>&1 || die "netCDF-Fortran build failed ($src/netcdf-f.log)"
     fi
     note "deps ready in $DEPS"; bash "$0" check ;;
+  deps-gnu)
+    x bash -c "command -v gfortran && command -v gcc" >/dev/null || die "the container has no gfortran: T-UNINIT cannot run (write it in the workbook)"
+    x bash -c "$NETCDF/bin/nc-config --version" >/dev/null 2>&1 || die "build the nvfortran netCDF first: setup_toolchain.sh deps"
+    G=${NETCDF_GNU:-$DEPS/netcdf-gnu}; src=$DEPS/src; mkdir -p "$src" "$G/include" "$G/lib"; cd "$src" || exit 1
+    fetch https://github.com/Unidata/netcdf-fortran/archive/refs/tags/v$NETCDF_F_VERSION.tar.gz nf.tar.gz || die "download netCDF-Fortran"
+    rm -rf netcdf-fortran-*/; tar xzf nf.tar.gz
+    note "building netCDF-Fortran with gfortran into $G"
+    x bash -c "cd netcdf-fortran-$NETCDF_F_VERSION && CC=gcc FC=gfortran F77=gfortran CFLAGS='-O2 -fPIC' FCFLAGS='-O2 -fPIC' FFLAGS='-O2 -fPIC' CPPFLAGS=-I$NETCDF/include LDFLAGS=-L$NETCDF/lib LD_LIBRARY_PATH=$NETCDF/lib ./configure --prefix=$G && make -j $BUILD_JOBS && make install" > netcdf-f-gnu.log 2>&1 || die "netCDF-Fortran (gfortran) build failed ($src/netcdf-f-gnu.log)"
+    for d in include lib; do for f in "$NETCDF"/$d/libnetcdf.* "$NETCDF"/$d/netcdf.h "$NETCDF"/$d/netcdf_*.h "$NETCDF"/$d/libhdf5*; do
+      [ -e "$f" ] && ln -sf "$f" "$G/$d/"; done; done
+    [ -x "$G/bin/nf-config" ] && ln -sf "$NETCDF/bin/nc-config" "$G/bin/nc-config"
+    note "gfortran netCDF ready in $G (build.sh gnu uses it)" ;;
   python)
     if python3 -c "import numpy, netCDF4, mpmath" 2>/dev/null; then note "system python3 has numpy, netCDF4, mpmath"; exit 0; fi
     if [ ! -x "$PYENV/bin/python3" ]; then

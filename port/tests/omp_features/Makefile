@@ -14,7 +14,7 @@ FFLAGS = -O2 -fopenmp -ffree-line-length-none
 CFLAGS = -O2
 LDLIBS =
 endif
-PROBES = f_iftarget f_calls f_declmod f_present f_defmap f_defmap_neg f_privarr f_auto f_langfeat f_red f_stack
+PROBES = f_iftarget f_calls f_declmod f_present f_compmap f_compmap_member f_equiv f_data f_defmap f_defmap_neg f_privarr f_auto f_langfeat f_red f_stack
 all: $(PROBES)
 f_stack: f_stack.F90 stack_shim.o
 	$(FC) $(FFLAGS) -o $@ f_stack.F90 stack_shim.o $(LDLIBS)

@@ -36,6 +36,15 @@ port/tests/ozn/t_ozn
 port/tests/templates/t_tmpl_b
 port/tests/templates/t_tmpl_c
 port/tests/templates/t_tmpl_g
+port/tests/templates/t_tmpl_cp
+port/tests/templates/build_cp.log
+port/tests/omp_features/f_compmap
+port/tests/omp_features/f_compmap_member
+port/tests/omp_features/f_equiv
+port/tests/omp_features/f_data
+port/tests/callcheck/t_cc_ok
+port/tests/callcheck/t_cc_bug
+port/tests/callcheck/mock_gen.F90
 port/tests/*/*.mod
 port/tests/*/*.o
 port/tests/*/build.log

@@ -81,6 +81,7 @@ module_dm_stubs.F: \
 
 module_domain.o: \
 	module_domain_type.o \
+	module_gpu_map.o \
 	module_alloc_space_0.o \
 	module_alloc_space_1.o \
 	module_alloc_space_2.o \
@@ -107,51 +108,61 @@ module_domain_type.o: \
 
 module_alloc_space_0.o: \
 	module_domain_type.o \
+	module_gpu_map.o \
 	module_configure.o 
 
 
 module_alloc_space_1.o: \
 	module_domain_type.o \
+	module_gpu_map.o \
 	module_configure.o 
 
 
 module_alloc_space_2.o: \
 	module_domain_type.o \
+	module_gpu_map.o \
 	module_configure.o 
 
 
 module_alloc_space_3.o: \
 	module_domain_type.o \
+	module_gpu_map.o \
 	module_configure.o 
 
 
 module_alloc_space_4.o: \
 	module_domain_type.o \
+	module_gpu_map.o \
 	module_configure.o 
 
 
 module_alloc_space_5.o: \
 	module_domain_type.o \
+	module_gpu_map.o \
 	module_configure.o 
 
 
 module_alloc_space_6.o: \
 	module_domain_type.o \
+	module_gpu_map.o \
 	module_configure.o 
 
 
 module_alloc_space_7.o: \
 	module_domain_type.o \
+	module_gpu_map.o \
 	module_configure.o 
 
 
 module_alloc_space_8.o: \
 	module_domain_type.o \
+	module_gpu_map.o \
 	module_configure.o 
 
 
 module_alloc_space_9.o: \
 	module_domain_type.o \
+	module_gpu_map.o \
 	module_configure.o 
 
 
@@ -227,7 +238,14 @@ module_gpu_scratch.o: \
 
 module_gpu_updates.o: \
 	module_domain.o \
+	module_gpu_map.o \
 	module_configure.o 
+
+module_gpu_map.o: 
+
+module_gpu_callcheck.o: \
+	module_gpu_route.o \
+	module_wrf_error.o 
 
 
 module_nesting.o: \

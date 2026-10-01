@@ -31,6 +31,9 @@ MODULE module_domain
    USE module_wrf_error
    USE module_utility
    USE module_domain_type
+#ifdef WRF_GPU
+   USE module_gpu_map
+#endif
 
    ! In WRFV3, the module_domain_type is defined
    ! in a separaate source file, frame/module_domain_type.F

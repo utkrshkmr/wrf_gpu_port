@@ -67,11 +67,15 @@ if not anchor_ok:
 else:
     i = src.index("SUBROUTINE calc_coef_w")
     k = src.index("      IMPLICIT NONE  ! religion first", i)
-    s = src[:k] + "      USE module_gpu_route, ONLY : gpu_on, gpu_island, gpu_world_host, R_CALC_COEF_W\n" + src[k:]
+    s = src[:k] + "      USE module_gpu_route, ONLY : gpu_on, gpu_island, gpu_world_host, R_CALC_COEF_W\n" \
+        + "      USE module_gpu_callcheck\n" + src[k:]
     i = s.index("SUBROUTINE calc_coef_w")
     d = s.index("  INTEGER :: ij, ijp, ijm, lid_flag\n", i) + len("  INTEGER :: ij, ijp, ijm, lid_flag\n")
     s = s[:d] + "#ifdef WRF_GPU\n  REAL :: cofs\n  LOGICAL :: gpu_isl\n#endif\n" + s[d:]
-    entry = ("#ifdef WRF_GPU\n      gpu_isl = gpu_island(R_CALC_COEF_W)\n      IF (gpu_isl) THEN\n"
+    entry = ("#ifdef WRF_GPU\n99901 CONTINUE\n      IF (gpu_cc_start(R_CALC_COEF_W)) THEN\n"
+             "        CALL gpu_cc_save_r(1, a, SIZE(a,KIND=8))\n        CALL gpu_cc_save_r(2, alpha, SIZE(alpha,KIND=8))\n"
+             "        CALL gpu_cc_save_r(3, gamma, SIZE(gamma,KIND=8))\n      END IF\n"
+             "      gpu_isl = gpu_island(R_CALC_COEF_W)\n      IF (gpu_isl) THEN\n"
              "        IF (gpu_world_host) THEN\n!$omp target update to(a, alpha, gamma, mut, c1h, c2h, c1f, c2f, &\n"
              "!$omp&   c3h, c4h, c3f, c4f, cqw, rdn, rdnw, c2a)\n        ELSE\n"
              "!$omp target update from(a, alpha, gamma, mut, c1h, c2h, c1f, c2f, &\n"
@@ -130,9 +134,10 @@ else:
     rc, out = run(os.path.join(TOOLS, "arith_guard.py"), "--base", BASE, f)
     check(rc == 1 and "CPU view" in out, "arith_guard: swapping the operands of the calc_alt sum fails", out)
 
-# ---- check_generated on a tiny synthetic Registry output
+# ---- check_generated on a tiny synthetic Registry output (by-address calls, module_gpu_map)
 tmp = tempfile.mkdtemp()
 os.makedirs(os.path.join(tmp, "inc"))
+ENTER_U2 = "  IF (.NOT. grid%is_intermediate) &\n  CALL gpu_map_r(grid%u_2, &\n    SIZE(grid%u_2,KIND=8), GPU_MAP_ENTER)\n"
 ok_alloc = """IF(okay_to_alloc.AND.in_use_for_config(id,'u_2'))THEN
   ALLOCATE(grid%u_2(sm31:em31,sm32:em32,sm33:em33),STAT=ierr)
   if (ierr.ne.0) then
@@ -140,61 +145,57 @@ ok_alloc = """IF(okay_to_alloc.AND.in_use_for_config(id,'u_2'))THEN
   endif
   IF ( setinitval .EQ. 1 .OR. setinitval .EQ. 3 ) grid%u_2=initial_data_value
 #ifdef WRF_GPU
-  IF (.NOT. grid%is_intermediate) THEN
-!$omp target enter data map(to:grid%u_2)
-  ENDIF
-#endif
+""" + ENTER_U2 + """#endif
 ELSE
   ALLOCATE(grid%u_2(1,1,1),STAT=ierr)
   if (ierr.ne.0) then
     CALL wrf_error_fatal ('x')
   endif
 #ifdef WRF_GPU
-  IF (.NOT. grid%is_intermediate) THEN
-!$omp target enter data map(to:grid%u_2)
-  ENDIF
-#endif
+""" + ENTER_U2 + """#endif
 ENDIF
 """
-ok_dealloc = """IF ( ASSOCIATED( grid%u_2 ) ) THEN
-#ifdef WRF_GPU
-!$omp target exit data map(delete:grid%u_2)
-#endif
-  DEALLOCATE(grid%u_2,STAT=ierr)
-ENDIF
-"""
+EXIT_U2 = "#ifdef WRF_GPU\n  IF (.NOT. grid%is_intermediate) &\n  CALL gpu_map_r(grid%u_2, &\n    SIZE(grid%u_2,KIND=8), GPU_MAP_EXIT)\n#endif\n"
+ok_dealloc = "IF ( ASSOCIATED( grid%u_2 ) ) THEN\n" + EXIT_U2 + "  DEALLOCATE(grid%u_2,STAT=ierr)\nENDIF\n"
 open(os.path.join(tmp, "inc", "allocs.inc"), "w").write(ok_alloc)
 open(os.path.join(tmp, "inc", "deallocs.inc"), "w").write(ok_dealloc)
 rc, out = run(os.path.join(TOOLS, "check_generated.py"), tmp, "--only", "C1,C2,C3")
-check(rc == 0, "check_generated: correct enter/exit data passes", out)
+check(rc == 0, "check_generated: correct enter/exit calls pass", out)
 open(os.path.join(tmp, "inc", "allocs.inc"), "w").write(
     ok_alloc.replace("  IF ( setinitval .EQ. 1 .OR. setinitval .EQ. 3 ) grid%u_2=initial_data_value\n", "")
-            .replace("  endif\n#ifdef WRF_GPU", "  endif\n#ifdef WRF_GPU", 1)
-            .replace("!$omp target enter data map(to:grid%u_2)\n  ENDIF\n#endif\nELSE",
-                     "!$omp target enter data map(to:grid%u_2)\n  ENDIF\n#endif\n"
-                     "  IF ( setinitval .EQ. 1 ) grid%u_2=initial_data_value\nELSE", 1))
+            .replace(ENTER_U2 + "#endif\nELSE",
+                     ENTER_U2 + "#endif\n  IF ( setinitval .EQ. 1 ) grid%u_2=initial_data_value\nELSE", 1))
 rc, out = run(os.path.join(TOOLS, "check_generated.py"), tmp, "--only", "C1")
-check(rc == 1 and "before its initial value" in out, "check_generated: enter data before initialization fails", out)
-open(os.path.join(tmp, "inc", "deallocs.inc"), "w").write(ok_dealloc.replace(
-    "#ifdef WRF_GPU\n!$omp target exit data map(delete:grid%u_2)\n#endif\n", ""))
+check(rc == 1 and "before its initial value" in out, "check_generated: device copy before initialization fails", out)
+open(os.path.join(tmp, "inc", "allocs.inc"), "w").write(ok_alloc.replace(ENTER_U2, ENTER_U2.split("&\n", 1)[1], 1))
+rc, out = run(os.path.join(TOOLS, "check_generated.py"), tmp, "--only", "C2")
+check(rc == 1 and "is_intermediate" in out, "check_generated: enter call without the intermediate guard fails", out)
+open(os.path.join(tmp, "inc", "allocs.inc"), "w").write(ok_alloc.replace("GPU_MAP_ENTER", "GPU_UPD_TO", 1))
+rc, out = run(os.path.join(TOOLS, "check_generated.py"), tmp, "--only", "C1")
+check(rc == 1, "check_generated: a non-enter call after ALLOCATE fails", out)
+open(os.path.join(tmp, "inc", "allocs.inc"), "w").write(ok_alloc)
+open(os.path.join(tmp, "inc", "deallocs.inc"), "w").write(ok_dealloc.replace(EXIT_U2, ""))
 rc, out = run(os.path.join(TOOLS, "check_generated.py"), tmp, "--only", "C3")
-check(rc == 1, "check_generated: missing exit data fails", out)
-upd_ok = "IF (in_use_for_config(grid%id,'u_2')) THEN\n!$omp target update to(grid%u_2)\nENDIF\n"
+check(rc == 1, "check_generated: missing exit call fails", out)
+UPD = "  CALL gpu_map_r(grid%{0}, &\n    SIZE(grid%{0},KIND=8), GPU_UPD_{1})\n"
+upd_ok = "IF (in_use_for_config(grid%id,'u_2')) THEN\n" + UPD.format("u_2", "TO") + "ENDIF\n"
 open(os.path.join(tmp, "inc", "gpu_upd_dev_all.inc"), "w").write(upd_ok)
-open(os.path.join(tmp, "inc", "gpu_upd_host_all.inc"), "w").write(upd_ok.replace("update to", "update from"))
+open(os.path.join(tmp, "inc", "gpu_upd_host_all.inc"), "w").write(upd_ok.replace("GPU_UPD_TO", "GPU_UPD_FROM"))
 rc, out = run(os.path.join(TOOLS, "check_generated.py"), tmp, "--only", "C4,C7")
 check(rc == 0, "check_generated: complete, guarded update lists pass", out)
-open(os.path.join(tmp, "inc", "gpu_upd_host_all.inc"), "w").write("!$omp target update from(grid%u_2)\n")
+open(os.path.join(tmp, "inc", "gpu_upd_host_all.inc"), "w").write(upd_ok)
+rc, out = run(os.path.join(TOOLS, "check_generated.py"), tmp, "--only", "C4")
+check(rc == 1 and "expected GPU_UPD_FROM" in out, "check_generated: update in the wrong direction fails", out)
+open(os.path.join(tmp, "inc", "gpu_upd_host_all.inc"), "w").write(UPD.format("u_2", "FROM"))
 rc, out = run(os.path.join(TOOLS, "check_generated.py"), tmp, "--only", "C7")
 check(rc == 1, "check_generated: unguarded update fails", out)
 open(os.path.join(tmp, "inc", "gpu_upd_host_all.inc"), "w").write(
-    upd_ok.replace("update to", "update from")
-    + "!$omp target update from(grid%u_bxs)\n"
-    + "IF (in_use_for_config(grid%id,'fdob%varobs')) THEN\n!$omp target update from(grid%fdob%varobs)\nENDIF\n")
+    upd_ok.replace("GPU_UPD_TO", "GPU_UPD_FROM") + UPD.format("u_bxs", "FROM")
+    + "IF (in_use_for_config(grid%id,'fdob%varobs')) THEN\n" + UPD.format("fdob%varobs", "FROM") + "ENDIF\n")
 rc, out = run(os.path.join(TOOLS, "check_generated.py"), tmp, "--only", "C7")
 check(rc == 0, "check_generated: unguarded boundary array and guarded derived component pass", out)
 open(os.path.join(tmp, "inc", "gpu_upd_host_all.inc"), "w").write(
-    upd_ok.replace("update to", "update from") + "!$omp target update from(grid%fdob%varobs)\n")
+    upd_ok.replace("GPU_UPD_TO", "GPU_UPD_FROM") + UPD.format("fdob%varobs", "FROM"))
 rc, out = run(os.path.join(TOOLS, "check_generated.py"), tmp, "--only", "C7")
 check(rc == 1, "check_generated: unguarded derived component fails", out)
 
@@ -253,6 +254,22 @@ rc, out = run(os.path.join(TOOLS, "gen_island.py"), os.path.join(REPO, "WRF", "d
               "first_rk_step_part1")
 check(rc == 0 and "gpu_upd_dev_all(grid)" in out and "IF (PRESENT(" in out,
       "gen_island: whole-state update for grid, PRESENT() for optional arrays", out[:2000])
+check(rc == 0 and "no call check" in out and "gpu_cc_" not in out,
+      "gen_island: no call check for a routine with a TYPE(domain) dummy", out[:2000])
+
+# ---- gen_island: the call check (label, saves of non-INTENT(IN) arguments, compares, jump back)
+rc, out = run(os.path.join(TOOLS, "gen_island.py"), os.path.join(REPO, "WRF", "dyn_em", "module_big_step_utilities_em.F"),
+              "calc_alt")
+ex_isl = open(os.path.join(HERE, "example_calc_alt.F")).read()
+check(rc == 0 and "99901 CONTINUE" in out and "CALL gpu_cc_save_r(1, alt, SIZE(alt,KIND=8))" in out
+      and "IF (gpu_cc_next(R_CALC_ALT)) GOTO 99901" in out and "USE module_gpu_callcheck" in out,
+      "gen_island: call check of calc_alt (alt saved, compared, entry label)", out)
+check(all(l.strip() in ex_isl for l in out.split("\n")
+          if ("gpu_cc_" in l or "99901" in l) and not l.lstrip().startswith("!")),
+      "gen_island: example_calc_alt.F carries the call check the tool emits", out)
+rc, out = run(os.path.join(TOOLS, "gen_island.py"), os.path.join(REPO, "WRF", "dyn_em", "module_small_step_em.F"),
+              "calc_coef_w", "--no-check")
+check(rc == 0 and "gpu_cc_" not in out and "99901" not in out, "gen_island: --no-check omits the call check", out)
 
 # ---- check_case / T-GATE namelists
 rc, out = run(os.path.join(PORT, "check_case.py"), os.path.join(REPO, "cases", "eaton_20250108", "namelist.input"))

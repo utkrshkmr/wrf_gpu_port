@@ -49,29 +49,52 @@ If T-IEEE reports a host/device difference for `MAX`/`MIN`/`SIGN`, write it into
 cd port/tests/omp_features && CUDA_VISIBLE_DEVICES=$GPU_ID x ./run_probes.sh
 ```
 **Done when** the `probes_<host>_<date>.md` table is pasted into `port/ENVIRONMENT.md` with a decision per probe
-(table "Compiler feature probes"): F-IFTARGET, F-PRESENT and F-DECLMOD must pass (else BLOCKERS.md: the fallbacks of
-plan.md P0.5b need the owner's decision). Record: whether to use `defaultmap(present: aggregate)` (F-DEFMAP), whether
-statement functions/internal procedures work in device code (F-STMTFN, F-INTPROC), the stack-limit mechanism
-(F-STACK).
+(table "Compiler feature probes"). These must pass, else BLOCKERS.md (the owner decides; plan.md P0.5b):
+- F-IFTARGET, F-PRESENT, F-DECLMOD;
+- **F-COMPMAP-ADDR**: the state is mapped by address, the way the generated code of P1.2/P1.3 does it.
+
+Record:
+- whether to use `defaultmap(present: aggregate)` (F-DEFMAP);
+- whether statement functions and internal procedures work in device code (F-STMTFN, F-INTPROC);
+- the stack-limit mechanism (F-STACK).
+
+These are information for later phases:
+- **F-COMPMAP-MEMBER**: the structure-member form `map(to:grid%f)`, which the port does not use. A build failure
+  there is expected.
+- **F-EQUIV**, **F-DATA**: for Phase 3. A build failure or FAIL of F-EQUIV (gfortran rejects EQUIVALENCE with
+  declare target) means the RRTMG table flattening is required. F-DATA FAIL means DATA tables become PARAMETERs.
+  See PHASE3.md "Shared refactors".
 
 ### H0.4 Reference tests on the GPU
-`bash port/gates/ref_tests.sh` → `== ref_tests: PASS` (T-PDLIM, T-KISS, T-OZN, templates B/C/G and their mutants).
+`bash port/gates/ref_tests.sh` → `== ref_tests: PASS`. It runs:
+- T-PDLIM, T-KISS, T-OZN;
+- templates B/C/G and **CP** (column physics, Phase 3) and their mutants;
+- **T-CALLCHECK**, the call check every island carries (DEBUGGING.md §0b).
+
 If T-KISS fails, the KISS rewrite of plan.md P0.9a item 9 becomes a Phase 3 shared refactor; note it.
-If it prints `NOTE templates: statement functions rejected in device code`, template B was built in its
-module-function form; record that in port/ENVIRONMENT.md (it decides the form of `flux5` & co. in Phase 2,
-CODING_STANDARD.md §5.4).
+
+If it prints `NOTE templates: statement functions rejected in device code`, templates B and CP were built in their
+module-function form. Record that in port/ENVIRONMENT.md: it decides the form of `flux5` and the like in Phase 2
+(CODING_STANDARD.md §5.4) and of the statement functions of WSM6 in Phase 3.
+
+If T-TMPL-CP fails to build or run, write BLOCKERS.md and continue Phases 1–2: it shows a compiler limitation for
+column physics, which matters only in Phase 3.
+
 A failure in a build or run script (not in a test) is an infrastructure bug: fix it as a tool fix (WORKFLOW.md §8).
 
 ### H0.5 CPU-REF builds and T-SYM
 ```sh
-bash port/h100/build.sh cpu-ref --commit "$(sed 's/#.*//' port/agent/cpu_view_base | awk 'NF{print $1;exit}')"
-bash port/h100/build.sh cpu-ref --worktree
+bash port/h100/build.sh cpu-ref --commit "$(sed 's/#.*//' port/agent/cpu_view_base | awk 'NF{print $1;exit}')" --fire-ideal
+bash port/h100/build.sh cpu-ref --worktree --fire-ideal
 source port/h100/common.sh; x bash port/sym_audit.sh $WORK/builds/cpu-ref/worktree
 ```
 **Done when** both builds exist (BUILD_INFO) and T-SYM passes on the host objects (the device part of T-SYM runs on
-GPU builds in P1.1). Record the build time.
+GPU builds in P1.1). Record the build time. (`--fire-ideal` also builds the smoke case's `ideal_fire.exe`, which
+later builds of the same directory keep.)
 
 ### H0.6 Inputs and dev case
+(Without the Eaton inputs on the machine, skip H0.6 and H0.7 and work on the smoke case: section "Without the case
+data" below.)
 Copy the inputs (ENV_H100.md §3), then `bash port/h100/dev_case.sh make`. **Done when** the md5 check prints `ok`
 for the three inputs and `$WORK/cases/eaton_small/namelist.input` exists (d02 is 181×181). Copy
 `$WORK/cases/eaton_small/{namelist.input,README.md}` to `cases/eaton_small/` in the repository and commit them
@@ -87,15 +110,76 @@ b=$WORK/builds/cpu-ref/worktree
 bash port/h100/window.sh $b W-20 --tag a; bash port/h100/window.sh $b W-20 --tag b
 bash port/h100/compare.sh $WORK/runs/cpu-ref-*/W-20-a $WORK/runs/cpu-ref-*/W-20-b     # determinism
 bash port/gates/t_cpu_view.sh                                                          # base vs worktree
+bash port/gates/t_dec.sh                                                               # 1 rank vs $CPU_RANKS
 bash port/gates/static.sh
 ```
-**Done when** all three print PASS. Record the wall times of W-T0/W-20 (CPU-REF) in the log.
+**Done when** all four print PASS. Record the wall times of W-T0/W-20 (CPU-REF) in the log.
+
+T-DEC (plan.md P0.10) matters because the GPU build runs 1 rank and every T-TRACE compares it with CPU-REF on
+`$CPU_RANKS` ranks. If T-DEC fails:
+- write BLOCKERS.md with the first differing field (`compare.sh` names it);
+- set `CPU_RANKS=1` in `env.local.sh` meanwhile. That is slower, but a valid reference for the GPU build.
+
+Every window run has a time limit: `window.sh` stops `wrf.exe` after `RUN_TIMEOUT` seconds (default: the larger
+of 3600 and 20 × the simulated seconds) and writes `TIMEOUT` in `window.info`.
+
+### H0.9 T-UNINIT (once, before the first work-array refactor)
+T-UNINIT checks that WRF never reads memory it did not write. It is the evidence that replacing automatic arrays
+by zero-filled work arrays (P1.7, done in Phases 2–4) cannot change results.
+
+1. `bash port/h100/setup_toolchain.sh deps-gnu`. This builds the gfortran netCDF; it needs gfortran in the image. If
+   there is none, write that in the log and skip this task.
+2. `bash port/gates/t_uninit.sh`. With the dev case it runs W-T0 and W-20; without it, S-3M. It builds WRF twice
+   with gfortran: once with every local variable starting as NaN, once with every local variable starting as zero.
+   The two runs must give identical traces. The two builds take about 10 GB; delete them after a PASS
+   (`$WORK/builds/gnu/worktree-uninit-*`).
+
+A FAIL names a field that depends on uninitialized memory. Write it into BLOCKERS.md; the owner decides.
 
 ---
 
 **Order of work in Phase 1:** P1.1, P1.2, P1.3, P1.4, P1.6, then **P1.5 and P1.9 together as one step**, then P1.7,
 P1.8, P1.10–P1.12. P1.5 (sync points) and P1.9 (the `solve_em` bracket) cannot be done one after the other; see the
 section "P1.5 + P1.9" for why.
+
+## Without the case data (smoke case)
+
+While the Eaton inputs (`wrfinput_d01`, `wrfinput_d02`, `wrfbdy_d01`) are not on the machine, skip H0.6 and H0.7.
+The dev case, the dev references and every `W-*` window then cannot run. Work on the **smoke case** instead.
+
+**What the smoke case is.** Window `S-3M` (`port/h100/smoke_case.sh`): the em_fire ideal case with the Eaton
+physics and fire options. It has one domain, needs no input files, and runs in about a minute on one core.
+
+**Builds.** It needs builds made once with `--fire-ideal`: H0.5 does it for CPU-REF, P1.2 step 2 for GPU-REPRO. Later
+builds of the same directory keep `main/ideal_fire.exe`.
+
+**Substitute checks:**
+
+| Check | Without the case data |
+|---|---|
+| H0.8 | two CPU-REF `S-3M` runs (`window.sh <build> S-3M --tag a`, then `--tag b`) compared with `compare.sh`; `t_cpu_view.sh S-3M`; `t_dec.sh S-3M`; `static.sh` |
+| T-TRACE | `bash port/gates/t_trace.sh S-3M` |
+| self tests | `rd=$(bash port/h100/window.sh $WORK/builds/gpu-repro/worktree S-3M WRF_GPU_SELFTEST=1 \| tail -1); grep 'gpu_selftest:' $rd/rsl.error.0000` |
+| T-UPD | a GPU-REPRO `S-3M` run with `WRF_GPU_UPD_EVERY_STEP=1`, `compare.sh` against the CPU-REF `S-3M` run |
+| T-NSYS (P1.10) | `bash port/gates/t_nsys.sh S-3M` |
+| P1.11, P1.12 | the `gpu_timing:` / `gpu_mem:` lines of an `S-3M` run |
+| T-GATE | needs no inputs: `bash port/gates/t_gate.sh` is the real test |
+| T-UNINIT (H0.9) | `bash port/gates/t_uninit.sh` (uses `S-3M` by itself) |
+
+**After P1.8.** The smoke case is outside the supported envelope: one domain, open boundaries, fire tracers. Export
+`WRF_GPU_CHECK=warn` for smoke runs only, and unset it before `t_gate.sh` and every gate of the real case.
+
+**What it does not test.** The smoke case has no nest, no boundary file and no restart start. So S2, S2', S5, S6
+and the S1 path after a restart read are written but not yet verified.
+
+**Bookkeeping.**
+- Do not tick a task whose "Done when" names a `W-*` window, the dev case or the full case. Write
+  `(smoke: <what passed>)` next to it in the checklist.
+- Keep a list "Pending the case data" in the workbook's Current state, with the exact commands still owed: H0.6,
+  H0.7, H0.8 on W-20, `t_dec.sh`, `t_trace.sh W-T0`, `t_trace.sh W-20`, `t_upd.sh`, `t_selftest.sh`,
+  `t_nsys.sh W-20`, `t_mem.sh 55`, `g1.sh`.
+- G1 cannot run without the data. Stop when every Phase 1 task is written and smoke-checked, or blocked, and report
+  the Pending list.
 
 ## P1.1 First GPU-REPRO build
 
@@ -114,29 +198,47 @@ rank, CPU-REF `$CPU_RANKS`): run the CPU-REF build with `--ranks 1` on W-20 (`wi
 decomposition-independent before any kernel work): localize it with the traces, write BLOCKERS.md, and use
 `CPU_RANKS=1` for CPU-REF windows meanwhile (slower, but a valid reference for the GPU build).
 
-## P1.2 Device residency of all state (`WRF/tools/gen_allocs.c`)
+## P1.2 Device residency of all state (`WRF/tools/gen_allocs.c`) (provided)
 
-The Registry generator writes `inc/allocs.inc` / `inc/deallocs.inc` (`WRF/tools/registry.c:244-246` calls
-`gen_alloc`, `gen_dealloc`). Change `gen_alloc2` (`WRF/tools/gen_allocs.c:80-497`) and `gen_dealloc2` (`:604-690`):
+**This code is already written and wired** (handoff commit "gaps 7-12", see the workbook log); your task is to build
+it with NVHPC, check it and write the self test T-MAP. The fields are mapped **by address**:
 
-1. In-use branch: at the end of the `THEN` part, immediately **before** `fprintf(fp,"ELSE\n") ;` (`:465`), emit for
-   the array (boundary arrays: for each `bdy = 1..4` with `bdy_indicator(bdy)`, as the ALLOCATE above does), only when
-   `sw == 1`:
-   ```c
-   fprintf(fp,"#ifdef WRF_GPU\n  IF (.NOT. grid%%is_intermediate) THEN\n"
-              "!$omp target enter data map(to:%s%s%s)\n  ENDIF\n#endif\n", structname, fname, bdy_indicator(bdy));
+1. `WRF/frame/module_gpu_map.F`: `gpu_map_r` / `_d` / `_i` / `_l` (REAL / DOUBLE PRECISION / INTEGER / LOGICAL
+   fields) `(a, n, op)` with an assumed-size dummy `a(*)`; `op` = `GPU_MAP_ENTER` (`target enter data
+   map(to: a(1:n))`), `GPU_MAP_EXIT` (`exit data map(delete: a(1:n))`), `GPU_UPD_TO`, `GPU_UPD_FROM` (`target
+   update`). Why: the fields are ALLOCATABLE components of `TYPE(domain)` (`-DUSE_ALLOCATABLES`,
+   `arch/postamble`). Naming them in a clause, `map(to: grid%u_2)`, is a structure-member map: gfortran 13 rejects
+   it ("List item 'grid' with allocatable components is not permitted in map clause") and compilers differ on it.
+   Every kernel and island receives fields as explicit-shape dummies and finds the device copy by address, so
+   mapping the storage by address is all that is needed. Probe F-COMPMAP-ADDR (H0.3) checks this form on the H100.
+   This replaces the `map(to:grid%x)` form written in plan.md P1.2/P1.3 (owner decision, workbook log 2026-10-01).
+2. `gen_alloc2` writes, under `#ifdef WRF_GPU`, right after each `ALLOCATE` and its initial value (in-use arrays,
+   the `(1,1,1)` dummies of unused fields, and each of the four arrays of a boundary field):
+   ```fortran
+   #ifdef WRF_GPU
+     IF (.NOT. grid%is_intermediate) &
+     CALL gpu_map_r(grid%u_2, &
+       SIZE(grid%u_2,KIND=8), GPU_MAP_ENTER)
+   #endif
    ```
-   (non-boundary arrays: the same without `bdy_indicator`). This is after the initial value (`:287-297`) and after
-   the statevars list code.
-2. Not-in-use branch: after the dummy `ALLOCATE(...(1,1,1))` `fprintf`s (`:467-480`), **before**
-   `fprintf(fp,"ENDIF\n") ;` (`:482`), the same enter-data lines for the dummies.
-3. `gen_dealloc2`: before each `DEALLOCATE` `fprintf` (`:637-639` boundary, `:659-661` others), inside the same
-   `IF ( ASSOCIATED / ALLOCATED ...)`, emit
-   `#ifdef WRF_GPU\n  IF (.NOT. grid%%is_intermediate) THEN\n!$omp target exit data map(delete:%s%s%s)\n  ENDIF\n#endif\n`.
-4. Rebuild **clean** (`build.sh gpu-repro --worktree --clean`) and run
-   `python3 port/tools/check_generated.py $WORK/builds/gpu-repro/worktree --only C1,C2,C3`.
+   and `gen_dealloc2` the same with `GPU_MAP_EXIT` before each `DEALLOCATE`. The emitting function is
+   `gpu_map_call` in `WRF/tools/gen_gpu.c` (shared with the P1.3 update lists). `frame/module_alloc_space.h` and
+   `frame/module_domain.F` `USE module_gpu_map` under `#ifdef WRF_GPU`; the module is in `frame/Makefile`,
+   `frame/CMakeLists.txt` and `main/depend.common`.
+3. Intermediate grids (allocated every parent step for nest forcing) stay on the host because of the guard.
 
-Intermediate grids (allocated every parent step for nest forcing) stay on the host because of the guard.
+Checked before handoff (gfortran, no GPU): the Registry writes 5158 enter calls into `allocs.inc` and 2579 exit calls
+into `deallocs.inc`; `check_generated.py --only C1,C2,C3` passes; the ten `module_alloc_space_N.F`,
+`module_domain.F` and `module_gpu_updates.F` compile with `-DWRF_GPU -fopenmp`; the CPU-view build is unchanged.
+**Not** checked: NVHPC and the GPU.
+
+**Your steps:**
+
+1. H0.3 printed `PROBE F-COMPMAP-ADDR PASS` (if not: BLOCKERS.md and stop; it is the basis of all data movement).
+2. `bash port/h100/build.sh gpu-repro --worktree --clean --fire-ideal` (the Registry must run again; `--fire-ideal`
+   for the smoke case), then `python3 port/tools/check_generated.py $WORK/builds/gpu-repro/worktree --only
+   C1,C2,C3` → PASS.
+3. Write the self test T-MAP (below) and run it.
 
 **Self test T-MAP** (contract used by `port/gates/t_selftest.sh`): write `WRF/phys/module_gpu_selftest.F` (phys, so
 that later self tests can USE the table modules) with an external `SUBROUTINE gpu_selftest_map(grid)`, called when the environment variable `WRF_GPU_SELFTEST=1`
@@ -151,7 +253,8 @@ It walks `grid%head_statevars` (type `fieldlist`, `WRF/frame/module_domain_type.
 gpu_selftest: T-MAP PASS d01 812 fields present
 gpu_selftest: T-MAP FAIL d01 3 of 812 fields not present: <first names>
 ```
-**Done when** C1–C3 pass, `bash port/gates/t_selftest.sh T-MAP` passes, `t_trace.sh W-20` still passes.
+**Done when** C1–C3 pass, `bash port/gates/t_selftest.sh T-MAP` passes, `t_trace.sh W-20` still passes (without the
+case data: the smoke versions, section "Without the case data").
 
 ## P1.3 Update lists: `WRF/tools/gen_gpu.c` and `WRF/frame/module_gpu_updates.F` (provided)
 
@@ -163,14 +266,16 @@ NVHPC on the H100 and fix what the compiler rejects. What exists:
    It walks the fields exactly as `gen_alloc2` does (`Domain.fields`, arrays and boundary arrays of kind `FIELD` or
    `FOURD`, every time level `p->ntl`, `_4d_bdy_array_`, the four boundary arrays with `bdy_indicator`, components
    of derived types) and writes into `inc/`, all inside `#ifdef WRF_GPU`:
-   - `gpu_upd_dev_all.inc` / `gpu_upd_host_all.inc` (`to` / `from`): for every non-boundary array
+   - `gpu_upd_dev_all.inc` / `gpu_upd_host_all.inc` (`GPU_UPD_TO` / `GPU_UPD_FROM`, by address as in P1.2): for
+     every non-boundary array
      ```fortran
      IF (in_use_for_config(grid%id,'u_2')) THEN
-     !$omp target update to(grid%u_2)
+       CALL gpu_map_r(grid%u_2, &
+         SIZE(grid%u_2,KIND=8), GPU_UPD_TO)
      ENDIF
      ```
      (the same `in_use_for_config` name as `allocs.inc`; a derived-type component uses `'fdob%varobs'`), and for
-     every boundary array an unguarded `!$omp target update to(grid%u_bxs)` (… `_bxe`, `_bys`, `_bye`, `_btxs`, …):
+     every boundary array an unguarded call for `grid%u_bxs` (… `_bxe`, `_bys`, `_bye`, `_btxs`, …):
      `allocs.inc` allocates boundary arrays unconditionally (`IF(.TRUE.)`), so they are always full size. Fields
      that are not in use are `(1,1,1)` dummies and are not moved.
    - `gpu_upd_dev_bdy.inc`: only the boundary arrays.
@@ -187,19 +292,17 @@ NVHPC on the H100 and fix what the compiler rejects. What exists:
 3. Nothing calls the lists yet. The debug switch `WRF_GPU_UPD_EVERY_STEP=1` (T-UPD) is implemented with the bracket,
    in step "P1.5 + P1.9".
 
-Checked before handoff (gfortran worktree build, no GPU): the Registry writes the three files; `check_generated.py
---only C4,C5,C7` passes on them; `module_gpu_updates.F` compiles with and without `-DWRF_GPU` (gfortran
+Checked before handoff (gfortran worktree build, no GPU): the Registry writes the three files (2579 updates in each
+of the two whole-state lists, 104 in the boundary list); `check_generated.py --only C4,C5,C7` passes on them;
+`module_gpu_updates.o` is compiled without optimization (`arch/noopt_exceptions*`, like `module_domain.o` and the
+`module_alloc_space_N.o`: at `-O2` gfortran needed over 20 minutes for it, at `-O0` 6 s; it only moves data); `module_gpu_updates.F` compiles with and without `-DWRF_GPU` (gfortran
 `-fopenmp`); the CPU view of every Fortran file is unchanged (static.sh). **Not** checked: NVHPC.
 
 **Your steps:**
 
 1. `bash port/h100/build.sh gpu-repro --worktree --clean` (the Registry must run again), then
    `python3 port/tools/check_generated.py $WORK/builds/gpu-repro/worktree --only C4,C5,C7` → PASS.
-2. Look at `module_gpu_updates` in `compile.log`: no errors. If `nvfortran` rejects `target update` of a component
-   of the derived type (`grid%u_2`), which is also the form P1.2 uses for `enter data`, the fallback is to update
-   through a local pointer (`REAL, POINTER :: p3(:,:,:)`; `p3 => grid%u_2`; `!$omp target update to(p3)`): the
-   device copy is found by the address of the data, so this moves the same bytes. Change `gen_gpu.c` (and P1.2) to
-   emit that form, one pointer per rank and type; write the change into the workbook log.
+2. Look at `module_gpu_updates` in `compile.log`: no errors (the updates are calls of `module_gpu_map`, P1.2).
 3. `bash port/gates/t_trace.sh W-20` still passes (nothing calls the lists yet).
 
 **Done when** steps 1–3 pass. T-UPD is checked in step "P1.5 + P1.9".
@@ -207,20 +310,31 @@ Checked before handoff (gfortran worktree build, no GPU): the Registry writes th
 ## P1.4 Module tables on the device: `WRF/phys/module_gpu_tables.F` (new)
 
 In `phys/` because it USEs the physics modules; the entry point `SUBROUTINE gpu_update_tables()` is an external
-subroutine (outside the module) so that `frame/module_integrate.F` can call it. It does `!$omp target update to(...)` (allocatables: `target enter data map(to:...)`) for
-the module data of plan.md P1.4 (table there; add `!$omp declare target(<names>)` in each module next to the
-declarations). Modules whose data are set only in later phases (RRTMG tables after the P3 hoist) are added in those
-phases; for Phase 1 at least: `module_state_description` species indices used by kernels (or pass them as scalars),
-`module_ra_sw` tables, `sf_sfclayrev` psi tables, `module_sf_noahlsm` parameters, `mp_wsm6` SAVE scalars,
-`module_fr_fire_util` flags (after the set_flags hoist of P4.0, else skip now).
+subroutine (outside the module) so that `frame/module_integrate.F` can call it. It does `!$omp target update to(...)`
+of module variables declared `!$omp declare target(<names>)` in their own module, next to the declarations (an
+allocatable table: `target enter data map(to:...)`).
+
+**The Phase 1 list is fixed** (later phases add theirs: RRTMG tables after the P3.E hoist and flattening, the
+fire flags after the P4.0 `set_flags` hoist). Exactly these 120 variables:
+
+| Module (file) | Variables |
+|---|---|
+| `module_ra_sw` (`phys/module_ra_sw.F:6`) | `CSSCA` (set by `swinit`) |
+| `sf_sfclayrev` (`phys/physics_mmm/sf_sfclayrev.F90:22`) | `psim_stab`, `psim_unstab`, `psih_stab`, `psih_unstab` |
+| `module_sf_noahlsm` (`phys/module_sf_noahlsm.F:24-63`) | `LUCATS`, `BARE`, `NATURAL`, `NROTBL`, `SNUPTBL`, `RSTBL`, `RGLTBL`, `HSTBL`, `SHDTBL`, `MAXALB`, `EMISSMINTBL`, `EMISSMAXTBL`, `LAIMINTBL`, `LAIMAXTBL`, `Z0MINTBL`, `Z0MAXTBL`, `ALBEDOMINTBL`, `ALBEDOMAXTBL`, `ZTOPVTBL`, `ZBOTVTBL`, `TOPT_DATA`, `CMCMAX_DATA`, `CFACTR_DATA`, `RSMAX_DATA`, `SLCATS`, `BB`, `DRYSMC`, `F11`, `MAXSMC`, `REFSMC`, `SATPSI`, `SATDK`, `SATDW`, `WLTSMC`, `QTZ`, `SLPCATS`, `SLOPE_DATA`, `SBETA_DATA`, `FXEXP_DATA`, `CSOIL_DATA`, `SALP_DATA`, `REFDK_DATA`, `REFKDT_DATA`, `FRZK_DATA`, `ZBOT_DATA`, `SMLOW_DATA`, `SMHIGH_DATA`, `CZIL_DATA`, `LVCOEF_DATA` (not `LUTYPE`/`SLTYPE`/`iloc`/`jloc`: Phase 3 refactors) |
+| `mp_wsm6` (`phys/physics_mmm/mp_wsm6.F90:46-64`) | the 64 SAVE scalars of lines 46-63 (`qc0` ... `rslopeg3max`) and `pidn0s`, `pidnc` |
+
+(1 + 4 + 49 + 66 = 120 names; T-TAB prints how many it checked, so a missing one shows.) The species indices `P_QV` ... of `module_state_description` are **not**
+uploaded: kernels copy them to local scalars (CODING_STANDARD.md §6).
+
+Self test T-TAB (`gpu_selftest_tab`, when `WRF_GPU_SELFTEST=1`, after the upload): for each uploaded variable
+compute an integer bit-sum on the host and in a kernel on the device; print
+`gpu_selftest: T-TAB PASS 120 tables` or `gpu_selftest: T-TAB FAIL <names>`.
 
 Call `gpu_update_tables()` now at the places of S1 and S2 (after `med_initialdata_input` and after
 `med_nest_initial`). It only uploads, which is harmless before the bracket of step "P1.5 + P1.9" exists; that step
 then adds the state uploads next to it.
 
-Self test T-TAB (`gpu_selftest_tab`, when `WRF_GPU_SELFTEST=1`, after the upload): for each uploaded table compute
-an integer bit-sum on the host and in a kernel on the device; print
-`gpu_selftest: T-TAB PASS 17 tables` or `gpu_selftest: T-TAB FAIL <table names>`.
 
 **Done when** `t_selftest.sh T-TAB` passes and T-TRACE W-20 passes.
 
@@ -293,16 +407,20 @@ Self test T-POOL (`gpu_selftest_pool`, called once from `solve_em` after `i1_ass
 
 ## P1.7 Work arrays (a shared refactor: WORKFLOW.md §6)
 
-New module `WRF/frame/module_gpu_work.F`: named `REAL, ALLOCATABLE, TARGET` arrays for the large automatic arrays of
-plan.md P1.7 (table there), allocated once for the largest domain, zero-filled, and (under `WRF_GPU`) mapped with
-`enter data map(alloc:)` + device zero fill. In each routine of the table, replace the automatic array by a
-`POINTER, CONTIGUOUS` with the **same bounds** remapped onto the work array (`a(ims:ime,kms:kme,jms:jme) =>
-work_x(1:n)`), in **both** builds (the refactor is shared: CPU-REF must run the same code). Do this routine by
-routine as each routine is ported in Phases 2–4 if you prefer (plan.md allows it; RESULTS.md deviation 6), but each
-change follows the shared-refactor protocol (t_cpu_view W-T0/W-20/W-100 + T-DRIFT PASS, then move the base).
+**Owner decision: the work arrays are done in the phase that ports each routine** (plan.md allows it; RESULTS.md
+Phase 0 deviation 6), each as a shared refactor in its own commit (t_cpu_view W-T0/W-20/W-100 + T-DRIFT PASS, then
+move the base; REFACTORS.md row). Run H0.9 (T-UNINIT) once before the first of them.
 
-Self test T-WORK: as T-POOL for the work arrays (`gpu_selftest: T-WORK PASS …`). **Done when** the protocol's tests
-pass, the base is moved (REFACTORS.md row), and `t_selftest.sh T-WORK` passes.
+In Phase 1, write only the module and its self test:
+- `WRF/frame/module_gpu_work.F`: the place for named `REAL, ALLOCATABLE, TARGET` work arrays (plan.md P1.7 table),
+  allocated once for the largest domain, zero-filled, and under `WRF_GPU` mapped with `enter data map(alloc:)` + a
+  device zero fill; the list is empty now. Each routine of plan.md P1.7 later replaces its automatic array by a
+  `POINTER, CONTIGUOUS` with the **same bounds** remapped onto its work array (`a(ims:ime,kms:kme,jms:jme) =>
+  work_x(1:n)`), in **both** builds.
+- Self test T-WORK (`gpu_selftest_work`): `omp_target_is_present` of every work array; with the empty list it
+  prints `gpu_selftest: T-WORK PASS 0 work arrays (postponed to Phases 2-4)`.
+
+**Done when** the module builds in both views and `t_selftest.sh T-WORK` passes (no data: the smoke self test).
 
 ## P1.8 Startup gate `WRF/share/module_gpu_check.F` (new)
 
@@ -318,7 +436,8 @@ Output contract (checked by `port/gates/t_gate.sh`): one line per violation
 `gpu_check_config: VIOLATION <option>(d0N) = <value> (allowed: <...>)`, then `CALL wrf_error_fatal('gpu_check_config:
 N violations')`; or one line `gpu_check_config: PASS`. With `WRF_GPU_CHECK_ONLY=1`, stop right after the check (call
 `wrf_error_fatal('gpu_check_config: check only')` after printing PASS is fine; t_gate.sh only reads the lines).
-Put it in `WRF/share/module_gpu_check.F` with an external entry `SUBROUTINE gpu_check_config(id)`. Call it in
+`WRF_KMAX` and `WRF_NLAYMAX` come from `WRF/inc/gpu_col.h` (`#include "gpu_col.h"`, the same limits the Phase 3
+column kernels use). Put it in `WRF/share/module_gpu_check.F` with an external entry `SUBROUTINE gpu_check_config(id)`. Call it in
 `WRF/main/module_wrf_top.F` after the namelist is read (`CALL initial_config`, `:213`/`:221`) and for each nest in
 `alloc_and_configure_domain` (`WRF/frame/module_domain.F:520-988`, a `CALL gpu_check_config(domain_id)` without USE).
 A development override `WRF_GPU_CHECK=warn` prints the violations without stopping (never used in gates).
@@ -348,6 +467,6 @@ far). `port/gates/t_mem.sh` reads the last `peak`. **Done when** the lines appea
 
 ## G1
 
-`bash port/gates/g1.sh` → `== G1: PASS` (static, T-GATE, self tests, T-UPD, T-TRACE W-T0 and W-20, T-CPU-VIEW,
+`bash port/gates/g1.sh` → `== G1: PASS` (static, T-GATE, self tests, T-UPD, T-TRACE W-T0 and W-20, T-CPU-VIEW, T-DEC,
 G-MEM ≤ 55 GB on the full case — the full-case step runs mostly on one host core and takes long; start it early in
 the background: `bash port/gates/t_mem.sh 55`). Record the table in the workbook and in `port/RESULTS.md` ("Phase 1").

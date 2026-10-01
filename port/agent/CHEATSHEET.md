@@ -36,7 +36,8 @@ python3 port/tools/gen_island.py <file> <routine>       # the island (data movem
 bash port/gates/static.sh                               # must PASS before every commit
 bash port/h100/compile_one.sh gpu-repro <file> --minfo  # seconds: compiles? kernels offloaded?
 bash port/h100/harness.sh <file> <routine> [--set rk_step=3]   # ~1 min: HOST vs DEVICE, CPU vs DEVICE
-bash port/h100/build.sh gpu-repro --worktree            # then the real tests:
+bash port/h100/build.sh gpu-repro --worktree            # then real data:
+bash port/h100/window.sh <gpu build> W-20 WRF_GPU_CALLCHECK=<route>:3   # ~minutes; grep gpu_callcheck: (S-3M if no data)
 bash port/gates/t_ab.sh <route> W-20; bash port/gates/t_trace.sh W-20
 git commit -m "Port <routine> to the GPU (<kernel ids>)" -m "<tests PASS lines>"; git push
 python3 port/tools/workbook.py set <kernel> done --commit <sha> --tests "..."   # + WORKBOOK.md log entry
@@ -63,13 +64,13 @@ python3 port/tools/workbook.py set <kernel> done --commit <sha> --tests "..."   
 | C column | k recurrence: `collapse(2)` over (j,i), k sequential, per-`j` slabs become private column arrays, range guards | `t_tmpl_c.F90` |
 | D calls | kernel calls a procedure: `teams distribute parallel do`, callee `declare target` | CODING_STANDARD §5.4 |
 | G strips | boundary strips: one kernel per strip, x strips before y strips | `t_tmpl_g.F90` |
-| CP column physics | wrapper gathers a column, calls the core with its=ite=1 | PHASE3.md |
+| CP column physics | wrapper gathers a column, calls the core with its=ite=1; `gpu_col.h` sizes | `t_tmpl_cp.F90` |
 
 Default directive: `!$omp target teams distribute parallel do collapse(N) if(target: gpu_on(R_X)) default(none) &`
 `!$omp& shared(<arrays>) firstprivate(<scalars read>) private(<scalars written>)`. Never an apostrophe in a
 directive line.
 
-## Top pitfalls (PITFALLS.md has all 43)
+## Top pitfalls (PITFALLS.md has all 46)
 
 - Changing the order of a sum or a product regrouping: 1-ulp differences. Copy the statement, change only indices.
 - A scalar written in the body that is not `private`: a race. T-AB differs from run to run.
@@ -82,8 +83,9 @@ directive line.
 
 ## When a test fails (DEBUGGING.md)
 
-harness (§0) → coarse trace: first differing (step, tag, field) → `t_fine.sh` (§1b; restrict with
-`WRF_BITTRACE_FROM/TO/DOMAIN`) → `bt_fine3` inside the routine → `kernel_off.py` to confirm one kernel (§2).
+harness (§0) or call check (§0b: `WRF_GPU_CALLCHECK=<route>`, real data, names the element) → coarse trace: first
+differing (step, tag, field) → `t_fine.sh` (§1b; restrict with `WRF_BITTRACE_FROM/TO/DOMAIN`) → `bt_fine3` inside the
+routine → `kernel_off.py` to confirm one kernel (§2). Runs stop after `RUN_TIMEOUT` (window.sh) / `HARNESS_TIMEOUT`.
 
 ## Guides (open the section you need)
 

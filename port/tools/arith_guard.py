@@ -12,8 +12,10 @@ Checks every changed Fortran file under WRF/ against a base commit:
       - #include of "gpu_*.inc" / "island_*.inc" files
       - IF (.NOT. gpu_on(R_...)) THEN / IF (gpu_on(R_...)) THEN blocks and
         their END IF
-    Port infrastructure files (WRF/frame|share/module_gpu_*.F,
-    module_bittrace.F) hold no WRF arithmetic and are not checked.
+    Port infrastructure files (WRF/frame|share|phys/module_gpu_*.F,
+    module_bittrace.F, and the port headers WRF/inc/gpu_*.h, which hold only
+    preprocessor macros for the GPU view) hold no WRF arithmetic and are not
+    checked.
     Anything else (a changed, deleted or added statement) is a violation:
     the reference build would no longer compute what the archived reference
     computed.  Deliberate shared refactors (plan.md P0.9a, P1.7) are done by
@@ -281,7 +283,7 @@ def declared_names(stmts):
 # Port infrastructure: files that hold no WRF arithmetic (routing, tracer,
 # pool, work arrays, tables upload, startup gate, NVTX/memory shims).  They are
 # not compared with the base; their changes are reviewed as ordinary code.
-PORT_INFRA = re.compile(r"^WRF/(frame|share|phys)/(module_gpu_\w+|module_bittrace)\.F$")
+PORT_INFRA = re.compile(r"^WRF/((frame|share|phys)/(module_gpu_\w+|module_bittrace)\.F|inc/gpu_\w+\.h)$")
 
 
 def check_file(path, base, exceptions):

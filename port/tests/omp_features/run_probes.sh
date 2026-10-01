@@ -12,7 +12,7 @@ out="probes_$(hostname -s)_$(date +%Y%m%d_%H%M%S).md"
   echo "| Probe | Build | Result |"; echo "|---|---|---|"
 } > "$out"
 make -s COMPILER=$COMPILER stack_shim.o >/dev/null 2>&1
-for p in f_iftarget f_calls f_declmod f_present f_defmap f_defmap_neg f_privarr f_auto f_langfeat f_red f_stack; do
+for p in f_iftarget f_calls f_declmod f_present f_compmap f_compmap_member f_equiv f_data f_defmap f_defmap_neg f_privarr f_auto f_langfeat f_red f_stack; do
   if make COMPILER=$COMPILER $p > build_$p.log 2>&1; then
     b=ok
     res=$(timeout 300 ./$p 2>&1); rc=$?

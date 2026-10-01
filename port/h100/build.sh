@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build WRF for the port (plan.md 4) on the H100 machine.
 #
-#   build.sh <mode> [--commit REV | --worktree] [--clean] [--fire-ideal] [--fine] [--tag T]
+#   build.sh <mode> [--commit REV | --worktree] [--clean] [--fire-ideal] [--fine] [--uninit nan|zero] [--tag T]
 #
 # mode        cpu-ref | gpu-repro | gpu-debug   (the NVHPC "GPU port" stanzas, dmpar)
 #             gnu                               (gfortran serial; only for testing these
@@ -15,6 +15,9 @@
 # --fire-ideal  also build ideal.exe of em_fire (main/ideal_fire.exe) for the smoke case
 # --fine        fine-tracing build: adds -DWRF_TRACE_FINE (level-3 checkpoints, port/agent/DEBUGGING.md);
 #               directory <...>-fine, mode <mode>-fine in BUILD_INFO.  Same arithmetic flags.
+# --uninit V    gnu only (T-UNINIT, port/gates/t_uninit.sh): every local variable starts as
+#               signaling NaN (V=nan) or zero (V=zero); directory <...>-uninit-V.
+# gnu builds use the gfortran netCDF $NETCDF_GNU (setup_toolchain.sh deps-gnu) when it exists.
 #
 # The last line printed is the build directory.  BUILD_INFO in it records the
 # mode, the source (commit, or HEAD + md5 of the uncommitted diff), the
@@ -22,9 +25,9 @@
 # (GPU builds: -Minfo=mp lines show which loops were offloaded).
 set -euo pipefail
 source "$(dirname "$0")/common.sh"
-mode=${1:?usage: build.sh <cpu-ref|gpu-repro|gpu-debug|gnu>[-fine] [--commit REV|--worktree] [--clean] [--fire-ideal] [--fine] [--tag T]}
+mode=${1:?usage: build.sh <cpu-ref|gpu-repro|gpu-debug|gnu>[-fine] [--commit REV|--worktree] [--clean] [--fire-ideal] [--fine] [--uninit nan|zero] [--tag T]}
 shift
-src=commit; rev=HEAD; clean=0; fire=0; tag=; fine=0
+src=commit; rev=HEAD; clean=0; fire=0; tag=; fine=0; uninit=
 case $mode in *-fine) mode=${mode%-fine}; fine=1 ;; esac
 while [ $# -gt 0 ]; do
   case $1 in
@@ -33,12 +36,19 @@ while [ $# -gt 0 ]; do
     --clean) clean=1 ;;
     --fire-ideal) fire=1 ;;
     --fine) fine=1 ;;
+    --uninit) uninit=${2:?}; shift ;;
     --tag) tag=${2:?}; shift ;;
     *) die "unknown option $1" ;;
   esac
   shift
 done
 [ $fine = 1 ] && tag=fine${tag:+-$tag}
+if [ -n "$uninit" ]; then
+  [ "$mode" = gnu ] || die "--uninit is for gnu builds (T-UNINIT)"
+  case $uninit in nan|zero) ;; *) die "--uninit nan|zero" ;; esac
+  tag=${tag:+$tag-}uninit-$uninit
+fi
+if [ "$mode" = gnu ] && [ -x "${NETCDF_GNU:-$DEPS/netcdf-gnu}/bin/nf-config" ]; then NETCDF=${NETCDF_GNU:-$DEPS/netcdf-gnu}; fi
 case $mode in
   cpu-ref)   stanza="GPU port CPU-REF";   kind=dmpar ;;
   gpu-repro) stanza="GPU port GPU-REPRO"; kind=dmpar ;;
@@ -80,6 +90,15 @@ if [ ! -f configure.wrf ]; then
   x bash -c "printf '%s\n1\n' $opt | NETCDF=$NETCDF ./configure > configure.log 2>&1" || die "configure failed ($out/configure.log)"
   [ -f configure.wrf ] || die "configure wrote no configure.wrf ($out/configure.log)"
   echo "$opt" > .configure_option
+  if [ -n "$uninit" ]; then
+    # T-UNINIT: initialize every local to signaling NaN or to zero (as port/ccr/t_uninit.sh)
+    if [ $uninit = nan ]; then fl="-finit-real=snan -finit-integer=-8388607 -finit-logical=true"
+    else fl="-finit-real=zero -finit-integer=0 -finit-logical=false"; fi
+    base=$(sed -n 's/^FCBASEOPTS_NO_G *= *//p' configure.wrf | head -1)
+    sed -i "s/^\(FCBASEOPTS_NO_G *=.*\)$/\1 $fl/" configure.wrf
+    # routines with a bare SAVE statement: gfortran rejects -finit-* there (not used by the case)
+    printf 'module_mp_morr_two_moment_aero.o : FCBASEOPTS_NO_G = %s\n' "$base" >> configure.wrf
+  fi
   if [ $fine = 1 ]; then
     # fine tracing: only a preprocessor macro; the arithmetic flags stay (check_build_flags.py)
     sed -i -E '/^ARCH_LOCAL[[:space:]]*=/ { /-DWRF_TRACE_FINE/! s/$/ -DWRF_TRACE_FINE/ }' configure.wrf

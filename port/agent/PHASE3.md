@@ -15,16 +15,30 @@ each take several sessions; the split is in WORKFLOW.md §11.
 
 ## P3.0 Column-physics infrastructure (before any scheme)
 
-1. `WRF/inc/gpu_col.h` (new): `#define WRF_KMAX 64`, `#define WRF_NLAYMAX 128`, `#define WRF_NSOILMAX 4`, and the
-   macros for fixed-size column declarations of plan.md CP-3 (e.g. `GPUCOL1(a)` expanding to `a(1:WRF_KMAX)` under
-   `WRF_GPU`, to the original bounds otherwise — decide the exact macro form once, document it in the file, use it
-   everywhere).
-2. Stack size (CP-5): after building the first scheme, read the per-kernel frame sizes from the `-Minfo`/`ptxinfo`
-   output (`-gpu=ptxinfo` in a GPU-DEBUG build), set the device stack limit at startup through the shim
+1. `WRF/inc/gpu_col.h` is **provided**. It holds:
+   - `WRF_KMAX` 64, `WRF_NLAYMAX` 128, `WRF_NSOILMAX` 4;
+   - the declaration macros `GPU_I`, `GPU_K`, `GPU_K1`, `GPU_IK`, `GPU_IK1`, `GPU_IKN(n)`, `GPU_L`, `GPU_L1`,
+     `GPU_S` for the fixed-size column arrays of plan.md CP-3.
+
+   Write each such declaration twice, the original line unchanged in the `#else` branch; the file and
+   CODING_STANDARD.md §5.7 show the form. Include it inside `#ifdef WRF_GPU`.
+2. The tested pattern is `port/tests/templates/t_tmpl_cp.F90` (T-TMPL-CP, run by `ref_tests.sh` since H0.4), a
+   WSM6-shaped scheme in both forms. Before the first scheme, read its GPU form (`tcp_wrap_gpu`, `tcp_run_gpu`) and
+   copy its structure.
+3. Stack size (CP-5): after building the first scheme, read the per-kernel frame sizes from the `-Minfo`/`ptxinfo`
+   output (`-gpu=ptxinfo` in a GPU-DEBUG build). Set the device stack limit at startup through the shim
    (`wrf_gpu_shim.c`, P1.10; probe F-STACK told you whether `NV_ACC_CUDA_STACKSIZE` works), abort if it is smaller
    than needed, and record the value in `port/ENVIRONMENT.md`.
-3. Error codes from device code: an integer array or scalar reduced with `reduction(max:)`; the host prints the
-   source's message and calls `wrf_error_fatal` with the source's text.
+4. Error codes from device code: an integer array or scalar reduced with `reduction(max:)` (or `+:`); the host
+   prints the source's message and calls `wrf_error_fatal` with the source's text.
+5. **The fast loop for physics is the call check, not the harness.**
+   ```sh
+   bash port/h100/window.sh <gpu build> S-3M WRF_GPU_CALLCHECK=<route>
+   grep gpu_callcheck: <run dir>/rsl.error.0000
+   ```
+   It takes about 2 minutes (DEBUGGING.md §0b). The smoke case S-3M runs WSM6, RRTMG LW, Dudhia SW, sfclayrev, Noah
+   and YSU on real states with the real tables. `harness.sh` feeds random inputs and loads no tables, so for physics
+   it gives little. Then T-AB and T-TRACE on W-20 / W-RAD as usual.
 
 ## How a column scheme is ported (CP-1..CP-4)
 
@@ -42,12 +56,16 @@ For `wsm6` (the model for all the others; plan.md §8.2 and the wrapper `phys/mo
 3. `errmsg`/`errflg` character handling → integer codes; `OPTIONAL`/`PRESENT` tests → host logicals passed in.
 4. The CPU wrapper stays unchanged for CPU-REF (`#ifndef WRF_GPU` around it, or the GPU block ends with `RETURN`).
 5. Module SAVE scalars and tables the core reads → `declare target` + P1.4 upload.
-6. Test: `t_ab.sh wsm6 W-20`, `t_trace.sh W-20`. The column harnesses of plan.md (T-WSM6-COL etc.) are optional
-   debugging aids: if you write one, put it under `port/tests/columns/` with a `run_<name>.sh` that prints PASS/FAIL
-   (g3.sh runs every `run_*.sh` there).
+6. Test: the call check on S-3M (`WRF_GPU_CALLCHECK=wsm6:3`, P3.0 step 5) while you work, then `t_ab.sh wsm6 W-20`,
+   `t_trace.sh W-20`. The column harnesses of plan.md (T-WSM6-COL etc.) are optional debugging aids: if you write
+   one, put it under `port/tests/columns/` with a `run_<name>.sh` that prints PASS/FAIL (g3.sh runs every `run_*.sh`
+   there).
 
-Shared refactors of this phase (WORKFLOW.md §6, one commit each, then move the base): RRTMG — hoist
-`rrtmg_lw_ini` to init and flatten the EQUIVALENCEd `rrlw_kg*` tables into 1D arrays (P0.9a item 6); Noah —
+Shared refactors of this phase (WORKFLOW.md §6, one commit each, then move the base). The probes F-EQUIV and
+F-DATA of H0.3 decide two of them (OpenMP does not allow EQUIVALENCE with declare target; gfortran rejects it):
+RRTMG — hoist `rrtmg_lw_ini` to init and flatten the EQUIVALENCEd `rrlw_kg*` tables into 1D arrays (P0.9a item 6;
+required unless F-EQUIV passed); DATA-initialized local tables in device routines (`ALBTAB`, `ABSTAB`, `XMUVAL` in
+`SWPARA`) become PARAMETER arrays if F-DATA failed; Noah —
 `iloc`/`jloc` as arguments and `LUTYPE`/`SLTYPE` as integer codes (item 7); skipping provable no-ops (item 8: WSM6
 effective radius with `has_req*=0`, radiation q save/restore, unused `mptenmax/min`); KISS rewrite only if T-KISS
 failed in H0.4 (item 9).

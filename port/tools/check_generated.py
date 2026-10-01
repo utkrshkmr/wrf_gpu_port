@@ -4,22 +4,25 @@
 
 Run on a WRF build tree after './compile' (the Registry has written inc/).
 
+  The generated code moves fields by address through WRF/frame/module_gpu_map.F:
+      CALL gpu_map_r(grid%X, &
+        SIZE(grid%X,KIND=8), GPU_MAP_ENTER)      (gpu_map_r/_d/_i/_l by type)
+
   C1  every ALLOCATE(grid%X(...)) in inc/allocs.inc (in-use arrays, the
       (1,1,1) dummies and the boundary arrays) is followed, before the next
-      ALLOCATE and after the initial-value assignment, by
-          !$omp target enter data map(to:grid%X)
-      inside '#ifdef WRF_GPU' ... '#endif' (plan.md P1.2)
-  C2  the enter-data line of an in-use or dummy array sits under
-      'IF (.NOT. grid%is_intermediate)' (intermediate grids stay on the host)
+      ALLOCATE and after the initial-value assignment, by a GPU_MAP_ENTER call
+      of grid%X inside '#ifdef WRF_GPU' ... '#endif' (plan.md P1.2)
+  C2  that call is guarded, on the line before it, by
+      'IF (.NOT. grid%is_intermediate) &' (intermediate grids stay on the host)
   C3  every DEALLOCATE(grid%X...) in inc/deallocs.inc is preceded, in the same
-      IF block, by  !$omp target exit data map(delete:grid%X)  under WRF_GPU
-  C4  inc/gpu_upd_dev_all.inc and inc/gpu_upd_host_all.inc contain a
-      'target update to'/'from' of every allocated field
-  C5  inc/gpu_upd_dev_bdy.inc updates every boundary array (_bxs, _bxe, _bys,
-      _bye, _btxs, _btxe, _btys, _btye)
+      IF block, by a GPU_MAP_EXIT call of grid%X
+  C4  inc/gpu_upd_dev_all.inc (GPU_UPD_TO) and inc/gpu_upd_host_all.inc
+      (GPU_UPD_FROM) move every allocated field, in the right direction
+  C5  inc/gpu_upd_dev_bdy.inc moves every boundary array (_bxs, _bxe, _bys,
+      _bye, _btxs, _btxe, _btys, _btye) host -> device
   C6  inc/gpu_upd_host_force_slab.inc covers every field packed by
-      inc/nest_interpdown_pack.inc (the parent side of nest forcing)
-  C7  every update line is guarded by IF (in_use_for_config(grid%id,'<name>'))
+      inc/nest_interpdown_pack.inc (the parent side of nest forcing; Phase 5)
+  C7  every update call is guarded by IF (in_use_for_config(grid%id,'<name>'))
       naming the same field, within the 3 lines above it, except the boundary arrays, which allocs.inc allocates unconditionally
       (IF(.TRUE.)...); <name> of a derived-type component is 'type%comp'
 
@@ -34,9 +37,8 @@ import sys
 
 ALLOC = re.compile(r"^\s*ALLOCATE\(\s*grid%(\w+)\s*\(", re.I)
 DEALLOC = re.compile(r"^\s*DEALLOCATE\(\s*grid%(\w+)\s*[,)]", re.I)
-ENTER = re.compile(r"^\s*!\$omp\s+target\s+enter\s+data\s+map\(\s*to\s*:\s*grid%(\w+)\s*\)", re.I)
-EXIT = re.compile(r"^\s*!\$omp\s+target\s+exit\s+data\s+map\(\s*(delete|release)\s*:\s*grid%(\w+)\s*\)", re.I)
-UPD = re.compile(r"^\s*!\$omp\s+target\s+update\s+(to|from)\s*\(\s*grid%(\w+)((?:%\w+)*)", re.I)
+CALL = re.compile(r"^\s*CALL\s+gpu_map_[rdil]\s*\(\s*grid%(\w+)((?:%\w+)*)\s*,", re.I)
+OP = re.compile(r"\bGPU_(MAP_ENTER|MAP_EXIT|UPD_TO|UPD_FROM)\b", re.I)
 INUSE = re.compile(r"in_use_for_config\s*\(\s*grid%id\s*,\s*'([\w%]+)'", re.I)
 BDY = re.compile(r"_b(t)?(xs|xe|ys|ye)$")
 
@@ -45,58 +47,69 @@ def read(path):
     return open(path, errors="replace").read().split("\n") if os.path.exists(path) else None
 
 
+def map_calls(lines):
+    """{line index: (name, component path, op)} of the gpu_map_* calls; the op
+    may be on the continuation line"""
+    out = {}
+    for i, l in enumerate(lines):
+        m = CALL.match(l)
+        if not m:
+            continue
+        o = OP.search(l) or (OP.search(lines[i + 1]) if i + 1 < len(lines) else None)
+        out[i] = (m.group(1).lower(), (m.group(1) + m.group(2)).lower(), o.group(1).upper() if o else "?")
+    return out
+
+
 def check_allocs(lines):
     errs = []
     names = []
+    calls = map_calls(lines)
     starts = [i for i, l in enumerate(lines) if ALLOC.match(l)]
     for idx, i in enumerate(starts):
         name = ALLOC.match(lines[i]).group(1).lower()
         names.append(name)
         end = starts[idx + 1] if idx + 1 < len(starts) else len(lines)
         seg = lines[i:end]
-        enter = [k for k, l in enumerate(seg) if ENTER.match(l) and ENTER.match(l).group(1).lower() == name]
+        enter = [k for k in range(len(seg)) if i + k in calls and calls[i + k][0] == name
+                 and calls[i + k][2] == "MAP_ENTER"]
         if not enter:
-            errs.append(("C1", i + 1, f"no 'target enter data map(to:grid%{name})' after ALLOCATE"))
+            errs.append(("C1", i + 1, f"no GPU_MAP_ENTER call of grid%{name} after ALLOCATE"))
             continue
         k = enter[0]
         init = [kk for kk, l in enumerate(seg) if re.search(rf"grid%{name}\s*=\s*initial_data_value", l, re.I)]
         if init and init[0] > k:
-            errs.append(("C1", i + k + 1, f"enter data of {name} before its initial value is set"))
+            errs.append(("C1", i + k + 1, f"device copy of {name} made before its initial value is set"))
         before = seg[:k]
         ifdef = [kk for kk, l in enumerate(before) if re.match(r"^\s*#\s*ifdef\s+WRF_GPU\b", l)]
         if not ifdef or any(re.match(r"^\s*#\s*endif", l) for l in before[ifdef[-1] + 1:]):
-            errs.append(("C1", i + k + 1, f"enter data of {name} not inside #ifdef WRF_GPU"))
-        # C2: intermediate guard, either the generated IF or the boundary-array condition
-        ctx = "\n".join(lines[max(0, i - 3):i + k + 1])
-        if not re.search(r"is_intermediate", ctx, re.I):
-            errs.append(("C2", i + k + 1, f"enter data of {name} not guarded by .NOT. grid%is_intermediate"))
+            errs.append(("C1", i + k + 1, f"GPU_MAP_ENTER of {name} not inside #ifdef WRF_GPU"))
+        # C2: the guard on the line before the call
+        if not re.search(r"\.NOT\.\s*grid%is_intermediate", lines[i + k - 1], re.I):
+            errs.append(("C2", i + k + 1, f"GPU_MAP_ENTER of {name} not guarded by IF (.NOT. grid%is_intermediate)"))
     return names, errs
 
 
 def check_deallocs(lines):
     errs = []
+    calls = map_calls(lines)
     for i, l in enumerate(lines):
         m = DEALLOC.match(l)
         if not m:
             continue
         name = m.group(1).lower()
-        seg = lines[max(0, i - 8):i]
-        if not any(EXIT.match(x) and EXIT.match(x).group(2).lower() == name for x in seg):
-            errs.append(("C3", i + 1, f"no 'target exit data map(delete:grid%{name})' before DEALLOCATE"))
+        if not any(c[0] == name and c[2] == "MAP_EXIT" for j, c in calls.items() if i - 8 <= j < i):
+            errs.append(("C3", i + 1, f"no GPU_MAP_EXIT call of grid%{name} before DEALLOCATE"))
     return errs
 
 
-def upd_names(lines, code):
+def upd_names(lines, code, want_op):
     names, errs = set(), []
-    for i, l in enumerate(lines):
-        m = UPD.match(l)
-        if not m:
-            continue
-        name = m.group(2).lower()
+    for i, (name, path, op) in sorted(map_calls(lines).items()):
         names.add(name)
+        if op != want_op:
+            errs.append((code[:2], i + 1, f"{code}: grid%{path} moved with GPU_{op}, expected GPU_{want_op}"))
         if BDY.search(name):
             continue  # boundary arrays are always allocated at full size
-        path = (name + m.group(3)).lower()
         guards = [g.lower() for x in lines[max(0, i - 3):i] for g in INUSE.findall(x)]
         if path not in guards:
             errs.append(("C7", i + 1, f"{code}: update of {path} not guarded by in_use_for_config(grid%id,'{path}')"))
@@ -129,10 +142,10 @@ def main():
             results[c] = [e for e in errs if e[0] == c]
     if want("C3"):
         results["C3"] = check_deallocs(deallocs)
-    upd_files = {"C4a": "gpu_upd_dev_all.inc", "C4b": "gpu_upd_host_all.inc", "C5": "gpu_upd_dev_bdy.inc",
-                 "C6": "gpu_upd_host_force_slab.inc"}
+    upd_files = {"C4a": ("gpu_upd_dev_all.inc", "UPD_TO"), "C4b": ("gpu_upd_host_all.inc", "UPD_FROM"),
+                 "C5": ("gpu_upd_dev_bdy.inc", "UPD_TO"), "C6": ("gpu_upd_host_force_slab.inc", "UPD_FROM")}
     guard_errs = []
-    for code, fname in upd_files.items():
+    for code, (fname, want_op) in upd_files.items():
         base = code[:2]
         if not want(base) and not want("C7"):
             continue
@@ -141,8 +154,10 @@ def main():
             if want(base):
                 results.setdefault(base, []).append((base, 0, f"inc/{fname} does not exist"))
             continue
-        got, g = upd_names(lines, fname)
-        guard_errs += g
+        got, g = upd_names(lines, fname, want_op)
+        guard_errs += [e for e in g if e[0] == "C7"]
+        if want(base):
+            results.setdefault(base, []).extend(e for e in g if e[0] != "C7")
         if code.startswith("C4"):
             need = field_names
         elif code == "C5":

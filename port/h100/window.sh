@@ -24,6 +24,9 @@
 # A finished run with the same settings is reused unless --force.
 # RUN_WRAPPER (environment) is put between the MPI launcher and wrf.exe, e.g.
 # RUN_WRAPPER="nsys profile -o prof" or "compute-sanitizer --tool memcheck".
+# Time limit: wrf.exe is stopped (inside the container, with its MPI ranks)
+# after RUN_TIMEOUT seconds, default max(3600, 20 x the simulated seconds of
+# the window); a stopped run fails with "TIMEOUT" in window.info.
 # GPU builds run 1 rank on GPU $GPU_ID with OMP_TARGET_OFFLOAD=MANDATORY;
 # CPU-REF runs $CPU_RANKS ranks (--ranks), the gnu test build 1 serial process.
 # Exit status 0 if wrf.exe printed SUCCESS COMPLETE WRF.  The last line
@@ -114,20 +117,26 @@ if [ $gpu = 1 ]; then
 fi
 { echo "$settings"; echo "host $(hostname) start $(date -u +%FT%TZ)"; env | grep -E '^(WRF_|OMP_|CUDA_VISIBLE|NV_)' | sort; } > window.info
 mpiflags=${MPIRUN_FLAGS:-}
+lim=${RUN_TIMEOUT:-$(( 20 * dur > 3600 ? 20 * dur : 3600 ))}
+tmo=(timeout --kill-after=60 "$lim")
 t0=$(date +%s)
 set +e
 if [ "$ranks" -eq 0 ]; then
-  x ./wrf.exe > rsl.out.0000 2> rsl.error.0000
+  x "${tmo[@]}" ./wrf.exe > rsl.out.0000 2> rsl.error.0000
 elif [ $gpu = 1 ]; then
-  x $MPIRUN $mpiflags -np 1 ${RUN_WRAPPER:-} ./wrf.exe > wrf.stdout 2>&1
+  x "${tmo[@]}" $MPIRUN $mpiflags -np 1 ${RUN_WRAPPER:-} ./wrf.exe > wrf.stdout 2>&1
 else
-  x $MPIRUN $mpiflags -np "$ranks" ${RUN_WRAPPER:-} ./wrf.exe > wrf.stdout 2>&1
+  x "${tmo[@]}" $MPIRUN $mpiflags -np "$ranks" ${RUN_WRAPPER:-} ./wrf.exe > wrf.stdout 2>&1
 fi
 rc=$?
 set -e
 t1=$(date +%s)
 [ "$ranks" -eq 0 ] && cat rsl.out.0000 >> rsl.error.0000
 echo "end $(date -u +%FT%TZ) rc=$rc wall_s=$((t1 - t0))" >> window.info
+if [ $rc = 124 ] || [ $rc = 137 ]; then
+  echo "TIMEOUT after $lim s (RUN_TIMEOUT)" >> window.info
+  note "$W with $mode: TIMEOUT after $lim s (set RUN_TIMEOUT to change the limit; check that no wrf.exe is left: ps -u \$USER)"
+fi
 if run_ok "$rd"; then
   note "$W with $mode: OK ($((t1 - t0)) s)"
   echo "$rd"

@@ -21,6 +21,8 @@ How to update, after every task (and at the end of every work session, even if t
 - Builds: none yet on the H100 machine
 - Dev references: not made yet ($WORK/reference/eaton_small)
 - Blockers: none
+- Case data: if the Eaton inputs are not on the machine, skip H0.6/H0.7 and use the smoke case (PHASE1.md "Without
+  the case data"); then keep the list "Pending the case data" here.
 - Next step: H0.1 install and check the toolchain (port/agent/ENV_H100.md)
 
 ## Task checklist
@@ -33,16 +35,17 @@ How to update, after every task (and at the end of every work session, even if t
 - [ ] H0.5 CPU-REF builds (base commit and worktree), T-SYM on the CPU-REF objects
 - [ ] H0.6 Eaton inputs checked, dev case made (dev_case.sh make)
 - [ ] H0.7 Dev references made (dev_case.sh reference)
-- [ ] H0.8 Harness smoke check: CPU-REF determinism on W-20, t_cpu_view.sh PASS
+- [ ] H0.8 Harness smoke check: CPU-REF determinism on W-20, t_cpu_view.sh PASS, t_dec.sh PASS
+- [ ] H0.9 T-UNINIT (t_uninit.sh) once, before the first work-array refactor
 
 ### Phase 1 — GPU infrastructure (PHASE1.md)
 - [ ] P1.1 First GPU-REPRO build compiles and runs W-20 on the host path
-- [ ] P1.2 Device residency of all state (gen_allocs.c), T-MAP
+- [ ] P1.2 Device residency of all state (provided: gen_allocs.c by address, module_gpu_map), T-MAP
 - [ ] P1.3 Generated update lists (gen_gpu.c), gpu_upd_host_stream
-- [ ] P1.4 Module tables on the device (gpu_update_tables), T-TAB
+- [ ] P1.4 Module tables on the device (gpu_update_tables, the fixed list of 120), T-TAB
 - [ ] P1.5 Sync points S1-S6, in one step with P1.9 (T-TRACE W-T0 and W-20, T-UPD)
 - [ ] P1.6 Scratch pool on the device, T-POOL
-- [ ] P1.7 Work arrays (shared refactor protocol), T-WORK
+- [ ] P1.7 Work arrays: module + T-WORK only (arrays postponed to Phases 2-4, owner decision)
 - [ ] P1.8 Startup gate gpu_check_config, T-GATE
 - [ ] P1.9 Whole-solve_em bracket, in one step with P1.5 (tick both with the same commit)
 - [ ] P1.10 NVTX ranges
@@ -112,6 +115,7 @@ How to update, after every task (and at the end of every work session, even if t
   WRF_GPU (in the build) and with -DWRF_GPU -fopenmp (gfortran); static.sh PASS; test_agent_tools.py PASS.
 - Notes: to do on the H100 (PHASE1.md P1.3 "Your steps"): gpu-repro --clean build, C4/C5/C7, nvfortran accepts
   `target update` of `grid%` components (fallback described there), T-TRACE W-20. Then tick P1.3.
+  (Superseded 2026-10-01: all moves are by address through module_gpu_map; see that HANDOFF entry.)
 
 ### 2026-09-30 HANDOFF Tool fixes allowed for infrastructure; fine tracing and kernel_off (owner changes)
 - Commit(s): the handoff commit that adds port/agent/TOOL_FIXES.md (`git log -- port/agent/TOOL_FIXES.md`)
@@ -163,3 +167,19 @@ How to update, after every task (and at the end of every work session, even if t
   characters and log entries to 25 lines.
 - Tests run: tool tests PASS (ref.py, index.py, resume/archive/limits on a scratch copy); static PASS.
 
+### 2026-10-01 HANDOFF Gaps 7-12 for Phases 1-3 (owner changes)
+- Mapping by address (P1.2 provided): WRF/frame/module_gpu_map.F; gen_allocs.c emits GPU_MAP_ENTER/EXIT calls,
+  gen_gpu.c the update calls; check_generated C1-C7 for this form; probes F-COMPMAP-ADDR (required) and
+  F-COMPMAP-MEMBER (gfortran rejects map(to:grid%f) on types with allocatable components).
+- Column physics: WRF/inc/gpu_col.h; tested template port/tests/templates/t_tmpl_cp.F90 (+5 mutants); probes F-EQUIV
+  (gfortran rejects EQUIVALENCE + declare target: flatten RRTMG tables), F-DATA.
+- Call check in every island (gen_island.py, WRF/frame/module_gpu_callcheck.F, WRF_GPU_CALLCHECK=<route>;
+  DEBUGGING.md 0b); test port/tests/callcheck (T-CALLCHECK) in run_ref_tests.sh; examples updated.
+- Time limits: window.sh RUN_TIMEOUT, harness.sh HARNESS_TIMEOUT (inside the container).
+- T-DEC (port/gates/t_dec.sh, H0.8) and T-UNINIT (t_uninit.sh, build.sh gnu --uninit, setup_toolchain deps-gnu, H0.9).
+- PHASE1: fixed P1.4 list (120 variables), P1.7 postponed with T-WORK PASS 0, "Without the case data" (smoke S-3M).
+- Tests run (gfortran, no GPU): Registry output passes check_generated C1-C7 (5158 enter, 2579 exit, 2579x2+104
+  updates); module_alloc_space_0..9, module_domain, module_gpu_updates compile with -DWRF_GPU -fopenmp (the last
+  now in arch/noopt_exceptions*: -O2 took >20 min, -O0 6 s); CPU-view
+  build OK; run_ref_tests gnu PASS incl. T-TMPL-CP, mutants, T-CALLCHECK; tool tests PASS; static PASS.
+- Not checked: NVHPC, the GPU.

@@ -12,7 +12,7 @@ from a code problem.
 |---|---|---|
 | 1 | `external/` | I/O libraries, `RSL_LITE` (MPI halo code, `module_dm`), `esmf_time_f90` (`module_utility`) |
 | 2 | `tools/` | the Registry generator `tools/registry` (C) and `standard.exe`; then the Registry runs (§4) |
-| 3 | `frame/` | `module_domain`, `module_configure`, `module_integrate`, the port's `module_gpu_*`, `module_bittrace`, `module_repro_math` |
+| 3 | `frame/` | `module_domain`, `module_configure`, `module_integrate`, the port's `module_gpu_*` (`module_gpu_map` is compiled before the `module_alloc_space_N` files that call it), `module_bittrace`, `module_repro_math` |
 | 4 | `share/` | mediation layer (`mediation_integrate.F`, nest forcing), `module_bc`, `module_model_constants` |
 | 5 | `phys/` | physics and fire |
 | 6 | `dyn_em/` | dynamics, `solve_em.F` |

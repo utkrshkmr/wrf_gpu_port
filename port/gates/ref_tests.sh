@@ -1,6 +1,6 @@
 #!/bin/bash
 # Standalone reference tests on the GPU (port/tests/run_ref_tests.sh):
-# T-PDLIM, T-KISS, T-OZN, templates B/C/G, their mutants, check_verbatim.
+# T-PDLIM, T-KISS, T-OZN, templates B/C/G/CP, their mutants, check_verbatim.
 set -uo pipefail
 source "$(dirname "$0")/lib.sh"
 # Python (mutants, check_verbatim) runs on the host; compilers and test programs in the container

@@ -2,6 +2,7 @@
 #   t_tmpl_b  Template B  rolling-buffer y-flux -> Y1/Y2 kernels   (advect_u)
 #   t_tmpl_c  Template C  slab loops -> column kernel, range guards (calc_ww_cp)
 #   t_tmpl_g  Template G  boundary strips, directives in place      (set_physical_bc3d)
+#   t_tmpl_cp Template CP column physics: slab wrapper -> one thread per column (wsm6, ysu, ...)
 #   make                  nvfortran, target regions on the GPU
 #   make COMPILER=gnu     gfortran, host only; run with ALLOW_HOST=1
 COMPILER ?= nvhpc
@@ -14,16 +15,20 @@ else
 FC     = gfortran
 FFLAGS = -O2 -ffp-contract=off -fno-fast-math -ffree-line-length-none -fopenmp
 endif
-# TMPL_B_FLAGS=-DTMPL_NO_STMTFN: statement functions as module functions (see t_tmpl_b.F90)
+# TMPL_B_FLAGS=-DTMPL_NO_STMTFN: statement functions as module functions (see t_tmpl_b.F90, t_tmpl_cp.F90)
 TMPL_B_FLAGS ?=
-PROGS = t_tmpl_b t_tmpl_c t_tmpl_g
+# t_tmpl_cp includes WRF/inc/gpu_col.h
+INC = -I../../../WRF/inc
+PROGS = t_tmpl_b t_tmpl_c t_tmpl_g t_tmpl_cp
 all: $(PROGS)
 t_tmpl_b: t_tmpl_b.F90
 	$(FC) $(FFLAGS) $(TMPL_B_FLAGS) -o $@ $<
+t_tmpl_cp: t_tmpl_cp.F90 ../../../WRF/inc/gpu_col.h
+	$(FC) $(FFLAGS) $(TMPL_B_FLAGS) $(INC) -o $@ $<
 t_%: t_%.F90
 	$(FC) $(FFLAGS) -o $@ $<
 run: $(PROGS)
-	./t_tmpl_b 20 && ./t_tmpl_c 20 && ./t_tmpl_g 5
+	./t_tmpl_b 20 && ./t_tmpl_c 20 && ./t_tmpl_g 5 && ./t_tmpl_cp 20
 clean:
 	rm -f *.o *.mod $(PROGS)
 .PHONY: all run clean

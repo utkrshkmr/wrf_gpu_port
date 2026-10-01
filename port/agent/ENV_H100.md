@@ -18,6 +18,7 @@ host from a user environment. Nothing is written outside `$WORK` and your home d
 | NVHPC image `nvcr.io/nvidia/nvhpc:25.1-devel-cuda12.6-ubuntu22.04` (one pinned tag for the whole port) | `setup_toolchain.sh image` | `x nvfortran --version` |
 | tcsh (WRF's `compile` is a csh script), m4, perl (only if the image lacks them) | built by `setup_toolchain.sh deps` into `$DEPS` | `check` |
 | HDF5, netCDF-C, netCDF-Fortran built with `nvc`/`nvfortran` | built by `setup_toolchain.sh deps` into `$DEPS/netcdf` | `nf-config --fc` is `nvfortran` |
+| netCDF-Fortran built with the image gfortran (only for T-UNINIT, PHASE1.md H0.9) | `setup_toolchain.sh deps-gnu` into `$DEPS/netcdf-gnu` | `nf-config --fc` is `gfortran` |
 | Python 3 with numpy, netCDF4, mpmath (host) | system python3, else a venv or micromamba env in `$DEPS/pyenv` (`setup_toolchain.sh python`) | `check` |
 | ≥ 64 GB RAM, ≥ 16 cores, ≥ 300 GB free for `$WORK` | the machine | `check` |
 | The Eaton case inputs (see 3) | copied from CCR | `dev_case.sh make` checks the md5s |
@@ -39,6 +40,7 @@ cp port/h100/env.sh port/h100/env.local.sh
 #   export GPU_ID=0
 bash port/h100/setup_toolchain.sh image     # pull the NVHPC image (~10 GB; Apptainer converts it to a .sif)
 bash port/h100/setup_toolchain.sh deps      # tcsh, m4, perl if missing, HDF5 + netCDF (30-60 min, in the container)
+bash port/h100/setup_toolchain.sh deps-gnu  # optional, for T-UNINIT (H0.9): netCDF-Fortran with gfortran
 bash port/h100/setup_toolchain.sh python    # numpy, netCDF4, mpmath for the host tools (if missing)
 bash port/h100/setup_toolchain.sh check     # must end with "toolchain: PASS"
 bash port/h100/setup_toolchain.sh shell     # prints the command for an interactive shell in the container

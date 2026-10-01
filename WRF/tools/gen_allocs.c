@@ -263,6 +263,11 @@ if ( tag == 1 )
              } else if ( !strcmp( p->type->name , "integer" ) ) {
                fprintf(fp, "0\n");
              }
+             /* GPU port (plan.md P1.2): the new array and its initial value go to
+                the device (WRF/frame/module_gpu_map.F); intermediate grids stay on the host */
+             fprintf(fp,"#ifdef WRF_GPU\n") ;
+             gpu_map_call( fp , ".NOT. grid%is_intermediate" , structname , fname , bdy_indicator(bdy) , p , "GPU_MAP_ENTER" ) ;
+             fprintf(fp,"#endif\n") ;
 	   }
          }
        } else {
@@ -462,6 +467,15 @@ if ( tag == 1 )
 	 }
        }
 
+       /* GPU port (plan.md P1.2): the new array and its initial value go to the
+          device (WRF/frame/module_gpu_map.F); intermediate grids stay on the host.
+          (Boundary arrays: inside the loop above, after each ALLOCATE.) */
+       if ( sw == 1 && ! ( p->boundary_array && sw_new_bdys ) ) {
+         fprintf(fp,"#ifdef WRF_GPU\n") ;
+         gpu_map_call( fp , ".NOT. grid%is_intermediate" , structname , fname , "" , p , "GPU_MAP_ENTER" ) ;
+         fprintf(fp,"#endif\n") ;
+       }
+
        fprintf(fp,"ELSE\n") ;
 
        if ( p->boundary_array && sw_new_bdys ) {
@@ -471,11 +485,19 @@ if ( tag == 1 )
            fprintf(fp, "  ALLOCATE(%s%s%s%s,STAT=ierr)\n  if (ierr.ne.0) then\n    CALL wrf_error_fatal ( &\n    'frame/module_domain.f: Failed to allocate %s%s%s%s.  ')\n  endif\n",
                 structname, fname,  bdy_indicator(bdy), dimension_with_ones( "(",t2,p,")" ), 
                 structname, fname,  bdy_indicator(bdy), dimension_with_ones( "(",t2,p,")" ) ) ;
+           /* GPU port (plan.md P1.2): the (1,1,1) dummies too, so that the
+              unused arguments of a kernel are present on the device */
+           fprintf(fp,"#ifdef WRF_GPU\n") ;
+           gpu_map_call( fp , ".NOT. grid%is_intermediate" , structname , fname , bdy_indicator(bdy) , p , "GPU_MAP_ENTER" ) ;
+           fprintf(fp,"#endif\n") ;
          }
        } else {
            fprintf(fp, "  ALLOCATE(%s%s%s,STAT=ierr)\n  if (ierr.ne.0) then\n    CALL wrf_error_fatal ( &\n    'frame/module_domain.f: Failed to allocate %s%s%s.  ')\n  endif\n",
                 structname, fname, dimension_with_ones( "(",t2,p,")" ), 
                 structname, fname, dimension_with_ones( "(",t2,p,")" ) ) ;
+           fprintf(fp,"#ifdef WRF_GPU\n") ;
+           gpu_map_call( fp , ".NOT. grid%is_intermediate" , structname , fname , "" , p , "GPU_MAP_ENTER" ) ;
+           fprintf(fp,"#endif\n") ;
 
        }
 
@@ -634,6 +656,10 @@ gen_dealloc2 ( FILE * fp , char * structname , node_t * node )
                   fprintf(fp,
 "IF ( ASSOCIATED( %s%s%s ) ) THEN \n", structname, fname, bdy_indicator(bdy) ) ;
 #endif
+                  /* GPU port (plan.md P1.2): release the device copy first */
+                  fprintf(fp,"#ifdef WRF_GPU\n") ;
+                  gpu_map_call( fp , ".NOT. grid%is_intermediate" , structname , fname , bdy_indicator(bdy) , p , "GPU_MAP_EXIT" ) ;
+                  fprintf(fp,"#endif\n") ;
                   fprintf(fp,
 "  DEALLOCATE(%s%s%s,STAT=ierr)\n if (ierr.ne.0) then\n CALL wrf_error_fatal ( &\n'frame/module_domain.f: Failed to deallocate %s%s%s. ')\n endif\n",
           structname, fname, bdy_indicator(bdy), structname, fname, bdy_indicator(bdy) ) ;
@@ -656,6 +682,10 @@ gen_dealloc2 ( FILE * fp , char * structname , node_t * node )
         fprintf(fp,
 "IF ( ASSOCIATED( %s%s ) ) THEN \n", structname, fname ) ;
 #endif
+        /* GPU port (plan.md P1.2): release the device copy first */
+        fprintf(fp,"#ifdef WRF_GPU\n") ;
+        gpu_map_call( fp , ".NOT. grid%is_intermediate" , structname , fname , "" , p , "GPU_MAP_EXIT" ) ;
+        fprintf(fp,"#endif\n") ;
         fprintf(fp, 
 "  DEALLOCATE(%s%s,STAT=ierr)\n if (ierr.ne.0) then\n CALL wrf_error_fatal ( &\n'frame/module_domain.f: Failed to deallocate %s%s. ')\n endif\n",
 structname, fname, structname, fname ) ;

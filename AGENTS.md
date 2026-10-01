@@ -84,6 +84,7 @@ python3 port/tools/ref.py <kernel id>                  # its CPU lines (paged); 
 bash port/gates/static.sh                              # guards (no GPU needed)
 bash port/h100/compile_one.sh gpu-repro <file> --minfo # one file, seconds
 bash port/h100/harness.sh <file> <routine>             # one routine, host vs device vs CPU view, ~1 min
+bash port/h100/window.sh <gpu build> W-20 WRF_GPU_CALLCHECK=<route>   # one routine on real data (DEBUGGING.md §0b)
 bash port/gates/t_ab.sh <route> W-20                   # device vs host of this routine, real data
 bash port/gates/t_trace.sh W-20                        # GPU-REPRO vs CPU-REF
 git commit ...; python3 port/tools/workbook.py set <kernel> done --commit <sha> --tests "..."

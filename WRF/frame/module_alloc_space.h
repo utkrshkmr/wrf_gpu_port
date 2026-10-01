@@ -11,6 +11,9 @@
       USE module_configure, ONLY : model_config_rec, grid_config_rec_type, in_use_for_config, model_to_grid_config_rec
 !      USE module_state_description
       USE module_scalar_tables ! this includes module_state_description too
+#ifdef WRF_GPU
+      USE module_gpu_map
+#endif
 
       IMPLICIT NONE
 

@@ -3,9 +3,14 @@
 
    Writes into inc/:
 
-     gpu_upd_dev_all.inc    !$omp target update to(...)   of every field allocs.inc allocates
-     gpu_upd_host_all.inc   !$omp target update from(...) of the same fields
-     gpu_upd_dev_bdy.inc    !$omp target update to(...)   of the boundary arrays only
+     gpu_upd_dev_all.inc    host -> device update of every field allocs.inc allocates
+     gpu_upd_host_all.inc   device -> host update of the same fields
+     gpu_upd_dev_bdy.inc    host -> device update of the boundary arrays only
+
+   Each update is a call of the by-address mapping routines of
+   WRF/frame/module_gpu_map.F (gpu_map_call below, also used by gen_allocs.c
+   for the enter/exit data of P1.2):
+     CALL gpu_map_r(grid%u_2, SIZE(grid%u_2,KIND=8), GPU_UPD_TO)
 
    The walk over the fields is the one of gen_alloc2 (gen_allocs.c): arrays and
    boundary arrays of kind FIELD or FOURD, every time level, the 4D boundary
@@ -35,12 +40,36 @@
 static int gen_gpu1 ( char * dirname , char * fn , char * dir , int which ) ;
 static int gen_gpu2 ( FILE * fp , char * structname , char * structname2 , node_t * node , char * dir , int which ) ;
 
+/* One call of the by-address mapping routines (WRF/frame/module_gpu_map.F)
+   for the field structname//fname//suffix of node p.  guard: a Fortran
+   condition, or "" for none.  op: GPU_MAP_ENTER, GPU_MAP_EXIT, GPU_UPD_TO or
+   GPU_UPD_FROM.  A type without a mapping routine gets a warning and no call. */
+int
+gpu_map_call ( FILE * fp , char * guard , char * structname , char * fname , char * suffix , node_t * p , char * op )
+{
+  char t ;
+  if ( p == NULL || p->type == NULL ) return(1) ;
+  if      ( !strcmp( p->type->name , "real" ) )            t = 'r' ;
+  else if ( !strcmp( p->type->name , "doubleprecision" ) ) t = 'd' ;
+  else if ( !strcmp( p->type->name , "integer" ) )         t = 'i' ;
+  else if ( !strcmp( p->type->name , "logical" ) )         t = 'l' ;
+  else {
+    fprintf(stderr,"gen_gpu: WARNING no device mapping for %s%s%s (type %s)\n",
+            structname, fname, suffix, p->type->name) ;
+    return(1) ;
+  }
+  if ( guard != NULL && strlen(guard) > 0 ) fprintf(fp,"  IF (%s) &\n", guard) ;
+  fprintf(fp,"  CALL gpu_map_%c(%s%s%s, &\n    SIZE(%s%s%s,KIND=8), %s)\n",
+          t, structname, fname, suffix, structname, fname, suffix, op) ;
+  return(0) ;
+}
+
 int
 gen_gpu ( char * dirname )
 {
-  if ( gen_gpu1( dirname , "gpu_upd_dev_all.inc"  , "to"   , GPU_UPD_ALL ) ) return(1) ;
-  if ( gen_gpu1( dirname , "gpu_upd_host_all.inc" , "from" , GPU_UPD_ALL ) ) return(1) ;
-  if ( gen_gpu1( dirname , "gpu_upd_dev_bdy.inc"  , "to"   , GPU_UPD_BDY ) ) return(1) ;
+  if ( gen_gpu1( dirname , "gpu_upd_dev_all.inc"  , "GPU_UPD_TO"   , GPU_UPD_ALL ) ) return(1) ;
+  if ( gen_gpu1( dirname , "gpu_upd_host_all.inc" , "GPU_UPD_FROM" , GPU_UPD_ALL ) ) return(1) ;
+  if ( gen_gpu1( dirname , "gpu_upd_dev_bdy.inc"  , "GPU_UPD_TO"   , GPU_UPD_BDY ) ) return(1) ;
   return(0) ;
 }
 
@@ -97,14 +126,14 @@ gen_gpu2 ( FILE * fp , char * structname , char * structname2 , node_t * node , 
           /* allocated unconditionally by allocs.inc */
           if ( sw_new_bdys ) {
             for ( bdy = 1 ; bdy <= 4 ; bdy++ ) {
-              fprintf(fp,"!$omp target update %s(%s%s%s)\n", dir, structname, fname, bdy_indicator(bdy) ) ;
+              gpu_map_call( fp , "" , structname , fname , bdy_indicator(bdy) , p , dir ) ;
             }
           } else {
-            fprintf(fp,"!$omp target update %s(%s%s)\n", dir, structname, fname ) ;
+            gpu_map_call( fp , "" , structname , fname , "" , p , dir ) ;
           }
         } else if ( which == GPU_UPD_ALL ) {
           fprintf(fp,"IF (in_use_for_config(grid%%id,'%s')) THEN\n", fname2 ) ;
-          fprintf(fp,"!$omp target update %s(%s%s)\n", dir, structname, fname ) ;
+          gpu_map_call( fp , "" , structname , fname , "" , p , dir ) ;
           fprintf(fp,"ENDIF\n") ;
         }
       }

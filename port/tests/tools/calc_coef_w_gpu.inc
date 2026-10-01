@@ -37,5 +37,15 @@
 !$omp target update to(a, alpha, gamma)
         END IF
       END IF
+      ! call check (DEBUGGING.md 0b): also before this RETURN
+      IF (gpu_cc_active(R_CALC_COEF_W)) THEN
+        CALL gpu_cc_done_r(1, a, SIZE(a,KIND=8), 'a', &
+          LBOUND(a), UBOUND(a))
+        CALL gpu_cc_done_r(2, alpha, SIZE(alpha,KIND=8), 'alpha', &
+          LBOUND(alpha), UBOUND(alpha))
+        CALL gpu_cc_done_r(3, gamma, SIZE(gamma,KIND=8), 'gamma', &
+          LBOUND(gamma), UBOUND(gamma))
+        IF (gpu_cc_next(R_CALC_COEF_W)) GOTO 99901
+      END IF
       RETURN
 #endif

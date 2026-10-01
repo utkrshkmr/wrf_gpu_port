@@ -23,8 +23,9 @@ case manifest it was obtained with.
 | `T-IPOW` | P0.6 | exponents found (below); host vs device test `t_ipow` on the GPU node |
 | `T-SYM` | P0.6 | CCR / GPU node: `port/sym_audit.sh` |
 | `T-SHARED-*` | P0.9a | local (gfortran): T-SHARED-1 and T-SHARED-POOL pass bitwise on both smoke cases (below); on CCR: `port/ccr/t_shared.sh` |
-| `T-UNINIT` | P0.9a | local physics smoke case passes; dev case on CCR: `port/ccr/t_uninit.sh` |
-| `T-DET`, `T-DEC-A`, `T-DEC-B`, `T-RST`, `T-XM` | P0.10 | to do (CCR, GPU-node host) |
+| `T-UNINIT` | P0.9a | local physics smoke case passes; on the H100 machine: `port/gates/t_uninit.sh` (PHASE1.md H0.9) |
+| `T-DEC-A` | P0.10 | on the H100 machine: `port/gates/t_dec.sh` (1 rank vs `$CPU_RANKS`, PHASE1.md H0.8) |
+| `T-DET`, `T-DEC-B`, `T-RST`, `T-XM` | P0.10 | to do (CCR); T-DET on the H100 machine is H0.8's determinism check; windows are restart-vs-restart, so T-RST is not needed for them |
 | Reference runs archived (full case, dev case) | P0.11, P0.16 | to do (CCR) |
 | E0, E1 | P0.13, P0.14 | to do (CCR) |
 | Prof-CPU | P0.15 | to do (CCR): `port/ccr/prof_run.sh` |

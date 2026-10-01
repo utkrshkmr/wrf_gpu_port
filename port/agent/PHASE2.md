@@ -26,8 +26,10 @@ a checkpoint after each group.
   KERNEL_REFS.md and a template (`ref.py <kernel id>` prints the row and its lines); write the kernels and the
   island; `static.sh`;
   `compile_one.sh gpu-repro <file> --minfo`; `harness.sh <file> <routine>` (with `--set` for each code path you
-  ported, e.g. `rk_step=1` and `3`); repeat until they pass (a minute per try); then build; `t_ab.sh <route> W-20`;
-  `t_trace.sh W-20`; commit; `workbook.py set ... done`.
+  ported, e.g. `rk_step=1` and `3`); repeat until they pass (a minute per try); then build; the call check on real
+  data (`window.sh <gpu build> W-20 WRF_GPU_CALLCHECK=<route>:3`, or `S-3M` without the case data; DEBUGGING.md
+  §0b), which names the first differing element of a wrong kernel; `t_ab.sh <route> W-20`; `t_trace.sh W-20`;
+  commit; `workbook.py set ... done`.
 - Per sub-phase gate (G2.A … G2.G): every route of the sub-phase passes `t_ab.sh <route> W-100`, and
   `t_trace.sh W-100` passes. Tick the sub-phase in the workbook with those results.
 - **Branches the case never takes** (other advection orders, periodic/symmetric boundaries, polar, IEVA, hydrostatic,

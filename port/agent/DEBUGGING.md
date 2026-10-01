@@ -39,6 +39,49 @@ W-20. A FAIL is always real: fix it before spending a W-20 run.
 If `gen_harness.py` cannot handle a declaration, fix it as a tool fix (WORKFLOW.md §8). It is in `port/h100/`,
 infrastructure.
 
+The harness gives no physical inputs and initializes no physics tables. For the physics schemes (Phase 3: WSM6,
+YSU, Noah, RRTMG, ...) it is of little use; it may even loop forever, which `HARNESS_TIMEOUT` (default 600 s)
+stops. Use the call check (§0b) for physics.
+
+## 0b. Call check: one routine, real data, inside the model
+
+Every island carries a call check (`port/tools/gen_island.py`, `WRF/frame/module_gpu_callcheck.F`).
+
+How a checked call runs:
+1. The routine runs on the device. Its results are kept, and every argument it may change is restored to its input
+   value: arrays and scalars that are not `INTENT(IN)`.
+2. The routine runs again with every route on the host, as CPU-REF would.
+3. Each argument is compared bit for bit with the device result.
+
+```sh
+b=$WORK/builds/gpu-repro/worktree
+rd=$(bash port/h100/window.sh $b S-3M WRF_GPU_CALLCHECK=wsm6:3 | tail -1)    # first 3 calls; smoke case, ~2 min
+grep gpu_callcheck: $rd/rsl.error.0000
+```
+```
+gpu_callcheck: wsm6 call 1: DIFF qr(17,12,9) host 1.23456789E-004 (Z3901770D) device 1.23456804E-004 (Z3901770E), 3 of 98400 values differ
+gpu_callcheck: wsm6 call 1: FAIL (1 of 9 arguments differ)
+gpu_callcheck: wsm6 call 2: PASS (9 arrays, 0 scalars bit-identical)
+```
+
+Options:
+- `WRF_GPU_CALLCHECK=<route>[:<n>|:all]` checks the first n calls (default 1). Any window works. `S-3M` needs no
+  case data and has the full physics suite on one domain; W-20 covers both domains and the d02 LES routes.
+- `WRF_GPU_CALLCHECK_STOP=1` stops the run after the last check.
+
+What a result tells you:
+- `DIFF <array>(i,k,j)` names the first differing element, in the bounds of the dummy argument. A difference with
+  identical inputs is the kernel's own: a race, a missing `private`, a wrong range, a reordered statement, or data
+  the island does not move.
+- A PASS of every checked call does not replace T-AB and T-TRACE (other calls, both domains, whole steps), but a FAIL
+  is always real.
+
+Limits:
+- Host world only: Phases 1–4.
+- Routines with a `TYPE(domain)` dummy get no call check: use `t_ab.sh` and `t_fine.sh` for them.
+- Arrays the routine changes that are not arguments (module arrays) are not restored. Add them to the island and to
+  the check by hand: one `gpu_cc_save_*` call at entry, one `gpu_cc_done_*` call at exit.
+
 ## 1. Read the comparison
 
 `port/h100/compare.sh A B` (called by every gate) prints, from `port/bittrace_diff.py`:

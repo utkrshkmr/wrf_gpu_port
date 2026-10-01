@@ -30,27 +30,31 @@ say "CHECKPOINT: resume with the resume prompt".
    Run bash port/gates/static.sh (must print "== static: PASS"), commit, git push -u origin agent/phase-1.
 3. Machine setup: cp port/h100/env.sh port/h100/env.local.sh. In it set:
    - WORK=<a directory with at least 300 GB free>
-   - CASE_INPUTS=<directory with wrfinput_d01, wrfinput_d02, wrfbdy_d01>
+   - CASE_INPUTS=<directory with wrfinput_d01, wrfinput_d02, wrfbdy_d01>; if the inputs are not on the machine
+     yet, leave CASE_INPUTS at its default and follow PHASE1.md "Without the case data" (smoke case S-3M)
    - CONTAINER=<apptainer | podman | docker> (whichever runs without root; check with --version)
    - IMAGE as ENV_H100.md says
    - CPU_RANKS=<physical cores, at most 64>
    - GPU_ID=0
-   Then do H0.1 to H0.8 of PHASE1.md §0 in order. A broken build/run script is a tool fix (WORKFLOW.md §8). Stop and
-   report, after a BLOCKERS.md entry, if T-FMA fails (H0.2), if F-IFTARGET, F-PRESENT or F-DECLMOD fail (H0.3), or
-   if the input md5s do not match (H0.6).
-4. Phase 1 in the order PHASE1.md gives: P1.1, P1.2, P1.3 (already written: only its "Your steps"), P1.4, P1.6,
-   P1.5+P1.9 together, P1.7, P1.8, P1.10-P1.12, then bash port/gates/g1.sh. Use the loop of CHEATSHEET.md for every
-   task.
+   Then do H0.1 to H0.9 of PHASE1.md §0 in order (without the case data: skip H0.6/H0.7, H0.8 on S-3M). A broken
+   build/run script is a tool fix (WORKFLOW.md §8). Stop and report, after a BLOCKERS.md entry, if T-FMA fails
+   (H0.2), if F-IFTARGET, F-PRESENT, F-DECLMOD or F-COMPMAP-ADDR fail (H0.3), or if the input md5s do not match
+   (H0.6).
+4. Phase 1 in the order PHASE1.md gives: P1.1, P1.2 and P1.3 (both already written: only their "Your steps"),
+   P1.4, P1.6, P1.5+P1.9 together, P1.7, P1.8, P1.10-P1.12, then bash port/gates/g1.sh. Use the loop of
+   CHEATSHEET.md for every task.
 5. The rules of AGENTS.md are not suggestions:
    - never change arithmetic or the CPU view; never touch locked files;
    - push only to agent/phase-N; never force-push;
    - three honest attempts, then BLOCKERS.md;
    - keep the workbook current.
-6. Stop when g1.sh prints "== G1: PASS", or when blockers stop all remaining tasks, and report:
+6. Stop when g1.sh prints "== G1: PASS", or when every remaining task is done or blocked (without the case data: every
+   Phase 1 task written and smoke-checked or blocked), and report:
    - commits;
    - the checklist state;
    - gate results with their log paths;
    - open BLOCKERS.md entries;
+   - the "Pending the case data" list, if any;
    - the Next step.
    Do not start Phase 2 until told.
 ````
@@ -77,3 +81,17 @@ CHEATSHEET.md, workbook.py resume), then read the opening part of port/agent/PHA
 and the first task's section. Continue with
 the same loop and rules. Stop when port/gates/g<N>.sh prints "== G<N>: PASS", and report.
 ````
+
+## Owner update (the handoff branch moved while you work)
+
+````text
+The project owner pushed changes to the handoff branch. Do the resume read first (AGENTS.md, CHEATSHEET.md,
+python3 port/tools/workbook.py resume), commit or checkpoint your work, then:
+    git fetch origin claude/wrf-gpu-port-cpu-7doq8n
+    git merge origin/claude/wrf-gpu-port-cpu-7doq8n        (a merge, never a rebase: your pushed history stays)
+On a conflict in a file you did not write, take the owner's version; in a file you wrote, keep both changes; ask
+nothing, write what you decided into the workbook log. Read the newest "HANDOFF" entry of the workbook log and the
+card sections it names, redo the steps it says changed (e.g. a task now "provided"), run bash port/gates/static.sh,
+commit the merge, push, and continue from "Next step".
+````
+

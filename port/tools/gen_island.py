@@ -19,13 +19,22 @@ The island is generated from the routine's dummy arguments:
   updated under IF (PRESENT(x)); scalars, CHARACTER and other derived types
   are not moved (kernels take scalars as firstprivate).
 
+The island also carries the CALL CHECK (module_gpu_callcheck,
+DEBUGGING.md section 0b): with WRF_GPU_CALLCHECK=<route> a call runs twice,
+on the device and then on the host with the same inputs, and every argument
+the routine may change (arrays and scalars that are not INTENT(IN)) is
+compared bit for bit.  It needs a statement label on the entry (the host pass
+jumps back to it): the generator picks one that the routine does not use.
+Routines with TYPE(domain) dummies get no call check (--no-check also omits it).
+
 Usage:
-  gen_island.py <WRF source file> <routine> [--route R_NAME]
-Prints the declaration, the entry block and the exit block, the line of the
-first executable statement (put the entry block there, after early RETURNs
-that do no work) and every RETURN of the routine (put the exit block before
-each RETURN that follows the entry, and before END SUBROUTINE).  Warnings name
-dummies that cannot be moved (assumed-size arrays) and must be handled by hand.
+  gen_island.py <WRF source file> <routine> [--route R_NAME] [--no-check]
+Prints the declarations, the entry block and the exit block, the line of the
+first executable statement (put the entry block there, at the top level of the
+routine, after early RETURNs that do no work) and every RETURN of the routine
+(put the exit block before each RETURN that follows the entry, and before END
+SUBROUTINE).  Warnings name dummies that cannot be moved (assumed-size arrays)
+and must be handled by hand.
 """
 
 import argparse
@@ -77,7 +86,7 @@ def parse(path, name):
         raise SystemExit(f"SUBROUTINE {name} not found in {path}")
     m = re.search(r"\((.*)\)", stmts[start][1])
     dummies = [d.strip().lower() for d in (m.group(1).split(",") if m else []) if d.strip()]
-    info = {d: dict(array=False, intent=None, optional=False, dtype=None, char=False, assumed_size=False)
+    info = {d: dict(array=False, intent=None, optional=False, dtype=None, char=False, assumed_size=False, base=None)
             for d in dummies}
     first_exec, returns, end_line = None, [], None
     in_contains = False
@@ -131,6 +140,7 @@ def parse(path, name):
                     d["dtype"] = re.sub(r"\s", "", tspec)
                 if tspec.startswith("character"):
                     d["char"] = True
+                d["base"] = base_type(tspec, attrs)
                 if "pointer" in al or "allocatable" in al:
                     d["array"] = d["array"] or "dimension" in al
             continue
@@ -156,7 +166,30 @@ def parse(path, name):
                 first_exec = n
             if re.match(r"^\s*(if\s*\(.*\)\s*)?return\b", s, re.I):
                 returns.append(n)
-    return dummies, info, first_exec, returns, end_line
+    labels = set()
+    if start is not None:
+        lo = stmts[start][0]
+        hi = end_line or len(lines)
+        for ln in lines[lo:hi]:
+            m = re.match(r"^\s*(\d+)\s", ln)
+            if m:
+                labels.add(int(m.group(1)))
+    return dummies, info, first_exec, returns, end_line, labels
+
+
+def base_type(tspec, attrs):
+    """'r', 'd', 'i', 'l' for the call-check routines, None for others"""
+    t = re.sub(r"\s", "", tspec.lower())
+    a = re.sub(r"\s", "", attrs.lower())
+    if t.startswith("doubleprecision") or re.match(r"^real(\*8|\((kind=)?(8|r8|kind_r8|selected_real_kind\(1[2-5]))", a):
+        return "d"
+    if t.startswith("real"):
+        return "r"
+    if t.startswith("integer") and not re.match(r"^integer(\*8|\((kind=)?8)", a):
+        return "i"
+    if t.startswith("logical"):
+        return "l"
+    return None
 
 
 def directive(clause, names, indent="        "):
@@ -203,9 +236,10 @@ def main():
     ap.add_argument("file")
     ap.add_argument("routine")
     ap.add_argument("--route", help="R_<NAME> (default: R_<ROUTINE>)")
+    ap.add_argument("--no-check", action="store_true", help="omit the call-check code")
     args = ap.parse_args()
     route = args.route or "R_" + args.routine.upper()
-    dummies, info, first_exec, returns, end_line = parse(args.file, args.routine)
+    dummies, info, first_exec, returns, end_line, labels = parse(args.file, args.routine)
     ent_arr, ent_opt, ex_arr, ex_opt, grids, warn = [], [], [], [], [], []
     for d in dummies:
         x = info[d]
@@ -222,16 +256,40 @@ def main():
             (ex_opt if x["optional"] else ex_arr).append(d)
         if x["intent"] is None:
             warn.append(f"{d}: no INTENT; treated as INOUT")
+    # call check: every argument the routine may change (not INTENT(IN))
+    chk, cwarn = [], []
+    for d in dummies:
+        x = info[d]
+        if x["intent"] == "in" or x["char"] or x["dtype"] or x["assumed_size"]:
+            continue
+        if x["base"] is None:
+            cwarn.append(f"{d}: type not handled by the call check; it is not compared")
+            continue
+        chk.append((d, x))
+    check = not args.no_check and not grids
+    label = next(n for n in range(99901, 99999) if n not in labels)
     rel = os.path.relpath(os.path.abspath(args.file), os.path.dirname(os.path.dirname(HERE)))
     print(f"! island of {args.routine} ({rel}), route {route}; generated by port/tools/gen_island.py")
     print(f"! {len(ent_arr) + len(ent_opt)} arrays in, {len(ex_arr) + len(ex_opt)} out"
-          + (f", whole state of {', '.join(grids)}" if grids else ""))
+          + (f", whole state of {', '.join(grids)}" if grids else "")
+          + (f"; call check of {len(chk)} arguments, entry label {label}" if check else "; no call check"))
     print("\n! (1) add to the USE statements:")
     print(f"      USE module_gpu_route, ONLY : gpu_on, gpu_island, gpu_world_host, {route}")
+    if check:
+        print("      USE module_gpu_callcheck")
     print("\n! (2) add to the declarations:")
     print("#ifdef WRF_GPU\n      LOGICAL :: gpu_isl\n#endif")
-    print(f"\n! (3) entry: at the first executable statement (line {first_exec}), after early RETURNs that do no work:")
+    print(f"\n! (3) entry: at the first executable statement (line {first_exec}), at the top level of the routine,"
+          " after early RETURNs that do no work:")
     print("#ifdef WRF_GPU")
+    if check:
+        print(f"{label} CONTINUE")
+        print(f"      IF (gpu_cc_start({route})) THEN")
+        for k, (d, x) in enumerate(chk, 1):
+            call = (f"CALL gpu_cc_save_{x['base']}({k}, {d}, SIZE({d},KIND=8))" if x["array"]
+                    else f"CALL gpu_cc_save_{x['base']}0({k}, {d})")
+            print(f"        IF (PRESENT({d})) {call}" if x["optional"] else f"        {call}")
+        print("      END IF")
     print(f"      gpu_isl = gpu_island({route})")
     print("      IF (gpu_isl) THEN")
     print("\n".join(block(ent_arr, ent_opt, grids, True, False)))
@@ -242,9 +300,23 @@ def main():
     print("#ifdef WRF_GPU")
     print("      IF (gpu_isl) THEN")
     print("\n".join(block(ex_arr, ex_opt, grids, False, True)))
-    print("      END IF\n#endif")
-    for w in warn:
+    print("      END IF")
+    if check:
+        print(f"      IF (gpu_cc_active({route})) THEN")
+        for k, (d, x) in enumerate(chk, 1):
+            if x["array"]:
+                call = (f"CALL gpu_cc_done_{x['base']}({k}, {d}, SIZE({d},KIND=8), '{d}', &\n"
+                        f"          LBOUND({d}), UBOUND({d}))")
+            else:
+                call = f"CALL gpu_cc_done_{x['base']}0({k}, {d}, '{d}')"
+            print(f"        IF (PRESENT({d})) {call}" if x["optional"] else f"        {call}")
+        print(f"        IF (gpu_cc_next({route})) GOTO {label}")
+        print("      END IF")
+    print("#endif")
+    for w in warn + (cwarn if check else []):
         print(f"! WARNING {w}")
+    if grids and not args.no_check:
+        print("! NOTE no call check: TYPE(domain) dummies (use t_ab.sh and t_fine.sh)")
     return 0
 
 

@@ -4,6 +4,7 @@ SUBROUTINE calc_alt ( alt, al, alb,                  &
                       its, ite, jts, jte, kts, kte  )
 
    USE module_gpu_route, ONLY : gpu_on, gpu_island, gpu_world_host, R_CALC_ALT
+   USE module_gpu_callcheck
    IMPLICIT NONE
    
    ! Input data
@@ -29,6 +30,10 @@ SUBROUTINE calc_alt ( alt, al, alb,                  &
 !</DESCRIPTION>
 
 #ifdef WRF_GPU
+99901 CONTINUE
+      IF (gpu_cc_start(R_CALC_ALT)) THEN
+        CALL gpu_cc_save_r(1, alt, SIZE(alt,KIND=8))
+      END IF
       gpu_isl = gpu_island(R_CALC_ALT)
       IF (gpu_isl) THEN
         IF (gpu_world_host) THEN
@@ -62,6 +67,11 @@ SUBROUTINE calc_alt ( alt, al, alb,                  &
         ELSE
 !$omp target update to(alt)
         END IF
+      END IF
+      IF (gpu_cc_active(R_CALC_ALT)) THEN
+        CALL gpu_cc_done_r(1, alt, SIZE(alt,KIND=8), 'alt', &
+          LBOUND(alt), UBOUND(alt))
+        IF (gpu_cc_next(R_CALC_ALT)) GOTO 99901
       END IF
 #endif
 

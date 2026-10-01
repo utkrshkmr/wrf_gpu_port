@@ -70,7 +70,10 @@ for b in ${builds//,/ }; do
       unset WRF_GPU_OFF WRF_GPU_ONLY
       [ "$r" = host ] && export WRF_GPU_OFF=$route
       if [ $gmode = gpu ]; then export CUDA_VISIBLE_DEVICES=$GPU_ID OMP_TARGET_OFFLOAD=MANDATORY; fi
-      if [ "$mode" = gnu ]; then x ../harness.exe; else x $MPIRUN -np 1 ../harness.exe; fi
+      # time limit (HARNESS_TIMEOUT, default 600 s): random inputs can make a loop run forever
+      tmo=(timeout --kill-after=30 "${HARNESS_TIMEOUT:-600}")
+      if [ "$mode" = gnu ]; then x "${tmo[@]}" ../harness.exe; else x "${tmo[@]}" $MPIRUN -np 1 ../harness.exe; fi
+      rc=$?; [ $rc = 124 ] || [ $rc = 137 ] && echo "TIMEOUT after ${HARNESS_TIMEOUT:-600} s (HARNESS_TIMEOUT)"
     ) > "$t/run_$r.log" 2>&1
     if [ -f "$t/run/harness_out.bin" ]; then mv "$t/run/harness_out.bin" "$t/out_$r.bin"; out[$mode:$r]=$t/out_$r.bin
     else tail -15 "$t/run_$r.log" >&2; note "$mode $r run failed ($t/run_$r.log)"; fail=1; fi

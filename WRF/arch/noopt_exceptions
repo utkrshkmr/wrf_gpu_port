@@ -16,6 +16,7 @@ module_comm_dm_3.o : module_comm_dm_3.F
 module_comm_nesting_dm.o : module_comm_nesting_dm.F
 module_configure.o : module_configure.F
 module_domain.o : module_domain.F
+module_gpu_updates.o : module_gpu_updates.F
 module_domain_type.o : module_domain_type.F
 module_alloc_space_0.o : module_alloc_space_0.F
 module_alloc_space_1.o : module_alloc_space_1.F

@@ -33,7 +33,9 @@ device couple (K-CPL-*) → j-slab host update of the parent's INTERP_DOWN field
 device pack of the nest's FORCE_DOWN spec-zone strips → host `interp_domain_em_part1` / `force_domain_em_part2` →
 `gpu_upd_dev_bdy(nest)` and `gpu_upd_dev_force_full(nest)` (`o3rad`) → device uncouple. The slab rows are the ones
 the pack loop visits (`WRF/external/RSL_LITE/rsl_bcast.c:258-260`, `WRF/frame/module_dm.F:4296-4303` in v4.6.0;
-use `python3 port/tools/locate.py` for current lines).
+use `python3 port/tools/locate.py` for current lines). Generate the new lists with `gpu_map_call` of `WRF/tools/gen_gpu.c`, by
+address like P1.2/P1.3 (never `grid%x` in a clause, PITFALLS.md 45); a j-slab is the contiguous section
+`grid%x(:,:,js:je)` (`CALL gpu_map_r(grid%x(:,:,js:je), SIZE(grid%x(:,:,js:je),KIND=8), GPU_UPD_FROM)`).
 
 Tests: T-FORCE = `t_trace.sh W-FORCE` with level-2 checkpoints after steps 2, 6, 7 (add them); T-SLAB (GPU-DEBUG or a
 debug switch `WRF_GPU_SLAB_POISON=1`: fill the host copies outside the slab/strips with a signalling-NaN pattern

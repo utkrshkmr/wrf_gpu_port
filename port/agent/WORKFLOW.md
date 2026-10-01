@@ -23,8 +23,11 @@ How to work on the port, from picking a task to pushing it. The rules behind it 
 6. fast:   bash port/h100/compile_one.sh gpu-repro <file> --minfo;  bash port/h100/harness.sh <file> <routine>
            (seconds to a minute; DEBUGGING.md §0; repeat 4-6 until both PASS)
 7. build:  bash port/h100/build.sh gpu-repro --worktree   (and cpu-ref --worktree when the CPU view could change)
+   check:  bash port/h100/window.sh <gpu build> W-20 WRF_GPU_CALLCHECK=<route>:3  (S-3M without the case data;
+           real data, names the first differing element; DEBUGGING.md §0b)
    test:   bash port/gates/t_ab.sh <route> W-20;  bash port/gates/t_trace.sh W-20
-8. on FAIL: DEBUGGING.md (harness -> coarse trace -> t_fine.sh -> bt_fine3 inside the routine -> kernel_off.py);
+8. on FAIL: DEBUGGING.md (harness / call check -> coarse trace -> t_fine.sh -> bt_fine3 inside the routine ->
+   kernel_off.py);
    at most three honest attempts per failure mode, then BLOCKERS.md
 9. commit, workbook.py set <kernel> done ..., update WORKBOOK.md, commit, push
 ```
